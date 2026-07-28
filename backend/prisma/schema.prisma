@@ -115,7 +115,7 @@ model Post {
   author         Author     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categoryId     String
   category       Category   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  tags           Tag[]
+  tags           PostTag[]
   readingTime    Int        @default(0)
   priority       Int        @default(0)
   isTrending     Boolean    @default(false)
@@ -134,16 +134,27 @@ model Post {
 }
 
 model Tag {
-  id        String   @id @default(uuid())
-  slug      String   @unique
+  id        String    @id @default(uuid())
+  slug      String    @unique
   name      String
   nameGu    String
   nameHi    String
-  posts     Post[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  posts     PostTag[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("tags")
+}
+
+model PostTag {
+  id     String @id @default(uuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@map("post_tags")
 }
 
 model Video {
