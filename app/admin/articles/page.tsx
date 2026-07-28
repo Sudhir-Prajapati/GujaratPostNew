@@ -87,7 +87,7 @@ export default function ArticleList() {
 
   // Fetch logged in user role
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch(getBackendApiUrl('/api/auth/me'))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data?.user) {
@@ -102,7 +102,7 @@ export default function ArticleList() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await fetch('/api/admin/categories');
+        const res = await fetch(getBackendApiUrl('/api/admin/categories'));
         const json = await res.json();
         if (res.ok) {
           const raw: CategoryData[] = json.data || [];

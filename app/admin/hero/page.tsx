@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getBackendApiUrl } from '@/lib/api';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 type CatObj = { id: string; name: string; slug?: string };
@@ -303,7 +304,7 @@ export default function HeroManagerPage() {
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/articles?limit=300');
+      const res = await fetch(getBackendApiUrl('/api/admin/articles?limit=300'));
       const json = await res.json();
       const arts: Article[] = json.data?.articles ?? json.articles ?? json.data ?? [];
       setAllArticles(arts);
