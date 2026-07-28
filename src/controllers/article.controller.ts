@@ -230,13 +230,17 @@ export class ArticleController {
           canonicalUrl: (canonicalUrl || '').trim(),
           metaRobots: (metaRobots || '').trim(),
           tags: {
-            connectOrCreate: tagConnectOrCreate,
+            create: tagConnectOrCreate.map((t: any) => ({
+              tag: {
+                connectOrCreate: t,
+              },
+            })),
           },
         },
         include: {
           category: true,
           author: true,
-          tags: true,
+          tags: { include: { tag: true } },
         },
       });
 
@@ -343,17 +347,21 @@ export class ArticleController {
 
       if (tags !== undefined && Array.isArray(tags)) {
         updateData.tags = {
-          set: [],
-          connectOrCreate: tags.map((t: any) => {
+          deleteMany: {},
+          create: tags.map((t: any) => {
             const name = t.name.trim();
             const tagSlug = slugify(name);
             return {
-              where: { slug: tagSlug },
-              create: {
-                slug: tagSlug,
-                name,
-                nameGu: name,
-                nameHi: name,
+              tag: {
+                connectOrCreate: {
+                  where: { slug: tagSlug },
+                  create: {
+                    slug: tagSlug,
+                    name,
+                    nameGu: name,
+                    nameHi: name,
+                  },
+                },
               },
             };
           }),
@@ -366,7 +374,7 @@ export class ArticleController {
         include: {
           category: true,
           author: true,
-          tags: true,
+          tags: { include: { tag: true } },
         },
       });
 
