@@ -71,14 +71,16 @@ export default function UserForm({ userId }: UserFormProps) {
   const writingRoles = ['SUPER_ADMIN', 'EDITOR', 'REPORTER', 'PHOTOGRAPHER'];
   const showProfileOption = writingRoles.includes(role);
 
-  // Auto-enable or disable profile toggle when role changes
+  // Auto-enable or disable profile toggle when role changes (only in Create mode)
   useEffect(() => {
-    if (showProfileOption) {
-      setEnableProfile(true);
-    } else {
-      setEnableProfile(false);
+    if (!isEditMode) {
+      if (showProfileOption) {
+        setEnableProfile(true);
+      } else {
+        setEnableProfile(false);
+      }
     }
-  }, [role, showProfileOption]);
+  }, [role, showProfileOption, isEditMode]);
 
   // Load initial data in Edit mode
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function UserForm({ userId }: UserFormProps) {
           throw new Error(json.message || 'Failed to fetch user data');
         }
 
-        const data = json.data;
+        const data = json.data?.user || json.data;
         setEmail(data.email || '');
         setRole(data.role || 'REPORTER');
         setStatus(data.status || 'ACTIVE');
@@ -116,6 +118,30 @@ export default function UserForm({ userId }: UserFormProps) {
             instagram: data.author.instagram || '',
             linkedin: data.author.linkedin || '',
           });
+        } else {
+          // Auto-enable profile and suggest defaults for writing roles
+          const writingRoles = ['SUPER_ADMIN', 'EDITOR', 'REPORTER', 'PHOTOGRAPHER'];
+          const userRole = data.role || 'REPORTER';
+          if (writingRoles.includes(userRole)) {
+            setEnableProfile(true);
+          }
+          const emailStr = data.email || '';
+          const nameFromEmail = emailStr
+            .split('@')[0]
+            .split('.')
+            .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(' ');
+          
+          const defaultDesignation = 
+            userRole === 'EDITOR' ? 'Senior Editor' :
+            userRole === 'SUPER_ADMIN' ? 'Super Admin' :
+            userRole === 'PHOTOGRAPHER' ? 'Staff Photographer' : 'Reporter';
+
+          setProfile((prev) => ({
+            ...prev,
+            name: nameFromEmail || prev.name,
+            designation: defaultDesignation,
+          }));
         }
       } catch (err: any) {
         setError(err.message);
@@ -474,55 +500,6 @@ export default function UserForm({ userId }: UserFormProps) {
                       value={profile.image}
                       onChange={(e) => handleProfileFieldChange('image', e.target.value)}
                       placeholder="https://images.unsplash.com/..."
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Social media Handles Card */}
-                <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-                  <h3 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Social Connections</h3>
-                  
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Twitter Handle</label>
-                    <input
-                      type="text"
-                      value={profile.twitter}
-                      onChange={(e) => handleProfileFieldChange('twitter', e.target.value)}
-                      placeholder="@username"
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Facebook Profile</label>
-                    <input
-                      type="text"
-                      value={profile.facebook}
-                      onChange={(e) => handleProfileFieldChange('facebook', e.target.value)}
-                      placeholder="facebook.com/username"
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Instagram Handle</label>
-                    <input
-                      type="text"
-                      value={profile.instagram}
-                      onChange={(e) => handleProfileFieldChange('instagram', e.target.value)}
-                      placeholder="@username"
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">LinkedIn Profile</label>
-                    <input
-                      type="text"
-                      value={profile.linkedin}
-                      onChange={(e) => handleProfileFieldChange('linkedin', e.target.value)}
-                      placeholder="linkedin.com/in/username"
                       className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
                     />
                   </div>

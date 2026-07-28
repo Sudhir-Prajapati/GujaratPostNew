@@ -1,33 +1,35 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Bookmark, Eye, Heart, MessageCircle, MoreHorizontal, Play, Send, Volume2 } from 'lucide-react';
-import { VIDEOS, formatViews, getLocalized } from '@/data';
+import { formatViews, getLocalized } from '@/data';
+import { getPublicVideos } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import Footer from '@/components/layout/Footer';
-
-const shortItems = VIDEOS.filter((item) => item.type === 'short');
-
-const buildShorts = () =>
-  Array.from({ length: 28 }, (_, index) => {
-    const item = shortItems[index % shortItems.length] || VIDEOS[index % VIDEOS.length];
-    const cycle = Math.floor(index / Math.max(shortItems.length, 1)) + 1;
-
-    return {
-      ...item,
-      key: `${item.id}-short-${index}`,
-      views: item.views + cycle * 12500,
-      likes: 2100 + index * 421,
-      comments: 120 + index * 19,
-    };
-  });
 
 export default function ShortsPageClient() {
   const { language } = useApp();
   const [liked, setLiked] = useState<Record<string, boolean>>({});
-  const shorts = useMemo(() => buildShorts(), []);
+  const [videosList, setVideosList] = useState<any[]>([]);
+
+  useEffect(() => {
+    getPublicVideos('short').then((res) => {
+      setVideosList(res || []);
+    });
+  }, []);
+
+  const shorts = useMemo(() => {
+    if (!videosList.length) return [];
+    return videosList.map((item, index) => ({
+      ...item,
+      key: `${item.id}-short-${index}`,
+      views: item.views || (20000 + index * 12500),
+      likes: 2100 + index * 421,
+      comments: 120 + index * 19,
+    }));
+  }, [videosList]);
 
   return (
     <main className="bg-primary text-white">
@@ -57,7 +59,7 @@ export default function ShortsPageClient() {
               <article key={item.key} className="relative h-[calc(100svh-92px)] min-h-[620px] snap-start overflow-hidden bg-black">
                 <Image
                   src={item.thumbnail}
-                  alt={item.title}
+                  alt={item.title || 'Short Video'}
                   fill
                   priority={index < 2}
                   sizes="(max-width: 640px) 100vw, 460px"
@@ -70,7 +72,7 @@ export default function ShortsPageClient() {
                     <span className="h-2 w-2 rounded-full bg-accent live-badge" />
                     Shorts
                   </span>
-                  <span className="rounded-full bg-black/35 px-3 py-1.5 text-xs font-bold backdrop-blur">{item.duration}</span>
+                  <span className="rounded-full bg-black/35 px-3 py-1.5 text-xs font-bold backdrop-blur">{item.duration || '0:30'}</span>
                 </div>
 
                 <button

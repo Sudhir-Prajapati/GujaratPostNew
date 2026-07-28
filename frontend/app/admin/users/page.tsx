@@ -69,11 +69,15 @@ export default function UserList() {
         const res = await fetch(url);
         const json = await res.json();
 
-        if (!res.ok) throw new Error(json.message || 'Failed to retrieve users.');
+        const userList = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data?.users)
+          ? json.data.users
+          : [];
 
-        setUsers(json.data || []);
-        setTotalUsers(json.pagination?.total || 0);
-        setTotalPages(json.pagination?.totalPages || 1);
+        setUsers(userList);
+        setTotalUsers(json.pagination?.total || userList.length);
+        setTotalPages(json.pagination?.totalPages || Math.max(1, Math.ceil(userList.length / 10)));
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -300,7 +304,7 @@ export default function UserList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-850">
-                {users.map((user) => (
+                {(Array.isArray(users) ? users : []).map((user) => (
                   <tr key={user.id} className="group hover:bg-zinc-50/40 dark:hover:bg-zinc-950/10 transition-colors">
                     {/* User Info */}
                     <td className="px-6 py-4 font-medium">

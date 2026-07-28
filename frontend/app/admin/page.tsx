@@ -76,7 +76,7 @@ export default function AdminDashboard() {
         const meJson = await meRes.json();
         const statsJson = await statsRes.json();
 
-        if (meRes.ok && meJson.data?.authenticated) {
+        if (meRes.ok && meJson.data?.user) {
           setUserRole(meJson.data.user.role);
         }
 

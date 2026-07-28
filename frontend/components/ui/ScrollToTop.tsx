@@ -1,7 +1,9 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function ScrollToTop() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -20,7 +22,7 @@ export default function ScrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  if (!mounted) return null;
+  if (!mounted || pathname?.startsWith('/admin')) return null;
 
   return (
     <button

@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { PHOTOS, ARTICLES } from "@/data";
+import { getPublicGallery, getPublicArticles } from "@/lib/api";
 import PhotoDetailClient from "./PhotoDetailClient";
 
 export async function generateStaticParams() {
-  return PHOTOS.map((photo) => ({ id: photo.id }));
+  const photos = await getPublicGallery();
+  return photos.map((photo) => ({ id: photo.id }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const photo = PHOTOS.find((p) => p.id === id);
+  const photos = await getPublicGallery();
+  const photo = photos.find((p) => p.id === id);
   if (!photo) return {};
 
   return {
@@ -26,15 +28,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function PhotoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   
-  // 1. Fetch photo details from mock data
-  const photo = PHOTOS.find((p) => p.id === id);
+  // 1. Fetch photo details from backend API
+  const allPhotos = await getPublicGallery();
+  const photo = allPhotos.find((p) => p.id === id);
   if (!photo) notFound();
 
-  // 2. Use all photos for carousel navigation list
-  const allPhotos = PHOTOS;
-
-  // 3. Fetch trending articles from mock data
-  const trending = ARTICLES.filter((a) => a.isTrending).slice(0, 6);
+  // 2. Fetch trending articles from backend API
+  const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 6 });
 
   return (
     <PhotoDetailClient

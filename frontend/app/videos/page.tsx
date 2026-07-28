@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { VIDEOS } from "@/data";
 import VideosPageClient from "./VideosPageClient";
 
 export const metadata: Metadata = {

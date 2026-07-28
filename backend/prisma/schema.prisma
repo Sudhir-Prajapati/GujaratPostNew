@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  EDITOR
+  REPORTER
+  SEO
+  ADVERTISEMENT
+  PHOTOGRAPHER
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  passwordHash String
+  role         Role          @default(REPORTER)
+  status       AccountStatus @default(ACTIVE)
+  isFirstLogin Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sessions     Session[]
+  author       Author?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique // SHA-256 hash of the refresh token
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model Author {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  nameGu        String
+  nameHi        String
+  image         String   @db.Text
+  designation   String
+  designationGu String
+  designationHi String
+  bio           String   @db.Text
+  bioGu         String   @db.Text
+  bioHi         String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  posts         Post[]
+
+  @@map("authors")
+}
+
+enum PostStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  SCHEDULED
+}
+
+model Category {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  name          String
+  nameGu        String
+  nameHi        String
+  description   String?  @db.Text
+  descriptionGu String?  @db.Text
+  descriptionHi String?  @db.Text
+  icon          String?
+  color         String?
+  posts         Post[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Post {
+  id             String     @id @default(uuid())
+  slug           String     @unique
+  articleNumber  Int?       @unique
+  title          String
+  titleGu        String
+  titleHi        String
+  excerpt        String?    @db.Text
+  excerptGu      String?    @db.Text
+  excerptHi      String?    @db.Text
+  content        String     @db.Text
+  contentGu      String     @db.Text
+  contentHi      String     @db.Text
+  featuredImage  String     @db.Text
+  status         PostStatus @default(DRAFT)
+  scheduledAt    DateTime?
+  authorId       String
+  author         Author     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       Category   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  tags           Tag[]
+  readingTime    Int        @default(0)
+  priority       Int        @default(0)
+  isTrending     Boolean    @default(false)
+  isBreaking     Boolean    @default(false)
+  isFeatured     Boolean    @default(false)
+  views          Int        @default(0)
+  seoTitle       String?    @db.Text
+  seoDescription String?    @db.Text
+  seoKeywords    String?    @db.Text
+  canonicalUrl   String?    @db.Text
+  metaRobots     String?    @db.Text
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@map("posts")
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  nameGu    String
+  nameHi    String
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tags")
+}
+
+model Video {
+  id          String   @id @default(uuid())
+  title       String
+  titleGu     String
+  titleHi     String
+  description String?  @db.Text
+  thumbnail   String   @db.Text
+  youtubeId   String
+  embedUrl    String   @db.Text
+  duration    String   @default("0:00")
+  type        String   @default("video") // video | short | podcast | interview
+  isFeatured  Boolean  @default(false)
+  channel     String?  @default("Gujarat Post News")
+  views       Int      @default(0)
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("videos")
+}
+
+model GalleryPhoto {
+  id           String   @id @default(uuid())
+  src          String   @db.Text
+  alt          String
+  caption      String   @db.Text
+  captionGu    String   @db.Text
+  captionHi    String   @db.Text
+  photographer String
+  copyright    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("gallery_photos")
+}
+
+model InstagramStory {
+  id        String                @id @default(uuid())
+  name      String
+  nameGu    String
+  nameHi    String
+  avatar    String                @db.Text
+  hasUnseen Boolean               @default(true)
+  slides    InstagramStorySlide[]
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@map("instagram_stories")
+}
+
+model InstagramStorySlide {
+  id          String         @id @default(uuid())
+  storyId     String
+  story       InstagramStory @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  mediaType   String         @default("image") // image | video
+  mediaUrl    String         @db.Text
+  captionEn   String         @db.Text
+  captionGu   String         @db.Text
+  captionHi   String         @db.Text
+  timestampGu String         @default("હમણાં જ")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("instagram_story_slides")
+}
+
+model WebStory {
+  id          String   @id @default(uuid())
+  title       String
+  titleGu     String
+  titleHi     String
+  coverImage  String   @db.Text
+  slidesCount Int      @default(5)
+  category    String   @default("Gujarat")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("web_stories")
+}
+
+model BreakingTickerItem {
+  id        String   @id @default(uuid())
+  en        String   @db.Text
+  gu        String   @db.Text
+  hi        String   @db.Text
+  slug      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("breaking_ticker_items")
+}
+
+model AstrologySign {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String
+  nameGu       String
+  nameHi       String
+  image        String   @db.Text
+  prediction   String   @db.Text
+  predictionGu String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("astrology_signs")
+}

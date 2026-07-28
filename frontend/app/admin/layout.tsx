@@ -18,6 +18,7 @@ import {
   User,
   Image as ImageIcon,
   Video,
+  LayoutTemplate,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
@@ -39,10 +40,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((json) => {
-        if (json.data?.authenticated) {
+        if (json.success && json.data?.user) {
           setUserRole(json.data.user.role);
           setUserEmail(json.data.user.email);
-          setUserName(json.data.user.authorName);
+          setUserName(json.data.user.authorName || json.data.user.email?.split('@')[0]);
         }
       })
       .catch(() => {});
@@ -51,6 +52,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const menuItems = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Articles', href: '/admin/articles', icon: FileText },
+    { label: 'Hero Section', href: '/admin/hero', icon: LayoutTemplate },
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
     { label: 'Videos', href: '/admin/videos', icon: Video },
@@ -59,8 +61,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const ROLE_PERMISSIONS: Record<string, string[]> = {
     SUPER_ADMIN: ["/admin"],
-    EDITOR: ["/admin/articles", "/admin/categories", "/admin/gallery", "/admin/videos"],
+    EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos"],
     REPORTER: ["/admin/articles"],
+    SEO: ["/admin/articles", "/admin/categories"],
+    ADVERTISEMENT: ["/admin/articles"],
+    PHOTOGRAPHER: ["/admin/gallery"],
   };
 
   const filteredMenuItems = menuItems.filter((item) => {

@@ -15,12 +15,12 @@ export interface ZodiacSign {
   predictionGu: string;
 }
 
-export const ZODIAC_SIGNS: ZodiacSign[] = [
+export const STATIC_ZODIAC_SIGNS: ZodiacSign[] = [
   {
     id: 'aries',
     name: 'Aries',
     nameGu: 'મેષ',
-    nameHi: 'मेष',
+    nameHi: 'मेષ',
     image: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?w=200&h=200&fit=crop&q=80',
     prediction: 'Your energy levels will be high today. Great opportunities await in your professional career.',
     predictionGu: 'આજનો દિવસ તમારા માટે ઉર્જાવાન રહેશે. કાર્યક્ષેત્રમાં નવી તકો પ્રાપ્ત થવાની પ્રબળ સંભાવના છે.',
@@ -125,10 +125,31 @@ export const ZODIAC_SIGNS: ZodiacSign[] = [
     predictionGu: 'માનસિક અને ભાવનાત્મક ક્ષેત્રે રાહત અનુભવાશે. એકંદરે આરોગ્ય સારું અને સુદ્રઢ રહેશે.',
   }
 ];
+import { getPublicAstrology } from '@/lib/api';
+
+export const ZODIAC_SIGNS = STATIC_ZODIAC_SIGNS;
 
 export default function AstrologySection() {
   const { language } = useApp();
+  const [signs, setSigns] = useState<ZodiacSign[]>(STATIC_ZODIAC_SIGNS);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
+
+  useEffect(() => {
+    getPublicAstrology().then((res) => {
+      if (res && res.length > 0) {
+        const formatted: ZodiacSign[] = res.map((s: any) => ({
+          id: s.slug || s.id,
+          name: s.name,
+          nameGu: s.nameGu,
+          nameHi: s.nameHi,
+          image: s.image,
+          prediction: s.prediction,
+          predictionGu: s.predictionGu,
+        }));
+        setSigns(formatted);
+      }
+    });
+  }, []);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -201,7 +222,7 @@ export default function AstrologySection() {
             ref={scrollContainerRef}
             className="scrollbar-hide flex gap-6 overflow-x-auto scroll-smooth py-2 justify-between items-center px-2"
           >
-            {ZODIAC_SIGNS.map((sign) => {
+            {signs.map((sign: ZodiacSign) => {
               const displayGu = sign.nameGu;
               const displayEn = sign.name;
               return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, Clock } from 'lucide-react';
@@ -13,9 +13,8 @@ import {
   getCategoryLabel,
   formatViews,
   formatDate,
-  ARTICLES,
 } from '@/data';
-import { getCategoryColor } from '@/lib/utils';
+import { getCategoryColor, toGu } from '@/lib/utils';
 import NewsCard from '@/components/ui/NewsCard';
 
 /* ── Types ────────────────────────────────────────────────── */
@@ -29,12 +28,6 @@ interface Props {
 }
 
 type FilterTab = 'all' | 'latest' | 'analysis' | 'video' | 'photo';
-
-/* ── Gujarati numerals ─────────────────────────────────────── */
-function toGu(n: number | string) {
-  const guDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-  return String(n).replace(/\d/g, (d) => guDigits[+d]);
-}
 
 /* ── Gujarat category specific mockup data ─────────────────── */
 const GUJARAT_MOCK_ARTICLES = [
@@ -237,7 +230,7 @@ const GUJARAT_MOCK_TAGS = {
 export default function CategoryPageClient({ articles, category, slug }: Props) {
   const { language } = useApp();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
-  const [sortBy, setSortBy] = useState<'latest' | 'popular'>('popular');
+  const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
   const [visibleCount, setVisibleCount] = useState(9);
 
   const isGujarat = true; // Apply the premium mockup layout to all category pages
@@ -296,30 +289,40 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   /* Most-read = top 5 from all articles by views in this category */
   const mostRead = useMemo(
     () =>
-      ARTICLES.filter((a) => a.category.toLowerCase() === category.name.toLowerCase())
+      (articles || [])
+        .slice()
         .sort((a, b) => b.views - a.views)
-        .slice(0, 5),
-    [category.name],
+        .slice(0, 7),
+    [articles],
   );
 
   /* Trending tags */
   const trendingTags = useMemo(() => {
-    const all = ARTICLES.flatMap((a) => (language === 'gu' ? a.tagsGu : language === 'hi' ? a.tagsHi : a.tags));
+    const all = (articles || []).flatMap((a) => (language === 'gu' ? a.tagsGu : language === 'hi' ? a.tagsHi : a.tags));
     const freq: Record<string, number> = {};
     all.forEach((t) => { if (t) freq[t] = (freq[t] || 0) + 1; });
     return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
-  }, [language]);
+  }, [articles, language]);
 
   /* Resolve displaying lists with dynamic filtering and sorting */
-  const displayArticles = isGujarat ? (GUJARAT_MOCK_ARTICLES as any as Article[]) : articles;
+  const displayArticles = articles || [];
 
   const filteredArticles = useMemo(() => {
     let result = [...displayArticles];
 
+    // Use updatedAt first (latest edit = latest news), fallback to publishedAt/createdAt
+    const getArticleTimeMs = (art: Article) => {
+      const updatedVal = (art as any).updatedAt;
+      const publishedVal = art.publishedAt || (art as any).createdAt;
+      // Prefer updatedAt if it exists and is a valid date
+      const updatedMs = updatedVal ? new Date(updatedVal).getTime() : 0;
+      const publishedMs = publishedVal ? new Date(publishedVal).getTime() : 0;
+      const t = !isNaN(updatedMs) && updatedMs > 0 ? updatedMs : publishedMs;
+      return isNaN(t) ? 0 : t;
+    };
+
     // 1. Filter by active tab format/category simulation
-    if (activeTab === 'latest') {
-      result.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    } else if (activeTab === 'analysis') {
+    if (activeTab === 'analysis') {
       result = result.filter((a, idx) =>
         idx % 2 === 0 ||
         a.titleGu?.includes('વિશ્લેષણ') ||
@@ -339,23 +342,38 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
       );
     }
 
-    // 2. Sort by latest or popular views
-    if (sortBy === 'latest') {
-      result.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    } else if (sortBy === 'popular') {
+    // 2. Always sort by latest (updatedAt desc) unless user picks popular
+    if (sortBy === 'popular') {
       result.sort((a, b) => b.views - a.views);
+    } else {
+      // Default: latest first — sort by updatedAt desc
+      result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
     }
 
     return result;
   }, [displayArticles, activeTab, sortBy]);
 
-  const mostReadToDisplay = (isGujarat ? GUJARAT_MOCK_MOST_READ : mostRead).slice(0, 6);
-  const tagsToDisplay = isGujarat ? (GUJARAT_MOCK_TAGS[language] || GUJARAT_MOCK_TAGS.en) : trendingTags;
+  const mostReadToDisplay = (mostRead && mostRead.length > 0 ? mostRead : GUJARAT_MOCK_MOST_READ as any).slice(0, 10);
+  const tagsToDisplay = trendingTags && trendingTags.length > 0 ? trendingTags : (GUJARAT_MOCK_TAGS[language] || GUJARAT_MOCK_TAGS.en);
 
   const heroArticle = filteredArticles[0];
-  const topStories = filteredArticles.slice(1, 4); // Show 3 items
 
-  const popularArticlesRaw = isGujarat ? articles : filteredArticles.slice(4);
+  // Guaranteed 4 items (articles 2, 3, 4, 5) for Top Stories column on the right
+  const topStories = useMemo(() => {
+    const sliced = filteredArticles.slice(1, 5);
+    if (sliced.length >= 4) return sliced;
+
+    const usedIds = new Set([heroArticle?.id, ...sliced.map((a) => a.id)].filter(Boolean));
+    const pool = displayArticles.length > 1 ? displayArticles : (GUJARAT_MOCK_ARTICLES as any[]);
+    const fallbacks = pool.filter((a: any) => !usedIds.has(a.id));
+    return [...sliced, ...fallbacks].slice(0, 4);
+  }, [filteredArticles, heroArticle, displayArticles]);
+
+  const topStoriesIds = useMemo(() => new Set([heroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, topStories]);
+
+  const popularArticlesRaw = useMemo(() => {
+    return filteredArticles.filter((art) => !topStoriesIds.has(art.id));
+  }, [filteredArticles, topStoriesIds]);
 
   const popularArticles = useMemo(() => {
     let result = [...popularArticlesRaw];
@@ -466,12 +484,14 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
             <Link href={`/news/${heroArticle.slug}`} className="group block">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
                 <Image
-                  src={heroArticle.image}
+                  src={heroArticle.image || '/assets/placeholder.jpg'}
                   alt={getArticleTitle(heroArticle, language)}
                   fill
                   priority
+                  unoptimized={heroArticle.image?.includes('localhost')}
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, 45vw"
+                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
                 />
               </div>
               <div className="mt-3">
@@ -499,7 +519,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
               </div>
               <div className="flex flex-col divide-y divide-border">
                 {topStories.map((art) => (
-                  <Link key={art.id} href={`/news/${art.slug}`} className="group flex items-start gap-4 py-4 first:pt-1 last:pb-1">
+                  <Link key={art.id} href={`/news/${art.slug}`} className="group flex items-start gap-4 py-3 first:pt-1 last:pb-1">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-black uppercase tracking-wide text-accent">
                         {getArticleLocation(art)}
@@ -515,11 +535,13 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                     </div>
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
                       <Image
-                        src={art.image}
+                        src={art.image || '/assets/placeholder.jpg'}
                         alt={getArticleTitle(art, language)}
                         fill
+                        unoptimized={art.image?.includes('localhost')}
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                         sizes="80px"
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x64/e2e8f0/94a3b8?text=GP'; }}
                       />
                     </div>
                   </Link>
@@ -537,7 +559,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
               </span>
             </div>
             <div className="flex flex-col divide-y divide-border">
-              {mostReadToDisplay.map((art, i) => (
+              {mostReadToDisplay.map((art: any, i: number) => (
                 <Link key={art.id} href={`/news/${art.slug}`} className="group flex items-start gap-3 py-3 first:pt-1.5 last:pb-1.5">
                   <span className="text-[28px] font-extrabold leading-none select-none w-8 shrink-0 text-center"
                     style={{

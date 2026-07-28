@@ -24,7 +24,11 @@ interface StoryItem {
   descriptionGu: string;
 }
 
-const STORY_ITEMS: StoryItem[] = [
+import { getPublicStories } from '@/lib/api';
+
+const AUTO_PLAY_DURATION = 5000;
+
+const FALLBACK_STORY_ITEMS: StoryItem[] = [
   {
     id: 'story1',
     title: 'Future Tech',
@@ -43,101 +47,31 @@ const STORY_ITEMS: StoryItem[] = [
     description: 'Nutritionist-approved quick meals to boost your energy throughout the day.',
     descriptionGu: 'આખો દિવસ તમારી એનર્જી વધારવા માટે ઝડપી પૌષ્ટિક આહાર રેસિપી.',
   },
-  {
-    id: 'story3',
-    title: 'Ayurvedic Wellness',
-    titleGu: 'આયુર્વેદિક ઉપચાર',
-    avatar: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/2.jpg',
-    description: 'Ancient Ayurvedic herbs for modern healthy living and daily wellness.',
-    descriptionGu: 'આધુનિક તંદુરસ્ત જીવન અને દૈનિક સુખાકારી માટે પ્રાચીન આયુર્વેદિક જડીબુટ્ટીઓ.',
-  },
-  {
-    id: 'story4',
-    title: 'Celebrity Diary',
-    titleGu: 'સ્ટાર ડાયરી',
-    avatar: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/6.jpg',
-    description: 'Inside look at the most anticipated celebrity events of the season.',
-    descriptionGu: 'સિઝનના સૌથી વધુ પ્રખ્યાત સેલિબ્રિટી કાર્યક્રમોની અંદરની એક ઝલક.',
-  },
-  {
-    id: 'story5',
-    title: 'Fashion Trends',
-    titleGu: 'ફેશન હબ',
-    avatar: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/4.jpg',
-    description: 'Discover the trending jacket styles and color palettes for this winter.',
-    descriptionGu: 'આ શિયાળા માટે ટ્રેન્ડિંગ જેકેટ શૈલીઓ અને કલર કોમ્બિનેશન શોધો.',
-  },
-  {
-    id: 'story6',
-    title: 'Smile & Care',
-    titleGu: 'સ્મિત કલાજી',
-    avatar: 'https://images.unsplash.com/photo-1606811971618-4486d14f3f99?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/3.jpg',
-    description: 'Simple dental hygiene habits to keep your smile bright and healthy.',
-    descriptionGu: 'તમારા સ્મિતને તેજસ્વી અને સ્વસ્થ રાખવા માટે ડેન્ટલ હાઇજિન ટિપ્સ.',
-  },
-  {
-    id: 'story7',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  },
-  {
-    id: 'story8',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  },
-  {
-    id: 'story9',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  },
-  {
-    id: 'story10',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  }, {
-    id: 'story11',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  }, {
-    id: 'story12',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  }
 ];
-
-const AUTO_PLAY_DURATION = 5000;
 
 export default function InstagramStories() {
   const { language } = useApp();
+  const [stories, setStories] = useState<StoryItem[]>(FALLBACK_STORY_ITEMS);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    getPublicStories().then((res) => {
+      if (res && res.length > 0) {
+        const formatted: StoryItem[] = res.map((s: any) => ({
+          id: s.id,
+          title: s.name,
+          titleGu: s.nameGu,
+          avatar: s.avatar,
+          image: s.slides?.[0]?.mediaUrl || s.avatar,
+          description: s.slides?.[0]?.captionEn || '',
+          descriptionGu: s.slides?.[0]?.captionGu || '',
+        }));
+        setStories(formatted);
+      }
+    });
+  }, []);
+
+  const STORY_ITEMS = stories;
   const [progress, setProgress] = useState(0);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Clock, Eye, Trash2, Bookmark } from 'lucide-react';
-import { ARTICLES, formatDate, formatViews, getArticleTitle, getCategoryLabel, getLocalized } from '@/data';
+import { formatDate, formatViews, getArticleTitle, getCategoryLabel, getLocalized } from '@/data';
+import { getPublicArticles } from '@/lib/api';
 import { getCategoryColor } from '@/lib/utils';
 import { useApp } from '@/components/AppProvider';
 import type { Article } from '@/types';
@@ -18,9 +19,13 @@ export default function SavedPage() {
       const stored = localStorage.getItem('gp-saved-articles');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const matched = ARTICLES.filter(art => parsed.includes(art.id));
-          setSavedArticles(matched);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          getPublicArticles({ limit: 120 }).then((res) => {
+            if (res && res.articles) {
+              const matched = res.articles.filter((art) => parsed.includes(art.id) || parsed.includes(art.slug));
+              setSavedArticles(matched);
+            }
+          });
           return;
         }
       }
@@ -55,13 +60,13 @@ export default function SavedPage() {
   const titleText = getLocalized(language, {
     en: 'Saved Articles',
     gu: 'સાચવેલા લેખ',
-    hi: 'सहेजे गए लेख'
+    hi: 'સહેજે ગયા લેખ'
   });
 
   const emptyText = getLocalized(language, {
     en: 'No articles saved yet. Click on the 🔖 bookmark icon on any article to save it.',
     gu: 'હજુ સુધી કોઈ લેખ સાચવ્યો નથી. કોઈપણ કાર્ડ પરના 🔖 આઇકન પર ટૅપ કરીને લેખ સાચવો.',
-    hi: 'अभी तक कोई लेख सहेजा नहीं गया है। किसी भी लेख पर 🔖 बुकमार्क आइकन पर क्लिक करके उसे सहेजें।'
+    hi: 'અભી તક કોઈ લેખ સહેજા નહીં ગયા હૈ। કીસી ભી લેખ પર 🔖 બુકમાર્ક આઇકન પર ક્લિક કરકે ઉસે સહેજેં।'
   });
 
   return (

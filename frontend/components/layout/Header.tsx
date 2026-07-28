@@ -313,8 +313,8 @@ export default function Header() {
           </div>
 
           {/* Header Ad Slot (visible on desktop) */}
-          <div className="hidden lg:block max-w-[600px] xl:max-w-[850px] 2xl:max-w-[950px] flex-1 mx-4 2xl:mx-6">
-            <Advertisement position="header" className="w-full" />
+          <div className="hidden lg:flex flex-1 min-w-0 mx-4 2xl:mx-6" style={{ maxWidth: 728, height: 90 }}>
+            <Advertisement position="header" className="w-full h-full" />
           </div>
 
           {/* Right-side compact Search + News Brief Container (desktop only) */}
@@ -327,9 +327,10 @@ export default function Header() {
               <Image
                 src="/rightSide.png"
                 alt="NEWS BRIEF"
-                width={22}
-                height={12}
-                className="h-3 w-auto shrink-0 object-contain transition-transform duration-200 group-hover:translate-x-0.5"
+                width={16}
+                height={16}
+                className="shrink-0 object-contain transition-transform duration-200 group-hover:translate-x-0.5"
+                style={{ width: 16, height: 16 }}
               />
               <span className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
                 NEWS BRIEF

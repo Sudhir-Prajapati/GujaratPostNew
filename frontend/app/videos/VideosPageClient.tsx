@@ -1,17 +1,14 @@
-﻿'use client';
+'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { Clock, Eye, Play, Bell, Radio } from 'lucide-react';
-import { VIDEOS, formatViews, getLocalized } from '@/data';
+import { formatViews, getLocalized } from '@/data';
+import { getPublicVideos } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
+import { toGu } from '@/lib/utils';
 
 type TabType = 'video' | 'short' | 'exclusive' | 'bulletin';
-
-function toGu(n: number | string) {
-  const guDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-  return String(n).replace(/\d/g, (d) => guDigits[+d]);
-}
 
 function YoutubeIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
@@ -26,6 +23,13 @@ export default function VideosPageClient() {
   const { language } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [videoList, setVideoList] = useState<any[]>([]);
+
+  useEffect(() => {
+    getPublicVideos().then((res) => {
+      setVideoList(res || []);
+    });
+  }, []);
 
   // Tab definitions
   const tabs = [
@@ -67,8 +71,8 @@ export default function VideosPageClient() {
 
   // Filter video lists
   const latestVideos = useMemo(() => {
-    return VIDEOS.slice(0, 6);
-  }, []);
+    return videoList.length > 0 ? videoList.slice(0, 6) : [];
+  }, [videoList]);
 
   const shortsVideos = useMemo(() => {
     return [
@@ -81,8 +85,8 @@ export default function VideosPageClient() {
   }, []);
 
   const exclusiveVideos = useMemo(() => {
-    return VIDEOS.slice(0, 8);
-  }, []);
+    return videoList.slice(0, 8);
+  }, [videoList]);
 
   const bulletinVideos = useMemo(() => {
     return [
@@ -340,7 +344,7 @@ export default function VideosPageClient() {
                 {popularSidebarVideos.map((item, i) => (
                   <a
                     key={item.id}
-                    href={`https://www.youtube.com/watch?v=${VIDEOS[i % VIDEOS.length].youtubeId}`}
+                    href={videoList.length > 0 ? `https://www.youtube.com/watch?v=${videoList[i % videoList.length].youtubeId}` : '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group flex items-start gap-3 py-3.5 first:pt-1.5 last:pb-1.5"
@@ -424,7 +428,7 @@ export default function VideosPageClient() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-6">
-              {exclusiveVideos.map((item) => (
+              {exclusiveVideos.map((item: any) => (
                 <div key={item.id} className="group flex flex-col">
                   <div className="relative aspect-video w-full rounded-md overflow-hidden bg-black shadow-sm group">
                     {playingVideoId === item.id ? (

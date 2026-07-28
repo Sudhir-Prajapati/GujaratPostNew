@@ -15,6 +15,7 @@ export interface Author {
 export interface Article {
   id: string;
   slug: string;
+  articleNumber?: number;
   title: string;
   titleGu: string;
   titleHi: string;

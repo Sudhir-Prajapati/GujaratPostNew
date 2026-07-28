@@ -15,7 +15,8 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { VIDEOS, formatViews, getLocalized } from '@/data';
+import { formatViews, getLocalized } from '@/data';
+import { getPublicVideos } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import Footer from '@/components/layout/Footer';
 
@@ -44,22 +45,9 @@ const INITIAL_ITEMS = 10;
 const LOAD_MORE_ITEMS = 8;
 const MAX_FEED_ITEMS = 16;
 
-const makeFeed = (count: number) =>
-  Array.from({ length: count }, (_, index) => {
-    const video = VIDEOS[index % VIDEOS.length];
-    const round = Math.floor(index / VIDEOS.length);
-
-    return {
-      ...video,
-      feedKey: `${video.id}-${index}`,
-      views: video.views + round * 12841,
-      likes: Math.round((video.views + round * 12841) * 0.083),
-      comments: 126 + ((index * 173) % 2100),
-    };
-  });
-
 export default function WatchPageClient() {
   const { language } = useApp();
+  const [videoList, setVideoList] = useState<any[]>([]);
   const [itemCount, setItemCount] = useState(INITIAL_ITEMS);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -70,7 +58,28 @@ export default function WatchPageClient() {
   const feedRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const cardsRef = useRef<Map<number, HTMLElement>>(new Map());
-  const feed = useMemo(() => makeFeed(itemCount), [itemCount]);
+
+  useEffect(() => {
+    getPublicVideos().then((res) => {
+      setVideoList(res || []);
+    });
+  }, []);
+
+  const feed = useMemo(() => {
+    if (!videoList.length) return [];
+    return Array.from({ length: Math.min(itemCount, videoList.length) }, (_, index) => {
+      const video = videoList[index % videoList.length];
+      const round = Math.floor(index / videoList.length);
+
+      return {
+        ...video,
+        feedKey: `${video.id}-${index}`,
+        views: (video.views || 10000) + round * 12841,
+        likes: Math.round(((video.views || 10000) + round * 12841) * 0.083),
+        comments: 126 + ((index * 173) % 2100),
+      };
+    });
+  }, [videoList, itemCount]);
 
   const activeIframeRef = useRef<HTMLIFrameElement | null>(null);
   const [showHeartAnim, setShowHeartAnim] = useState(false);
@@ -360,7 +369,7 @@ export default function WatchPageClient() {
                     {getLocalized(language, {
                       en: isPlaying ? 'Stop' : 'Play',
                       gu: isPlaying ? 'થોભાવો' : 'પ્લે',
-                      hi: isPlaying ? 'रोकें' : 'प्ले',
+                      hi: isPlaying ? 'रोकें' : 'પ્લે',
                     })}
                   </small>
                 </button>

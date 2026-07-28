@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Image from 'next/image';
@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, Clock, Eye, Phone, Globe, Mail, ChevronRight as ChevronRightIcon,
   Bookmark, Printer, Copy
 } from 'lucide-react';
-import { PHOTOS, ARTICLES, getLocalized } from '@/data';
+import { getLocalized } from '@/data';
 import { useApp } from '@/components/AppProvider';
 import NewsCard from '@/components/ui/NewsCard';
 
@@ -73,20 +73,20 @@ export default function PhotoDetailClient({ activeId, photo: dbPhoto, allPhotos:
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const photosList = dbAllPhotos.length > 0 ? dbAllPhotos : PHOTOS;
-  const photo = dbPhoto || photosList.find(p => p.id === activeId) || photosList[0];
-  const activeIndex = photosList.findIndex((item) => item.id === photo.id);
+  const photosList = dbAllPhotos;
+  const photo = dbPhoto || photosList.find(p => p.id === activeId) || photosList[0] || { id: activeId, caption: '', captionGu: '', captionHi: '', src: '' };
+  const activeIndex = photosList.findIndex((item) => item.id === photo?.id);
   const photoUrl = typeof window !== 'undefined' ? window.location.href : 'https://gujaratpost.com/photos';
 
-  const nextIndex = (activeIndex + 1) % photosList.length;
-  const prevIndex = (activeIndex - 1 + photosList.length) % photosList.length;
+  const nextIndex = photosList.length > 0 ? (activeIndex + 1) % photosList.length : 0;
+  const prevIndex = photosList.length > 0 ? (activeIndex - 1 + photosList.length) % photosList.length : 0;
 
   const handleNext = () => {
-    router.push(`/photos/${photosList[nextIndex].id}`);
+    if (photosList[nextIndex]) router.push(`/photos/${photosList[nextIndex].id}`);
   };
 
   const handlePrev = () => {
-    router.push(`/photos/${photosList[prevIndex].id}`);
+    if (photosList[prevIndex]) router.push(`/photos/${photosList[prevIndex].id}`);
   };
 
   const copyUrl = async () => {
@@ -95,20 +95,20 @@ export default function PhotoDetailClient({ activeId, photo: dbPhoto, allPhotos:
     window.setTimeout(() => setCopied(false), 1800);
   };
 
-  const caption = getLocalized(language, { en: photo.caption, gu: photo.captionGu, hi: photo.captionHi });
+  const caption = getLocalized(language, { en: photo?.caption || '', gu: photo?.captionGu || '', hi: photo?.captionHi || '' });
   
-  const descriptionData = MOCK_DESCRIPTIONS[photo.id] || {
-    category: { en: photo.category || "Gallery", gu: photo.captionGu, hi: photo.captionHi },
-    en: photo.caption,
-    gu: photo.captionGu,
-    hi: photo.captionHi
+  const descriptionData = (photo && MOCK_DESCRIPTIONS[photo.id]) || {
+    category: { en: photo?.category || "Gallery", gu: photo?.captionGu || '', hi: photo?.captionHi || '' },
+    en: photo?.caption || '',
+    gu: photo?.captionGu || '',
+    hi: photo?.captionHi || ''
   };
 
   const category = getLocalized(language, descriptionData.category);
   const bodyText = getLocalized(language, descriptionData);
   const paragraphs = bodyText.split(/\n\n+/);
 
-  const trendingList = dbTrending.length > 0 ? dbTrending : ARTICLES.filter((item) => item.isTrending).slice(0, 6);
+  const trendingList = dbTrending;
 
   const shareLinks = [
     { 

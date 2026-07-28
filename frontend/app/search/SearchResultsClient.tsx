@@ -1,14 +1,12 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, SearchX } from 'lucide-react';
-import { searchArticles, ARTICLES } from '@/data';
+import { getPublicArticles } from '@/lib/api';
 import NewsCard from '@/components/ui/NewsCard';
 import { useApp } from '@/components/AppProvider';
-
-// Default articles to show when no query entered (latest articles)
-const defaultArticles = ARTICLES.slice(0, 12);
+import type { Article } from '@/types';
 
 // Language strings
 const strings = {
@@ -29,7 +27,7 @@ const strings = {
     heading: 'न्यूज़रूम खोजें',
     placeholder: 'समाचार, शहर, श्रेणी या विषय खोजें...',
     searchBtn: 'खोजें',
-    defaultSection: 'ताज़ा समाचार',
+    defaultSection: 'તાજા સમાચાર',
     resultsFor: (q: string) => `"${q}" के लिए परिणाम`,
     articlesCount: (n: number) => `${n} लेख`,
     foundCount: (n: number) => `${n} लेख मिले`,
@@ -55,7 +53,15 @@ export default function SearchResultsClient({ initialQuery }: { initialQuery: st
   const { language } = useApp();
   const t = strings[language] ?? strings.en;
   const [query, setQuery] = useState(initialQuery);
-  const results = useMemo(() => initialQuery ? searchArticles(initialQuery) : defaultArticles, [initialQuery]);
+  const [results, setResults] = useState<Article[]>([]);
+
+  useEffect(() => {
+    getPublicArticles({ query: initialQuery || undefined, limit: 20 }).then((res) => {
+      if (res && res.articles) {
+        setResults(res.articles);
+      }
+    });
+  }, [initialQuery]);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

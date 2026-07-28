@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Clock, Eye, Mic, Play, UserRound, Video } from 'lucide-react';
-import { VIDEOS, formatViews, getLocalized } from '@/data';
+import { formatViews, getLocalized } from '@/data';
+import { getPublicVideos } from '@/lib/api';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { useApp } from '@/components/AppProvider';
 
@@ -11,16 +12,24 @@ type TabType = 'video' | 'short' | 'podcast' | 'interview';
 
 const tabs = [
   { key: 'video', label: 'Videos', gu: 'વીડિયો', hi: 'वीडियो', icon: Video },
-  { key: 'short', label: 'Shorts', gu: 'શોર્ટ્સ', hi: 'शॉर्ट्स', icon: Play },
-  { key: 'podcast', label: 'Podcasts', gu: 'પોડકાસ્ટ', hi: 'पॉडकास्ट', icon: Mic },
-  { key: 'interview', label: 'Interviews', gu: 'ઇન્ટરવ્યૂ', hi: 'इंटरव्यू', icon: UserRound },
+  { key: 'short', label: 'Shorts', gu: 'શોર્ટ્સ', hi: 'શોર્ટ્સ', icon: Play },
+  { key: 'podcast', label: 'Podcasts', gu: 'પોડકાસ્ટ', hi: 'પોડકાસ્ટ', icon: Mic },
+  { key: 'interview', label: 'Interviews', gu: 'ઇન્ટરવ્યૂ', hi: 'ઇન્ટરવ્યૂ', icon: UserRound },
 ] as const;
 
 export default function VideoSection() {
   const { language } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
-  const filtered = VIDEOS.filter((item) => item.type === activeTab);
+  const [videos, setVideos] = useState<any[]>([]);
+
+  useEffect(() => {
+    getPublicVideos().then((res) => {
+      setVideos(res || []);
+    });
+  }, []);
+
+  const filtered = videos.filter((item) => item.type === activeTab);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
