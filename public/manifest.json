@@ -1,12 +1,16 @@
 {
+  "id": "/",
   "name": "Gujarat Post - Gujarati News Portal",
   "short_name": "GujaratPost",
   "description": "Latest Gujarati breaking news, politics, business, sports and entertainment.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#B3121B",
   "orientation": "portrait",
+  "lang": "gu",
+  "categories": ["news", "magazines"],
   "icons": [
     {
       "src": "/logo.jpg",
