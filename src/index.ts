@@ -17,10 +17,14 @@ const PORT = process.env.PORT || 5000;
 // Trust proxy header configuration (crucial for accurate IP rate limiting downstream)
 app.set('trust proxy', true);
 
-// Configure CORS to permit Next.js frontend calls with credentials (cookies)
+// Configure CORS to permit Next.js frontend calls & mobile apps with credentials
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, PWABuilder, native APKs)
+      if (!origin) return callback(null, true);
+      return callback(null, true);
+    },
     credentials: true,
   })
 );
