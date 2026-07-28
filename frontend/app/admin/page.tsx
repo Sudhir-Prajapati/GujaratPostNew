@@ -26,6 +26,7 @@ import {
   CheckCircle,
   Play
 } from 'lucide-react';
+import { getBackendApiUrl } from '@/lib/api';
 
 interface StatsData {
   articles: {

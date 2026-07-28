@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   FolderPlus
 } from 'lucide-react';
+import { getBackendApiUrl } from '@/lib/api';
 
 interface CategoryData {
   id: string;
