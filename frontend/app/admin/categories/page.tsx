@@ -56,7 +56,7 @@ export default function CategoriesPage() {
     async function loadCategories() {
       setLoading(true);
       try {
-        const res = await fetch('/api/admin/categories');
+        const res = await fetch(getBackendApiUrl('/api/admin/categories'));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch categories');
         setCategories(json.data || []);

@@ -70,8 +70,8 @@ export default function AdminDashboard() {
     async function loadDashboardData() {
       try {
         const [meRes, statsRes] = await Promise.all([
-          fetch('/api/auth/me'),
-          fetch('/api/admin/stats')
+          fetch(getBackendApiUrl('/api/auth/me')),
+          fetch(getBackendApiUrl('/api/admin/stats'))
         ]);
         const meJson = await meRes.json();
         const statsJson = await statsRes.json();

@@ -1,6 +1,16 @@
-import { Article, Video, Photo } from '@/types';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/public';
+
+export const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
+  : 'http://localhost:5000/api';
+
+export function getBackendApiUrl(path: string): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (cleanPath.startsWith('/api/')) {
+    return `${BACKEND_API_BASE}${cleanPath.substring(4)}`;
+  }
+  return `${BACKEND_API_BASE}${cleanPath}`;
+}
 
 /**
  * Fetch articles list from Express Backend API

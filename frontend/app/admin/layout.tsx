@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
+import { getBackendApiUrl } from '@/lib/api';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/auth/me')
+    fetch(getBackendApiUrl('/api/auth/me'))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data?.user) {
@@ -86,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch(getBackendApiUrl('/api/auth/logout'), { method: 'POST' });
       router.push('/login');
       router.refresh();
     } catch (err) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getBackendApiUrl } from '@/lib/api';
 import { 
   Search, 
   Plus, 
@@ -85,7 +86,7 @@ export default function VideosPage() {
     if (!title || !youtubeId) return alert('Title and YouTube Video ID are required');
     setSaving(true);
     try {
-      const res = await fetch('/api/admin/videos', {
+      const res = await fetch(getBackendApiUrl('/api/admin/videos'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
