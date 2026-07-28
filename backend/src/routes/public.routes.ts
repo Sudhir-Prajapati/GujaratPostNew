@@ -57,7 +57,7 @@ router.get('/articles', async (req, res, next) => {
         include: {
           category: true,
           author: true,
-          tags: true,
+          tags: { include: { tag: true } },
         },
         // When fetching featured articles, use stable createdAt asc so slot order
         // doesn't shuffle every time isFeatured is toggled (which updates updatedAt).
@@ -92,9 +92,9 @@ router.get('/articles', async (req, res, next) => {
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
-      tags: p.tags.map((t) => t.name),
-      tagsGu: p.tags.map((t) => t.nameGu),
-      tagsHi: p.tags.map((t) => t.nameHi),
+      tags: (p.tags as any[]).map((t: any) => t.name || t.tag?.name || ''),
+      tagsGu: (p.tags as any[]).map((t: any) => t.nameGu || t.tag?.nameGu || ''),
+      tagsHi: (p.tags as any[]).map((t: any) => t.nameHi || t.tag?.nameHi || ''),
       author: {
         id: p.author.id,
         name: p.author.name,
@@ -135,7 +135,7 @@ router.get('/articles/:slug', async (req, res, next) => {
       include: {
         category: true,
         author: true,
-        tags: true,
+        tags: { include: { tag: true } },
       },
     });
 
@@ -159,9 +159,9 @@ router.get('/articles/:slug', async (req, res, next) => {
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
-      tags: p.tags.map((t) => t.name),
-      tagsGu: p.tags.map((t) => t.nameGu),
-      tagsHi: p.tags.map((t) => t.nameHi),
+      tags: (p.tags as any[]).map((t: any) => t.name || t.tag?.name || ''),
+      tagsGu: (p.tags as any[]).map((t: any) => t.nameGu || t.tag?.nameGu || ''),
+      tagsHi: (p.tags as any[]).map((t: any) => t.nameHi || t.tag?.nameHi || ''),
       author: {
         id: p.author.id,
         name: p.author.name,
