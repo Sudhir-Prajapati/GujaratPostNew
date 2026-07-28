@@ -43,6 +43,18 @@ const express_static = express.static(path.join(process.cwd(), 'uploads'), {
 });
 app.use('/uploads', express_static);
 
+// Root endpoint status check
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    message: 'Gujarat Post Backend API is running successfully',
+    endpoints: {
+      health: '/api/health',
+      publicArticles: '/api/public/articles',
+    },
+  });
+});
+
 // Mount all API routes under the /api prefix
 app.use('/api', masterRouter);
 
