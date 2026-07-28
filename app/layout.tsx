@@ -6,6 +6,7 @@ import ScrollToTop from "@/components/ui/ScrollToTop";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://gujaratpost.example.com"),
+  manifest: "/manifest.json",
   title: {
     default: "Gujarat Post - Gujarati News Portal",
     template: "%s | Gujarat Post",

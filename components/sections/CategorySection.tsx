@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CATEGORY_META, getArticlesByCategory } from '@/data';
+import { CATEGORY_META } from '@/data';
+import { getPublicArticles } from '@/lib/api';
 import NewsCard from '@/components/ui/NewsCard';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { useApp } from '@/components/AppProvider';
@@ -20,7 +21,11 @@ export default function CategorySection({ category, categorySlug, categoryGu, co
   const meta = Object.values(CATEGORY_META).find((item) => item.name === category);
 
   useEffect(() => {
-    setArticles(getArticlesByCategory(categorySlug).slice(0, cols));
+    getPublicArticles({ categorySlug, limit: cols }).then((res) => {
+      if (res && res.articles) {
+        setArticles(res.articles);
+      }
+    });
   }, [categorySlug, cols]);
 
   if (!articles.length) {

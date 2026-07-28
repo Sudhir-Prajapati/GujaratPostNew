@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PHOTOS } from "@/data";
+import { getPublicGallery } from "@/lib/api";
 import PhotosClient from "./PhotosClient";
 
 export const metadata: Metadata = {
@@ -8,5 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default async function PhotosPage() {
-  return <PhotosClient initialPhotos={PHOTOS} />;
+  const photos = await getPublicGallery();
+  return <PhotosClient initialPhotos={photos} />;
 }

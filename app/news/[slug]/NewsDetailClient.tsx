@@ -13,10 +13,12 @@ import {
   getArticleTitle,
   getCategoryLabel,
   getLocalized,
+  getRelativeTime,
 } from '@/data';
 import { useApp } from '@/components/AppProvider';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
+import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
 
 interface Props {
@@ -24,11 +26,6 @@ interface Props {
   related: Article[];
   trending: Article[];
   articleUrl: string;
-}
-
-function toGu(n: number | string) {
-  const guDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-  return String(n).replace(/\d/g, (d) => guDigits[+d]);
 }
 
 export default function NewsDetailClient({ article, related, trending, articleUrl }: Props) {
@@ -48,27 +45,48 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   }, []);
 
   const slideImages = useMemo(() => {
-    return [
-      article.image,
-      '/assets/demo/3.jpg',
-      '/assets/demo/5.jpg',
-    ];
-  }, [article.image]);
+    const images: string[] = [];
+    if (article.image) images.push(article.image);
+
+    // Extract secondary image from direct properties if present
+    if ((article as any).image2) images.push((article as any).image2);
+    if ((article as any).galleryImage2) images.push((article as any).galleryImage2);
+    if ((article as any).secondaryImage) images.push((article as any).secondaryImage);
+
+    // Extract markdown image URLs ![...](url) from all article content strings
+    const rawContent = `${article.content || ''}\n${(article as any).contentGu || ''}\n${(article as any).contentHi || ''}`;
+    const matches = rawContent.matchAll(/!\[(?:Gallery Image 2|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi);
+    for (const match of matches) {
+      if (match[1]) images.push(match[1]);
+    }
+
+    const extraImages = (article as any).images || (article as any).gallery || [];
+    if (Array.isArray(extraImages)) {
+      images.push(...extraImages);
+    }
+
+    const validImages = images.filter((img) => img && typeof img === 'string' && img.trim() !== '');
+    const uniqueImages = Array.from(new Set(validImages));
+    return uniqueImages.length > 0 ? uniqueImages : ['/assets/placeholder.jpg'];
+  }, [article]);
 
   const handleNextImage = useCallback(() => {
+    if (slideImages.length <= 1) return;
     setActiveImageIndex((prev) => (prev + 1) % slideImages.length);
   }, [slideImages.length]);
 
   const handlePrevImage = useCallback(() => {
+    if (slideImages.length <= 1) return;
     setActiveImageIndex((prev) => (prev - 1 + slideImages.length) % slideImages.length);
   }, [slideImages.length]);
 
   useEffect(() => {
+    if (slideImages.length <= 1) return;
     const timer = setInterval(() => {
       handleNextImage();
     }, 4000);
     return () => clearInterval(timer);
-  }, [handleNextImage]);
+  }, [handleNextImage, slideImages.length]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -140,20 +158,94 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
   const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
 
-  const gistPoints = useMemo(() => {
-    const p1 = title;
-    const p2 = excerpt;
-    const firstParagraph = paragraphs[0] || '';
-    const cleanP1 = p1.replace(/<[^>]*>/g, '').trim();
-    const cleanP2 = p2.replace(/<[^>]*>/g, '').trim();
-    const cleanP3 = firstParagraph.replace(/<[^>]*>/g, '').trim();
+  const displayParagraphs = useMemo(() => {
+    return paragraphs.filter((p) => {
+      const trimmed = p.trim();
+      if (
+        trimmed.includes('## 📌') ||
+        trimmed.includes('KEY HIGHLIGHTS') ||
+        trimmed.includes('એક નજરમાં') ||
+        trimmed.includes('एक नजर में') ||
+        trimmed.includes('AT A GLANCE') ||
+        trimmed.startsWith('----------------') ||
+        trimmed.startsWith('---')
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [paragraphs]);
 
-    return [
-      cleanP1.length > 95 ? cleanP1.substring(0, 95) + '...' : cleanP1,
-      cleanP2.length > 125 ? cleanP2.substring(0, 125) + '...' : cleanP2,
-      cleanP3.length > 115 ? cleanP3.substring(0, 115) + '...' : cleanP3,
-    ].filter(Boolean);
-  }, [title, excerpt, paragraphs]);
+  const gistPoints = useMemo(() => {
+    const rawContent = body || (article as any).contentGu || (article as any).contentHi || article.content || '';
+    const points: string[] = [];
+
+    const cleanStr = (s: string) => {
+      return s
+        .replace(/<[^>]*>/g, '')
+        .replace(/^[•*\-#\d\.\s📌]+/, '')
+        .replace(/^[•*\-#\d\.\s]+/, '')
+        .replace(/📌/gi, '')
+        .replace(/#+/g, '')
+        .replace(/\(KEY HIGHLIGHTS\)/gi, '')
+        .replace(/એક નજરમાં/gi, '')
+        .replace(/एक नजर में/gi, '')
+        .replace(/AT A GLANCE/gi, '')
+        .replace(/[*#]/g, '')
+        .trim();
+    };
+
+    const lines = rawContent.split(/\r?\n/);
+    let insideHighlights = false;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (
+        trimmed.includes('KEY HIGHLIGHTS') ||
+        trimmed.includes('એક નજરમાં') ||
+        trimmed.includes('एक नजर में') ||
+        trimmed.includes('AT A GLANCE') ||
+        trimmed.includes('📌')
+      ) {
+        insideHighlights = true;
+        continue;
+      }
+
+      if (insideHighlights) {
+        if (trimmed.startsWith('---') || trimmed.startsWith('***')) {
+          if (points.length > 0) {
+            insideHighlights = false;
+            continue;
+          }
+        }
+        const cleaned = cleanStr(trimmed);
+        if (cleaned.length > 5 && !points.includes(cleaned)) {
+          points.push(cleaned);
+        }
+      } else if (
+        trimmed.startsWith('•') ||
+        trimmed.startsWith('-') ||
+        trimmed.startsWith('*')
+      ) {
+        const cleaned = cleanStr(trimmed);
+        if (cleaned.length > 8 && !points.includes(cleaned)) {
+          points.push(cleaned);
+        }
+      }
+    }
+
+    if (points.length === 0) {
+      const cleanTitle = cleanStr(title);
+      const cleanExcerpt = cleanStr(excerpt);
+
+      if (cleanTitle) points.push(cleanTitle);
+      if (cleanExcerpt && cleanExcerpt !== cleanTitle) points.push(cleanExcerpt);
+    }
+
+    return points.slice(0, 10);
+  }, [title, excerpt, body, article]);
 
   const trendingTopics = useMemo(() => {
     if (language === 'gu') {
@@ -331,11 +423,11 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   </div>
                   <div className="text-[12px] text-[var(--ink-3)] mt-[2px]">
                     {language === 'gu' ? (
-                      <span>પ્રકાશિત: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">અપડેટ: 25 મિનિટ પહેલાં</span></span>
+                      <span>પ્રકાશિત: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">અપડેટ: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'gu')}</span></span>
                     ) : language === 'hi' ? (
-                      <span>प्रकाशित: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">अपडेट: २५ मिनट पहले</span></span>
+                      <span>प्रकाशित: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">अपडेट: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'hi')}</span></span>
                     ) : (
-                      <span>Published: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">Updated: 25m ago</span></span>
+                      <span>Published: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">Updated: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'en')}</span></span>
                     )}
                   </div>
                 </div>
@@ -369,44 +461,71 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             </div>
 
             {/* Gist: એક નજરમાં */}
-            <div className="gist">
-              <div className="gt">
-                <span className="d"></span>
-                <span>{language === 'gu' ? 'એક નજરમાં' : language === 'hi' ? 'एक नजर में' : 'At a Glance'}</span>
+            {gistPoints.length > 0 && (
+              <div className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/50 dark:bg-red-950/20 p-4 shadow-sm">
+                <div className="flex items-center gap-2 font-black text-[#B3121B] text-base mb-3 select-none">
+                  <span className="text-[#B3121B] font-bold text-sm">♦</span>
+                  <span>{language === 'gu' ? 'એક નજરમાં' : language === 'hi' ? 'एक नजर में' : 'At a Glance'}</span>
+                </div>
+                <ul className="space-y-2.5 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                  {gistPoints.map((point, index) => (
+                    <li key={index} className="flex items-start gap-2.5">
+                      <span className="text-[#B3121B] font-bold mt-0.5 shrink-0 select-none">•</span>
+                      <span className="leading-relaxed">{point}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <ul>
-                {gistPoints.map((point, index) => (
-                  <li key={index}>
-                    {point}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            )}
 
             <figure className="article-fig">
-              <div className="imgwrap relative aspect-[16/9] overflow-hidden bg-black rounded-lg shadow-sm">
-                {/* 1 / 3 Indicator Badge */}
-                <div className="absolute top-3.5 left-3.5 z-10 bg-black/75 backdrop-blur-sm text-white font-black text-xs px-2.5 py-1 rounded select-none shadow">
-                  {language === 'gu'
-                    ? `${toGu(activeImageIndex + 1)} / ${toGu(slideImages.length)}`
-                    : language === 'hi'
-                      ? `${activeImageIndex + 1} / ${slideImages.length}`
+              <div className="imgwrap relative aspect-[16/9] overflow-hidden bg-black/5 dark:bg-black/40 rounded-lg shadow-sm group">
+                {/* Indicator Badge (only if multiple images exist) */}
+                {slideImages.length > 1 && (
+                  <div className="absolute top-3.5 left-3.5 z-20 bg-black/75 backdrop-blur-sm text-white font-black text-xs px-2.5 py-1 rounded select-none shadow">
+                    {language === 'gu'
+                      ? `${toGu(activeImageIndex + 1)} / ${toGu(slideImages.length)}`
                       : `${activeImageIndex + 1} / ${slideImages.length}`}
-                </div>
+                  </div>
+                )}
+
+                {/* Slider Prev / Next Arrows */}
+                {slideImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handlePrevImage}
+                      aria-label="Previous slide"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition-all shadow-md active:scale-95"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleNextImage}
+                      aria-label="Next slide"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition-all shadow-md active:scale-95"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </>
+                )}
 
                 {slideImages.map((src, index) => (
                   <div
                     key={src + index}
-                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeImageIndex ? 'opacity-100 z-1' : 'opacity-0 z-0'
+                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
                       }`}
                   >
                     <Image
-                      src={src}
+                      src={src || '/assets/placeholder.jpg'}
                       alt={`${article.title} slide ${index + 1}`}
                       fill
+                      unoptimized={src?.includes('localhost')}
                       sizes="(max-width: 1024px) 100vw, 66vw"
                       className="object-cover"
                       loading={index === 0 ? 'eager' : 'lazy'}
+                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
                     />
                   </div>
                 ))}
@@ -422,7 +541,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         : title}
                 </span>
                 <span style={{ whiteSpace: 'nowrap' }}>
-                  {language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'तस्वीर: गुजरात पोस्ट' : 'Photo: Gujarat Post'}
+                  {language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}
                 </span>
               </figcaption>
             </figure>
@@ -430,7 +549,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             <div className="share-row-custom select-none flex flex-wrap gap-3 items-center mb-6 p-3.5 rounded-2xl bg-neutral-50/80 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 shadow-sm backdrop-blur-sm">
               <span className="lbl font-black text-neutral-900 dark:text-neutral-100 mr-1 text-[14px] tracking-wide uppercase flex items-center gap-1.5 select-none">
                 <span className="h-2 w-2 rounded-full bg-[#B3121B] animate-ping" />
-                {language === 'gu' ? 'શેર કરો:' : language === 'hi' ? 'शेयर करें:' : 'Share:'}
+                {language === 'gu' ? 'શેર કરો:' : language === 'hi' ? 'શેર કરેં:' : 'Share:'}
               </span>
 
               {/* WhatsApp */}
@@ -452,7 +571,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                title={language === 'gu' ? 'ફેસબુક' : language === 'hi' ? 'फेसबुक' : 'Facebook'}
+                title={language === 'gu' ? 'ફેસબુક' : language === 'hi' ? 'ફેસબુક' : 'Facebook'}
                 className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(24,119,242,0.35)] hover:border-[#1877F2]"
               >
                 <svg viewBox="0 0 24 24" className="w-[20px] h-[20px] shrink-0 transition-transform duration-300 group-hover:rotate-[15deg] group-hover:scale-110">
@@ -465,7 +584,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(articleUrl)}`}
                 target="_blank"
                 rel="noreferrer"
-                title={language === 'gu' ? 'પોસ્ટ' : language === 'hi' ? 'पोस्ट' : 'Post'}
+                title={language === 'gu' ? 'પોસ્ટ' : language === 'hi' ? 'પોસ્ટ' : 'Post'}
                 className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.25)] dark:hover:shadow-[0_8px_20px_rgba(255,255,255,0.2)] hover:border-black dark:hover:border-white"
               >
                 <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0 text-neutral-900 dark:text-neutral-100 transition-transform duration-300 group-hover:rotate-[-12deg] group-hover:scale-110">
@@ -572,100 +691,67 @@ export default function NewsDetailClient({ article, related, trending, articleUr
               </button>
             </div>
 
-            <div className="article-body">
-              {(() => {
-                if (isTrafficArticle) {
-                  return (
-                    <>
-                      {paragraphs[0] && <p>{paragraphs[0]}</p>}
-                      {paragraphs[1] && <p>{paragraphs[1]}</p>}
+            <div className="article-body space-y-4">
+              {displayParagraphs.map((p, idx) => {
+                const trimmed = p.trim();
+                if (!trimmed) return null;
 
-                      <blockquote>
-                        <p>
-                          {language === 'gu'
-                            ? '"પ્રથમ 15 દિવસ અમે નાગરિકોને જાગૃત કરીશું, ત્યારબાદ નિયમોનો કડક અમલ થશે."'
-                            : language === 'hi'
-                              ? '"पहले १५ दिन हम नागरिकों को जागरूक करेंगे, उसके बाद नियमों का कड़ा पालन होगा।"'
-                              : '"For the first 15 days we will raise awareness among citizens, after which the rules will be strictly enforced."'}
-                        </p>
-                        <cite>
-                          {language === 'gu'
-                            ? '— પોલીસ કમિશનર, અમદાવાદ'
-                            : language === 'hi'
-                              ? '— पुलिस आयुक्त, अहमदाबाद'
-                              : '— Police Commissioner, Ahmedabad'}
+                // 1. Check if this paragraph is a Blockquote (Quote Callout)
+                if (trimmed.startsWith('> ') || trimmed.startsWith('>"') || trimmed.startsWith('> "')) {
+                  const lines = trimmed.split('\n');
+                  const quoteText = lines
+                    .filter((l) => l.startsWith('>') && !l.includes('> —') && !l.includes('> -'))
+                    .map((l) => l.replace(/^>\s*"?/, '').replace(/"?$/, ''))
+                    .join(' ');
+                  const citeLine = lines.find((l) => l.includes('> —') || l.includes('> -'));
+                  const citeText = citeLine ? citeLine.replace(/^>\s*—\s*/, '').replace(/^>\s*-\s*/, '').trim() : '';
+
+                  return (
+                    <blockquote key={idx} className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/40 p-4 dark:bg-red-950/20 shadow-sm">
+                      <p className="text-base font-bold text-neutral-900 dark:text-white leading-relaxed">
+                        "{quoteText || trimmed.replace(/^>\s*/, '')}"
+                      </p>
+                      {citeText && (
+                        <cite className="block mt-2 text-xs font-bold text-neutral-600 dark:text-neutral-400 not-italic">
+                          — {citeText}
                         </cite>
-                      </blockquote>
-
-                      <figure className="article-fig">
-                        <div className="imgwrap relative aspect-[16/9]">
-                          <Image src="/assets/demo/5.jpg" alt="Traffic Rule E-Challan" fill className="object-cover" />
-                        </div>
-                        <figcaption>
-                          <span>
-                            {language === 'gu'
-                              ? 'નવી સિસ્ટમ હેઠળ ઈ-ચલણ કઈ રીતે જનરેટ થાય છે તે દર્શાવતું દૃશ્ય.'
-                              : language === 'hi'
-                                ? 'नई प्रणाली के तहत ई-चालान कैसे उत्पन्न होता है, यह दर्शाता एक दृश्य।'
-                                : 'A view showing how e-challans are generated under the new system.'}
-                          </span>
-                          <span style={{ whiteSpace: 'nowrap' }}>
-                            {language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'तस्वीर: गुजरात पोस्ट' : 'Photo: Gujarat Post'}
-                          </span>
-                        </figcaption>
-                      </figure>
-
-                      {paragraphs.slice(2).map((p, idx) => (
-                        <p key={idx}>{p}</p>
-                      ))}
-                    </>
-                  );
-                } else if (paragraphs.length >= 3) {
-                  return (
-                    <>
-                      <p>{paragraphs[0]}</p>
-                      <p>{paragraphs[1]}</p>
-
-
-
-                      <blockquote>
-                        <p>"{title}"</p>
-                        <cite>— {authorName}, {authorDesignation}</cite>
-                      </blockquote>
-
-                      <figure className="article-fig">
-                        <div className="imgwrap relative aspect-[16/9]">
-                          <Image src="/assets/demo/3.jpg" alt="Featured Coverage" fill className="object-cover" />
-                        </div>
-                        <figcaption>
-                          <span>{excerpt}</span>
-                          <span style={{ whiteSpace: 'nowrap' }}>
-                            {language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'तस्वीर: गुजरात पोस्ट' : 'Photo: Gujarat Post'}
-                          </span>
-                        </figcaption>
-                      </figure>
-
-                      {paragraphs.slice(2).map((p, idx) => (
-                        <p key={idx}>{p}</p>
-                      ))}
-                    </>
-                  );
-                } else {
-                  return (
-                    <>
-                      {paragraphs.map((p, idx) => (
-                        <div key={idx}>
-                          <p>{p}</p>
-
-                        </div>
-                      ))}
-                    </>
+                      )}
+                    </blockquote>
                   );
                 }
-              })()}
+
+                // 2. Check if this paragraph is an Embedded Image markdown ![alt](url)
+                const imgMatch = trimmed.match(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
+                if (imgMatch) {
+                  const imgAlt = imgMatch[1];
+                  const imgUrl = imgMatch[2];
+                  return (
+                    <figure key={idx} className="my-6 space-y-2">
+                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm">
+                        <Image
+                          src={imgUrl}
+                          alt={imgAlt || title}
+                          fill
+                          unoptimized={imgUrl.includes('localhost')}
+                          className="object-cover"
+                        />
+                      </div>
+                      <figcaption className="flex items-center justify-between text-xs text-neutral-500 font-medium">
+                        <span>{title}</span>
+                        <span>{language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}</span>
+                      </figcaption>
+                    </figure>
+                  );
+                }
+
+                // 3. Normal text paragraph
+                return (
+                  <p key={idx} className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100">
+                    {trimmed}
+                  </p>
+                );
+              })}
             </div>
-
-
 
           </article>
 

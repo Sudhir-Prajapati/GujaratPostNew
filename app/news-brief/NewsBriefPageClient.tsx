@@ -1,25 +1,32 @@
-﻿'use client';
+'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronDown, Search, ArrowUp, ArrowDown, Share2, ArrowLeft } from 'lucide-react';
-import { ARTICLES, getArticleTitle, getArticleExcerpt, getArticleContent, getCategoryLabel } from '@/data';
+import { getArticleTitle, getArticleExcerpt, getArticleContent, getCategoryLabel } from '@/data';
+import { getPublicArticles } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
+import type { Article } from '@/types';
 
 export default function NewsBriefPageClient() {
   const { language } = useApp();
   const [activeIndex, setActiveIndex] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [briefArticles, setBriefArticles] = useState<Article[]>([]);
 
-  // Filter to get standard articles with content
-  const briefArticles = useMemo(() => {
-    return ARTICLES.slice(0, 15); // Show top 15 articles as briefs
+  useEffect(() => {
+    getPublicArticles({ limit: 15 }).then((res) => {
+      if (res && res.articles) {
+        setBriefArticles(res.articles);
+      }
+    });
   }, []);
 
   const currentArticle = briefArticles[activeIndex];
 
   const handleNext = () => {
+    if (briefArticles.length === 0) return;
     if (activeIndex < briefArticles.length - 1) {
       setActiveIndex(activeIndex + 1);
     } else {
@@ -28,6 +35,7 @@ export default function NewsBriefPageClient() {
   };
 
   const handlePrev = () => {
+    if (briefArticles.length === 0) return;
     if (activeIndex > 0) {
       setActiveIndex(activeIndex - 1);
     } else {

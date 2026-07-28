@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Pause, Play } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { BREAKING_TICKER, getLocalized } from '@/data';
+import { getLocalized } from '@/data';
+import { getPublicTickers } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 
 export default function BreakingTicker() {
@@ -18,17 +19,21 @@ export default function BreakingTicker() {
   const [breaking, setBreaking] = useState<any[]>([]);
 
   useEffect(() => {
-    setBreaking([]);
+    getPublicTickers()
+      .then((res) => {
+        setBreaking(res || []);
+      })
+      .catch(() => {
+        setBreaking([]);
+      });
   }, []);
 
-  const itemsToRender = breaking.length > 0
-    ? breaking.map((art: any) => ({
-        en: art.title,
-        gu: art.titleGu,
-        hi: art.titleHi,
-        slug: art.slug,
-      }))
-    : BREAKING_TICKER;
+  const itemsToRender = breaking.map((art: any) => ({
+    en: art.en || art.title,
+    gu: art.gu || art.titleGu,
+    hi: art.hi || art.titleHi,
+    slug: art.slug,
+  }));
 
   return (
     <div className="flex h-10 items-center overflow-hidden bg-[#B3121B] text-white border-y border-[#8a0d14] relative z-30 shadow-sm">

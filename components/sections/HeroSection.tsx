@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles } from 'lucide-react';
@@ -18,6 +18,7 @@ import {
   PHOTOS,
 } from '@/data';
 import { getCategoryColor } from '@/lib/utils';
+import { getPublicArticles, getPublicVideos } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
 import InstagramStories from '@/components/sections/InstagramStories';
@@ -276,31 +277,42 @@ export const getMockRelativeTime = (timeStrGu: string | undefined, language: Lan
   return timeStrGu;
 };
 
+export const DEMO_IMAGES = [
+  '/assets/demo/3.jpg',
+  '/assets/demo/4.jpg',
+  '/assets/demo/1.jpg',
+  '/assets/demo/2.jpg',
+  '/assets/demo/5.jpg',
+  '/assets/demo/6.jpg',
+  '/assets/demo/7.jpg',
+  '/assets/demo/8.jpg',
+];
+
+export function getArticleImage(article?: Article | null): string {
+  if (!article) return DEMO_IMAGES[0];
+  if (article.image && article.image.trim() !== '') {
+    return article.image;
+  }
+  let hash = 0;
+  const key = article.id || article.slug || article.titleGu || article.title || '';
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash << 5) - hash + key.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % DEMO_IMAGES.length;
+  return DEMO_IMAGES[idx];
+}
+
 function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
   const usedImages = new Set<string>();
-  const processedArticleIds = new Set<string>();
-  let fallbackIndex = 0;
 
   return sections.map((section) =>
     section.map((article) => {
-      if (processedArticleIds.has(article.id)) {
-        return article;
-      }
-      processedArticleIds.add(article.id);
-
+      if (!article) return article;
       let image = article.image;
 
-      if (usedImages.has(image)) {
-        for (let tries = 0; tries < HOME_IMAGE_FALLBACKS.length; tries++) {
-          const candidateIndex = (fallbackIndex + tries) % HOME_IMAGE_FALLBACKS.length;
-          const candidate = HOME_IMAGE_FALLBACKS[candidateIndex];
-
-          if (!usedImages.has(candidate)) {
-            image = candidate;
-            fallbackIndex = (candidateIndex + 1) % HOME_IMAGE_FALLBACKS.length;
-            break;
-          }
-        }
+      if (!image || usedImages.has(image)) {
+        image = getArticleImage(article);
       }
 
       usedImages.add(image);
@@ -312,12 +324,91 @@ function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
 /* ===========================================================================
    Main HeroSection -- tv9gujarati.com style 3-column layout
 =========================================================================== */
-export default function HeroSection() {
+export default function HeroSection({
+  initialArticles = [],
+  initialVideos = [],
+}: {
+  initialArticles?: Article[];
+  initialVideos?: any[];
+}) {
   const { language } = useApp();
   const [videoMode, setVideoMode] = useState<'latest' | 'live'>('latest');
 
+  const [articlesList, setArticlesList] = useState<Article[]>(initialArticles);
+  const [videosList, setVideosList] = useState<any[]>(initialVideos);
+
+  // Helper to fill pool to N items
+  const fillPool = (priorityArts: Article[], fallbackArts: Article[], targetSize: number): Article[] => {
+    const pool = [...priorityArts];
+    for (const item of fallbackArts) {
+      if (pool.length >= targetSize) break;
+      if (item && item.id && !pool.some((p) => p.id === item.id)) {
+        pool.push(item);
+      }
+    }
+    return pool;
+  };
+
+  const initFeatured = initialArticles.filter((a) => a.isFeatured);
+  const initTrending = initialArticles.filter((a) => a.isTrending);
+
+  // DB-backed article state
+  const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
+  // topStories: auto-populated from latest articles (main hero, right 2, text articles)
+  const [topStories, setTopStories] = useState<Article[]>(initialArticles.slice(0, 16));
+  // bottomFeatured: admin-selected 3 articles shown in the bottom image row
+  const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
+  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
+  const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
+  const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
+  const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
+  const [worldArtDB, setWorldArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
+  const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
+  const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
+
+  useEffect(() => {
+    // Fetch main articles pool AND the 3 admin-selected featured articles in parallel
+    Promise.all([
+      getPublicArticles({ limit: 60 }),
+      getPublicArticles({ isFeatured: true, limit: 3 }),
+    ]).then(([mainRes, featuredRes]: any[]) => {
+      // Admin-selected bottom 3 image articles — dedicated fetch with isFeatured=true
+      const featuredArticles: Article[] = (featuredRes?.articles ?? []).slice(0, 3);
+      if (featuredArticles.length > 0) {
+        setBottomFeatured(featuredArticles);
+      }
+      const featuredIds = new Set(featuredArticles.map((a: Article) => a.id));
+
+      // Main pool — powers main hero, right 2, text articles
+      // Exclude the bottom-featured articles so they don't also appear in main hero/right side
+      if (mainRes && mainRes.articles && mainRes.articles.length > 0) {
+        const arts: Article[] = mainRes.articles;
+        setArticlesList(arts);
+        setTopNews(arts.slice(0, 6));
+        // Filter out the 3 admin-selected bottom-row articles from the main hero pool
+        const heroPool = arts.filter((a: Article) => !featuredIds.has(a.id));
+        setTopStories(heroPool.slice(0, 16));
+        const trending = arts.filter((a: Article) => a.isTrending);
+        setTrendingArtDB(fillPool(trending, arts, 10));
+        setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
+        setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));
+        setNationalArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
+        setWorldArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'world').slice(0, 4));
+        setBusinessArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'business').slice(0, 4));
+        setSportsArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'sports').slice(0, 7));
+      }
+    });
+    getPublicVideos()
+      .then((res: any) => {
+        if (res && res.length > 0) {
+          setVideosList(res);
+        }
+      })
+      .catch(() => { });
+  }, []);
+
   // Sidebar auto-changing video state (cycles every 10s)
-  const sidebarVideos = VIDEOS.filter(v => v.type === 'video').slice(0, 6);
+  const sidebarVideos = videosList.filter(v => v.type === 'video').slice(0, 6);
   const [activeSidebarVideoIndex, setActiveSidebarVideoIndex] = useState(0);
 
   useEffect(() => {
@@ -356,29 +447,6 @@ export default function HeroSection() {
     }
   };
 
-  // DB-backed article state
-  const [topNews, setTopNews] = useState<Article[]>([]);
-  const [topStories, setTopStories] = useState<Article[]>([]);
-  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>([]);
-  const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>([]);
-  const [crimeArtDB, setCrimeArtDB] = useState<Article[]>([]);
-  const [nationalArtDB, setNationalArtDB] = useState<Article[]>([]);
-  const [worldArtDB, setWorldArtDB] = useState<Article[]>([]);
-  const [businessArtDB, setBusinessArtDB] = useState<Article[]>([]);
-  const [sportsArtDB, setSportsArtDB] = useState<Article[]>([]);
-
-  useEffect(() => {
-    setTopNews(ARTICLES.slice(0, 6));
-    setTopStories(ARTICLES.filter((a) => a.isFeatured).slice(0, 16));
-    setTrendingArtDB(ARTICLES.filter((a) => a.isTrending).slice(0, 10));
-    setGujaratArtDB(getArticlesByCategory('state').slice(0, 16));
-    setCrimeArtDB(getArticlesByCategory('crime').slice(0, 4));
-    setNationalArtDB(getArticlesByCategory('national').slice(0, 4));
-    setWorldArtDB(getArticlesByCategory('world').slice(0, 4));
-    setBusinessArtDB(getArticlesByCategory('business').slice(0, 4));
-    setSportsArtDB(getArticlesByCategory('sports').slice(0, 7));
-  }, []);
-
   // Derived slices
   const leftItems = topNews.slice(0, 5);
   const topStoriesSlice = topStories.slice(0, 16);
@@ -389,12 +457,12 @@ export default function HeroSection() {
     ...topNews,
   ].filter((article, index, list) => list.findIndex((item) => item.id === article.id) === index).slice(0, 16);
 
-  // Videos — still from static data
-  const videos = VIDEOS.filter(v => v.type === 'video' || v.type === 'podcast' || v.type === 'interview').slice(0, 10);
+  // Videos from backend API
+  const videos = videosList.filter(v => v.type === 'video' || v.type === 'podcast' || v.type === 'interview').slice(0, 10);
 
   const [
-    uniqueLeftItems,
     uniqueTopStories,
+    uniqueLeftItems,
     uniqueGujaratArt,
     uniqueCrimeArt,
     uniqueNationalArt,
@@ -403,8 +471,8 @@ export default function HeroSection() {
     uniqueSportsArt,
     uniqueTrendingArt,
   ] = makeHomeImagesUnique([
-    leftItems,
     topStoriesSlice,
+    leftItems,
     stateRowArticles,
     crimeArtDB,
     nationalArtDB,
@@ -423,6 +491,17 @@ export default function HeroSection() {
     article.id !== leadStoryId &&
     list.findIndex((item) => item.id === article.id) === index
   )).slice(0, 8);
+
+  const middleColumnPool = useMemo(() => {
+    const combined = [...uniqueTopStories, ...articlesList, ...initialArticles];
+    const uniqueMap = new Map<string, Article>();
+    combined.forEach((art) => {
+      if (art && art.id && !uniqueMap.has(art.id)) {
+        uniqueMap.set(art.id, art);
+      }
+    });
+    return Array.from(uniqueMap.values());
+  }, [uniqueTopStories, articlesList, initialArticles]);
 
   if (!topStories.length) return <HeroSectionSkeleton language={language} />;
   return (
@@ -444,24 +523,26 @@ export default function HeroSection() {
                   {/* Hero image */}
                   <div className="relative w-full overflow-hidden rounded-sm shadow-sm" style={{ aspectRatio: '3/2' }}>
                     <Image
-                      src={uniqueTopStories[0].image}
+                      src={uniqueTopStories[0].image || '/assets/demo/1.jpg'}
                       alt={uniqueTopStories[0].title}
                       fill
+                      unoptimized={uniqueTopStories[0].image?.includes('localhost') || uniqueTopStories[0].image?.endsWith('.jfif')}
                       sizes="(max-width: 1024px) 100vw, 36vw"
                       className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                       priority
                       loading="eager"
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
                     />
                   </div>
                   {/* Category tags */}
                   <div className="flex items-center gap-1.5 mt-2.5">
-                    {uniqueTopStories[0].isLive ? (
-                      <span className="bg-accent text-white text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-wide flex items-center gap-1 animate-pulse">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />
+                    {uniqueTopStories[0].isLive || uniqueTopStories[0].isBreaking ? (
+                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 shadow-sm">
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                         LIVE
                       </span>
                     ) : (
-                      <span className="bg-accent text-white text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-wide">
+                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
                         {language === 'gu' ? 'ટ્રેન્ડ' : 'Trending'}
                       </span>
                     )}
@@ -499,195 +580,127 @@ export default function HeroSection() {
             </div>
 
             {/* ═══ MIDDLE COLUMN — 2-Column Newspaper Grid ════════════════ */}
-            <div className="grid grid-cols-2 gap-x-4 border-l border-r border-border/40 px-4 min-w-0">
-              {/* Left Sub-Column */}
-              <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 border-l border-r border-border/40 px-4 min-w-0">
+              {/* Top Row: Image Cards */}
+              <div className="grid grid-cols-2 gap-x-4 items-start">
                 {uniqueTopStories[1] && (
-                  <Link href={`/news/${uniqueTopStories[1].slug}`} className="group flex flex-col gap-2">
+                  <Link href={`/news/${uniqueTopStories[1].slug}`} className="group flex flex-col gap-2 min-w-0">
                     <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
                       <Image
-                        src={uniqueTopStories[1].image}
+                        src={uniqueTopStories[1].image || '/assets/demo/2.jpg'}
                         alt={uniqueTopStories[1].title}
                         fill
+                        unoptimized={uniqueTopStories[1].image?.includes('localhost') || uniqueTopStories[1].image?.endsWith('.jfif')}
                         sizes="(max-width: 1024px) 50vw, 15vw"
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/2.jpg'; }}
                       />
                     </div>
-                    {uniqueTopStories[1].isLive && (
-                      <div className="flex items-center gap-1">
-                        <span className="bg-accent text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-wide">
-                          LIVE
-                        </span>
-                      </div>
-                    )}
-                    <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-3">
+                    <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
                       {getArticleTitle(uniqueTopStories[1], language)}
                     </h3>
                   </Link>
                 )}
 
-                {[uniqueTopStories[4], uniqueTopStories[5], uniqueTopStories[8], uniqueTopStories[9]]
-                  .filter(Boolean)
-                  .map((art, idx) => (
-                    <Link
-                      key={art.id}
-                      href={`/news/${art.slug}`}
-                      className="group flex flex-col py-2 border-t border-border/40 hover:bg-muted/10 transition-colors rounded-md"
-                    >
-                      <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-3">
-                        {getArticleTitle(art, language)}
-                      </h3>
-                    </Link>
-                  ))}
-              </div>
-
-              {/* Right Sub-Column */}
-              <div className="flex flex-col gap-2">
                 {uniqueTopStories[2] && (
-                  <Link href={`/news/${uniqueTopStories[2].slug}`} className="group flex flex-col gap-2">
+                  <Link href={`/news/${uniqueTopStories[2].slug}`} className="group flex flex-col gap-2 min-w-0">
                     <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
                       <Image
-                        src={uniqueTopStories[2].image}
+                        src={uniqueTopStories[2].image || '/assets/demo/3.jpg'}
                         alt={uniqueTopStories[2].title}
                         fill
+                        unoptimized={uniqueTopStories[2].image?.includes('localhost') || uniqueTopStories[2].image?.endsWith('.jfif')}
                         sizes="(max-width: 1024px) 50vw, 15vw"
                         className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/3.jpg'; }}
                       />
                     </div>
-                    {uniqueTopStories[2].isLive && (
-                      <div className="flex items-center gap-1">
-                        <span className="bg-accent text-white text-[9px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-wide">
-                          LIVE
-                        </span>
-                      </div>
-                    )}
-                    <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-3">
+                    <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
                       {getArticleTitle(uniqueTopStories[2], language)}
                     </h3>
-                    {uniqueTopStories[2].isLive && (
-                      <span className="text-[11px] text-accent font-black hover:underline mt-0.5">
-                        • લાઈવ સ્કોર
-                      </span>
-                    )}
                   </Link>
                 )}
+              </div>
 
-                {[uniqueTopStories[6], uniqueTopStories[7], uniqueTopStories[11], uniqueTopStories[12]]
-                  .filter(Boolean)
-                  .map((art, idx) => (
+              {/* Text Article Rows: 5 paired rows with aligned top borders and line-clamp-2 */}
+              {[
+                [middleColumnPool[3], middleColumnPool[4]],
+                [middleColumnPool[5], middleColumnPool[6]],
+                [middleColumnPool[7], middleColumnPool[8]],
+                [middleColumnPool[9], middleColumnPool[10]],
+                [middleColumnPool[11], middleColumnPool[12]],
+              ].map(([leftArt, rightArt], idx) => (
+                <div key={idx} className="grid grid-cols-2 gap-x-4 border-t border-border/40 pt-2 pb-1 items-start">
+                  {leftArt ? (
                     <Link
-                      key={art.id}
-                      href={`/news/${art.slug}`}
-                      className="group flex flex-col py-2 border-t border-border/40 hover:bg-muted/10 transition-colors rounded-md"
+                      href={`/news/${leftArt.slug}`}
+                      className="group flex flex-col hover:bg-muted/10 transition-colors rounded-md min-w-0"
                     >
-                      <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-3">
-                        {getArticleTitle(art, language)}
+                      <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                        {getArticleTitle(leftArt, language)}
                       </h3>
                     </Link>
-                  ))}
-              </div>
+                  ) : <div />}
+
+                  {rightArt ? (
+                    <Link
+                      href={`/news/${rightArt.slug}`}
+                      className="group flex flex-col hover:bg-muted/10 transition-colors rounded-md min-w-0"
+                    >
+                      <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                        {getArticleTitle(rightArt, language)}
+                      </h3>
+                    </Link>
+                  ) : <div />}
+                </div>
+              ))}
             </div>
           </div> {/* Close Top Row grid */}
 
-          {/* Bottom Row: Three horizontal articles (spanning full width of Content Column) */}
+          {/* Bottom Row: Three admin-selected featured image articles */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/80 pt-4">
-
-            {/* Article 1 */}
-            <Link
-              href="/news/girnar-ropeway-tourist-rush-increases-tremendously-205"
-              className="group flex flex-col min-w-0"
-            >
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image
-                  src="/assets/demo/3.jpg"
-                  alt="Girnar Ropeway"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
-                {language === 'gu' ? 'રાજ્ય સમાચાર' : 'State News'}
-              </span>
-              <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-                {language === 'gu'
-                  ? 'ગિરનાર રોપ-વે પર ઉમટ્યા પ્રવાસીઓ! સંખ્યામાં જોરદાર વધારો, નાગરિક સંગઠનો દ્વારા સુરક્ષા અંગે ચિંતા વ્યક્ત કરી તાત્કાલિક પગલાંની માંગ'
-                  : 'Tourists flock to Girnar Ropeway! Tremendous increase in numbers, safety measures demanded'}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
-                <span>{language === 'gu' ? '4 કલાક પહેલાં' : '4 hours ago'}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>10:30 AM</span>
-                </span>
-              </div>
-            </Link>
-
-            {/* Article 2 */}
-            <Link
-              href="/news/europe-new-trade-treaty-india-benefit-206"
-              className="group flex flex-col min-w-0"
-            >
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image
-                  src="/assets/demo/5.jpg"
-                  alt="Europe Trade Treaty"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
-                {language === 'gu' ? 'વિશ્વ' : 'World'}
-              </span>
-              <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-                {language === 'gu'
-                  ? 'યુરોપમાં નવી વ્યાપાર સંધિ પર હસ્તાક્ષર, ભારતને પણ ફાયદો, સ્થાનિક પ્રશાસન દ્વારા હાઈ એલર્ટ અને ઈમરજન્સી હેલ્પલાઈન જાહેર'
-                  : 'New trade agreement signed in Europe, India to benefit too, high alert issued'}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
-                <span>{language === 'gu' ? '3 કલાક પહેલાં' : '3 hours ago'}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>11:30 AM</span>
-                </span>
-              </div>
-            </Link>
-
-            {/* Article 3 */}
-            <Link
-              href="/news/gold-silver-price-surge-latest-rates-today-402"
-              className="group flex flex-col min-w-0"
-            >
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image
-                  src="/assets/demo/6.jpg"
-                  alt="Gold Rates"
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
-                {language === 'gu' ? 'બિઝનેસ' : 'Business'}
-              </span>
-              <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-                {language === 'gu'
-                  ? 'સોના-ચાંદીના ભાવમાં જોરદાર ઉછાળો! જાણો આજના લેટેસ્ટ રેટ, નવી નાણાકીય નીતિના ફેરફારોથી ટેક સ્ટાર્ટઅપ્સમાં રોકાણ વધવાની અપેક્ષા'
-                  : 'Gold-silver prices surge! Know rates today, tech startups investments expected to rise'}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
-                <span>{language === 'gu' ? '2 કલાક પહેલાં' : '2 hours ago'}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>12:30 PM</span>
-                </span>
-              </div>
-            </Link>
-
+            {[0, 1, 2].map((idx) => {
+              const art = bottomFeatured[idx];
+              if (!art) return null;
+              return (
+                <Link
+                  key={art.id || idx}
+                  href={`/news/${art.slug}`}
+                  className="group flex flex-col min-w-0"
+                >
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
+                    <Image
+                      src={art.image || getArticleImage(art)}
+                      alt={art.title || ''}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 25vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => { (e.target as HTMLImageElement).src = `/assets/demo/${(idx % 6) + 1}.jpg`; }}
+                    />
+                  </div>
+                  <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
+                    {art.category || (language === 'gu' ? 'સમાચાર' : 'News')}
+                  </span>
+                  <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
+                    {getArticleTitle(art, language)}
+                  </h3>
+                  <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
+                    <span>
+                      {language === 'gu'
+                        ? (art.relativeTimeGu || formatDate(art.publishedAt))
+                        : language === 'hi'
+                          ? (art.relativeTimeHi || formatDate(art.publishedAt))
+                          : (art.relativeTime || formatDate(art.publishedAt))}
+                    </span>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                      <span>{art.readingTime ? `${art.readingTime} min read` : '02:30 PM'}</span>
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
         </div> {/* Close Left Content Side */}
@@ -792,7 +805,7 @@ export default function HeroSection() {
                   <span className="text-[18px] font-black text-[#B3121B]/85 group-hover:text-[#B3121B] font-serif w-5 shrink-0 mt-0.5 transition-colors select-none text-center">
                     {idx + 1}
                   </span>
-                  <h4 className="text-[12.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors flex-1 line-clamp-3">
+                  <h4 className="text-[12.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors flex-1 line-clamp-2">
                     {getArticleTitle(art, language)}
                   </h4>
                 </Link>
@@ -6578,7 +6591,7 @@ function PhotoGallerySection({ language }: { language: Language }) {
         </div>
 
         {/* Scrollable Magazine Flex Strip */}
-        <div 
+        <div
           ref={scrollRef}
           onMouseEnter={() => { isPausedRef.current = true; }}
           onMouseLeave={() => { isPausedRef.current = false; lastTimeRef.current = performance.now(); }}

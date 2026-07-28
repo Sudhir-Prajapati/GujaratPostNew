@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,17 +12,12 @@ import {
   getArticleTitle,
   getCategoryLabel,
 } from '@/data';
-import { getCategoryColor } from '@/lib/utils';
+import { getCategoryColor, toGu } from '@/lib/utils';
 import { useApp } from '@/components/AppProvider';
 
 interface NewsCardProps {
   article: Article;
   variant?: 'default' | 'hero' | 'small' | 'horizontal' | 'compact' | 'flat';
-}
-
-function toGu(n: number | string) {
-  const guDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
-  return String(n).replace(/\d/g, (d) => guDigits[+d]);
 }
 
 export default function NewsCard({ article, variant = 'default' }: NewsCardProps) {
@@ -37,12 +32,14 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
       <Link href={`/news/${article.slug}`} className="news-card group relative block overflow-hidden rounded-xl bg-card">
         <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
           <Image
-            src={article.image}
+            src={article.image || '/assets/demo/1.jpg'}
             alt={article.title}
             fill
+            unoptimized={article.image?.includes('localhost') || article.image?.endsWith('.jfif')}
             sizes="(max-width: 1024px) 100vw, 66vw"
             className="object-cover transition duration-500 group-hover:scale-105"
             loading="eager"
+            onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
           />
           <div className="img-overlay absolute inset-0" />
           {article.isBreaking && <span className="live-badge absolute left-3 top-3 rounded bg-accent px-2 py-1 text-xs font-black text-white">BREAKING</span>}

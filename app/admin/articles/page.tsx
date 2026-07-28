@@ -22,13 +22,16 @@ import {
 interface ArticleData {
   id: string;
   slug: string;
+  articleNumber?: number;
   title: string;
   titleGu: string;
   titleHi: string;
   featuredImage: string;
   views: number;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED';
-  publishedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
   authorId: string;
   author: {
     id: string;
@@ -65,7 +68,7 @@ export default function ArticleList() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [langTab, setLangTab] = useState<'en' | 'gu' | 'hi'>('en');
+  const [langTab, setLangTab] = useState<'en' | 'gu' | 'hi'>('gu');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userAuthorId, setUserAuthorId] = useState<string | null>(null);
   
@@ -87,7 +90,7 @@ export default function ArticleList() {
     fetch('/api/auth/me')
       .then((res) => res.json())
       .then((json) => {
-        if (json.data?.authenticated) {
+        if (json.success && json.data?.user) {
           setUserRole(json.data.user.role);
           setUserAuthorId(json.data.user.authorId);
         }
@@ -101,7 +104,10 @@ export default function ArticleList() {
       try {
         const res = await fetch('/api/admin/categories');
         const json = await res.json();
-        if (res.ok) setCategories(json.data || []);
+        if (res.ok) {
+          const raw: CategoryData[] = json.data || [];
+          setCategories(raw.filter((c) => !['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'].includes(c.slug?.toLowerCase())));
+        }
       } catch (err) {
         console.error('Failed to load categories', err);
       }
@@ -260,8 +266,11 @@ export default function ArticleList() {
     );
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'Recently';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Recently';
+    return d.toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -353,40 +362,6 @@ export default function ArticleList() {
             </span>
           </div>
         </div>
-
-        {/* Translation Preview Tabs */}
-        <div className="flex items-center gap-1 bg-zinc-100 rounded-xl p-1 dark:bg-zinc-950 self-start md:self-auto">
-          <button
-            onClick={() => setLangTab('en')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-              langTab === 'en'
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-            }`}
-          >
-            English
-          </button>
-          <button
-            onClick={() => setLangTab('gu')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-              langTab === 'gu'
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-            }`}
-          >
-            ગુજરાતી
-          </button>
-          <button
-            onClick={() => setLangTab('hi')}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-              langTab === 'hi'
-                ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-white'
-                : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400'
-            }`}
-          >
-            हिन्दी
-          </button>
-        </div>
       </div>
 
       {/* Main Table Card */}
@@ -440,11 +415,18 @@ export default function ArticleList() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="line-clamp-2 text-zinc-900 font-bold leading-tight dark:text-white">
-                            {langTab === 'en' ? art.title : langTab === 'gu' ? art.titleGu : art.titleHi}
+                            {art.titleGu || art.title || art.titleHi}
                           </p>
-                          <p className="text-[10px] text-zinc-400 mt-1 uppercase font-semibold tracking-wider font-mono">
-                            slug: {art.slug}
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            {art.articleNumber && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-100 text-[#B3121B] dark:bg-red-950/40 dark:text-red-400 text-[10px] font-black font-mono">
+                                #{art.articleNumber}
+                              </span>
+                            )}
+                            <span className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider font-mono truncate">
+                              slug: {art.slug}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -469,7 +451,7 @@ export default function ArticleList() {
 
                     {/* Published Date */}
                     <td className="px-6 py-4 whitespace-nowrap text-zinc-500 dark:text-zinc-400">
-                      {formatDate(art.publishedAt)}
+                      {formatDate(art.createdAt || art.updatedAt || art.publishedAt)}
                     </td>
 
                     {/* Status badge */}

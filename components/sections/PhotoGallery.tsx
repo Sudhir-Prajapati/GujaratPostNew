@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { PHOTOS, getLocalized } from '@/data';
+import { getLocalized } from '@/data';
+import { getPublicGallery } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -40,60 +41,10 @@ export default function PhotoGallery() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Merge database photos with 6 high-fidelity extra photos
-    const basePhotos = PHOTOS;
-    const extraPhotos = [
-      {
-        id: "ph13",
-        src: "https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=800&q=80",
-        alt: "Gir Forest Lion",
-        caption: "Gir National Park registers rise in Asiatic lion sightings",
-        captionGu: "ગીર રાષ્ટ્રીય ઉદ્યાનમાં એશિયાટિક સિંહોની સંખ્યામાં વધારો નોંધાયો",
-        captionHi: "ગીર રાષ્ટ્રીય ઉદ્યાનમાં એશિયાટિક સિંહોની સંખ્યામાં વધારો નોંધાયો"
-      },
-      {
-        id: "ph14",
-        src: "https://images.unsplash.com/photo-1596422846543-c5c6ff183bfe?w=800&q=80",
-        alt: "Rann of Kutch",
-        caption: "White desert of Rann of Kutch prep for winter tourist peak",
-        captionGu: "કચ્છનું સફેદ રણ શિયાળાના પ્રવાસીઓ માટે સજ્જ થઈ રહ્યું છે",
-        captionHi: "કચ્છનું સફેદ રણ શિયાળાના પ્રવાસીઓ માટે સજ્જ થઈ રહ્યું છે"
-      },
-      {
-        id: "ph15",
-        src: "https://images.unsplash.com/photo-1627894783046-765cd470db98?w=800&q=80",
-        alt: "Dwarkadhish Temple",
-        caption: "Dwarka beach tourism gets massive central funding boost",
-        captionGu: "દ્વારકા બીચ ટુરિઝમને કેન્દ્ર સરકાર તરફથી મોટું ફંડ મળ્યું",
-        captionHi: "દ્વારકા બીચ ટુરિઝમને કેન્દ્ર સરકાર તરફથી મોટું ફંડ મળ્યું"
-      },
-      {
-        id: "ph16",
-        src: "https://images.unsplash.com/photo-1561715276-a2d087060f1d?w=800&q=80",
-        alt: "Traditional Art",
-        caption: "Kutchi handicraft weavers receive national recognition rewards",
-        captionGu: "કચ્છી હસ્તકલા વણકરોને રાષ્ટ્રીય સ્તરે સન્માન મળ્યું",
-        captionHi: "કચ્છી હસ્તકલા વણકરોને રાષ્ટ્રીય સ્તરે સન્માન મળ્યું"
-      },
-      {
-        id: "ph17",
-        src: "https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?w=800&q=80",
-        alt: "Surat Textiles",
-        caption: "Surat textile hubs announce record export orders for 2026",
-        captionGu: "સુરત ટેક્સટાઈલ હબ દ્વારા ૨૦૨૬માં રેકોર્ડ નિકાસ ઓર્ડર જાહેર",
-        captionHi: "સુરત ટેક્સટાઈલ હબ દ્વારા ૨૦૨૬માં રેકોર્ડ નિકાસ ઓર્ડર જાહેર"
-      },
-      {
-        id: "ph18",
-        src: "https://images.unsplash.com/photo-1590073844006-33379778ae09?w=800&q=80",
-        alt: "Sabarmati Ashram",
-        caption: "Sabarmati Ashram restoration project nears completion phase",
-        captionGu: "સાબરમતી આશ્રમ પુનઃનિર્માણ પ્રોજેક્ટ પૂર્ણતાના આરે છે",
-        captionHi: "સાબરમતી આશ્રમ પુનઃનિર્માણ પ્રોજેક્ટ પૂર્ણતાના આરે છે"
-      }
-    ];
-    setPhotos([...basePhotos, ...extraPhotos]);
-    setLoading(false);
+    getPublicGallery().then((res) => {
+      setPhotos(res || []);
+      setLoading(false);
+    });
   }, []);
 
   // Continuous 60fps auto-scroll loop with float ref accumulation to eliminate integer rounding freezes

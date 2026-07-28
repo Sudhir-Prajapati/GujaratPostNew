@@ -1,6 +1,11 @@
-import { CATEGORY_META, ARTICLES, getArticlesByCategory, categorySlugMapping } from "@/data";
+import { CATEGORY_META, categorySlugMapping } from "@/data";
+import { getPublicArticles, getPublicCategories } from "@/lib/api";
 import CategoryPageClient from "./CategoryPageClient";
 import { notFound } from "next/navigation";
+
+// Force dynamic rendering — always fetch fresh articles from the backend API
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function generateStaticParams() {
   const metaKeys = Object.keys(CATEGORY_META).filter((slug) => !["videos", "shorts", "podcasts"].includes(slug));
@@ -41,36 +46,54 @@ export default async function CategoryPage({
   const resolvedSearchParams = await searchParams;
   const page = parseInt(resolvedSearchParams?.page || "1", 10);
   const limit = parseInt(resolvedSearchParams?.limit || "40", 10);
-  const skip = (page - 1) * limit;
 
-  // 1. Fetch category from static metadata after resolving mapped slug
   const resolvedSlug = categorySlugMapping[slug] || slug;
-  const category = CATEGORY_META[resolvedSlug as keyof typeof CATEGORY_META];
+  
+  // 1. Fetch category details directly from Express Backend API
+  const dbCategories = await getPublicCategories();
+  const dbCat = dbCategories.find((c: any) => c.slug === resolvedSlug);
+  const fallbackCat = CATEGORY_META[resolvedSlug as keyof typeof CATEGORY_META];
 
-  if (!category) {
+  if (!dbCat && !fallbackCat) {
     notFound();
   }
 
-  // 2. Fetch paginated articles from static data
-  const allArticles = getArticlesByCategory(category.name);
-  const total = allArticles.length;
-  const articles = allArticles.slice(skip, skip + limit);
+  const categoryData = {
+    name: dbCat?.name || fallbackCat?.name || slug,
+    nameGu: dbCat?.nameGu || fallbackCat?.gu || slug,
+    nameHi: dbCat?.nameHi || fallbackCat?.hi || slug,
+    description: dbCat?.description || dbCat?.descriptionGu || "",
+    icon: dbCat?.icon || "newspaper",
+    color: dbCat?.color || "#dc2626",
+  };
 
-  // 3. Fetch trending articles from static data
-  const trending = ARTICLES.filter((art) => art.isTrending).slice(0, 10);
-  const totalPages = Math.ceil(total / limit);
+  // 2. Fetch dynamic category articles from Backend API — latest first (updatedAt desc)
+  const { articles: rawArticles, total, totalPages } = await getPublicArticles({
+    categorySlug: resolvedSlug,
+    page,
+    limit,
+  });
+
+  // Sort latest first by updatedAt (most recently edited/published article comes first)
+  const articles = [...rawArticles].sort((a, b) => {
+    const aTime = new Date((a as any).updatedAt || a.publishedAt || 0).getTime();
+    const bTime = new Date((b as any).updatedAt || b.publishedAt || 0).getTime();
+    return bTime - aTime;
+  });
+
+  // 3. Fetch dynamic trending articles from Backend API
+  const { articles: trending } = await getPublicArticles({
+    isTrending: true,
+    limit: 10,
+  });
 
   return (
     <CategoryPageClient
       articles={articles}
-      category={{
-        name: category.name,
-        nameGu: category.gu,
-        nameHi: category.hi,
-      }}
+      category={categoryData}
       trending={trending}
       currentPage={page}
-      totalPages={totalPages}
+      totalPages={totalPages || Math.ceil(total / limit)}
       slug={slug}
     />
   );

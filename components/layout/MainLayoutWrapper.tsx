@@ -12,9 +12,14 @@ interface Props {
 
 export default function MainLayoutWrapper({ children }: Props) {
   const pathname = usePathname();
-  const isNewsBrief = pathname === '/news-brief';
 
-  if (isNewsBrief) {
+  // Admin and login pages manage their own layout — skip all frontend chrome
+  if (pathname === '/login' || pathname.startsWith('/admin')) {
+    return <>{children}</>;
+  }
+
+  // News brief has a minimal wrapper
+  if (pathname === '/news-brief') {
     return <main className="min-h-screen bg-[#F8F9FA]">{children}</main>;
   }
 

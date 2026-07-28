@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ARTICLES, SITE_URL, getRelatedArticles } from "@/data";
+import { SITE_URL } from "@/data";
+import { getPublicArticleBySlug, getPublicArticles } from "@/lib/api";
 import NewsDetailClient from "./NewsDetailClient";
 
 export async function generateStaticParams() {
-  return ARTICLES.map((article) => ({ slug: article.slug }));
+  const { articles } = await getPublicArticles({ limit: 50 });
+  return articles.map((article) => ({ slug: article.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const article = ARTICLES.find((item) => item.slug === slug);
+  const article = await getPublicArticleBySlug(slug);
   if (!article) return {};
   const url = `/news/${article.slug}`;
 
@@ -41,11 +43,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function NewsDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = ARTICLES.find((item) => item.slug === slug);
+  const article = await getPublicArticleBySlug(slug);
+
   if (!article) notFound();
 
-  const related = getRelatedArticles(article);
-  const trending = ARTICLES.filter((item) => item.isTrending && item.id !== article.id).slice(0, 11);
+  // Fetch related & trending articles from dynamic API
+  const { articles: related } = await getPublicArticles({ limit: 9 });
+  const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 11 });
+
   const articleUrl = `${SITE_URL}/news/${article.slug}`;
   const structuredData = {
     "@context": "https://schema.org",

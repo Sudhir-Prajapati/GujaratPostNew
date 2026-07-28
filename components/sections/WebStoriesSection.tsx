@@ -16,7 +16,11 @@ interface StoryItem {
   descriptionGu: string;
 }
 
-const STORY_ITEMS: StoryItem[] = [
+import { getPublicWebStories } from '@/lib/api';
+
+const AUTO_PLAY_DURATION = 5000;
+
+const FALLBACK_STORY_ITEMS: StoryItem[] = [
   {
     id: 'webstory1',
     title: 'Future Tech',
@@ -35,121 +39,31 @@ const STORY_ITEMS: StoryItem[] = [
     description: 'Nutritionist-approved quick meals to boost your energy throughout the day.',
     descriptionGu: 'આખો દિવસ તમારી એનર્જી વધારવા માટે ઝડપી પૌષ્ટિક આહાર રેસિપી.',
   },
-  {
-    id: 'webstory3',
-    title: 'Ayurvedic Wellness',
-    titleGu: 'આયુર્વેદિક ઉપચાર',
-    avatar: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/2.jpg',
-    description: 'Ancient Ayurvedic herbs for modern healthy living and daily wellness.',
-    descriptionGu: 'આધુનિક તંદુરસ્ત જીવન અને દૈનિક સુખાકારી માટે પ્રાચીન આયુર્વેદિક જડીબુટ્ટીઓ.',
-  },
-  {
-    id: 'webstory4',
-    title: 'Celebrity Diary',
-    titleGu: 'સ્ટાર ડાયરી',
-    avatar: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/6.jpg',
-    description: 'Inside look at the most anticipated celebrity events of the season.',
-    descriptionGu: 'સિઝનના સૌથી વધુ પ્રખ્યાત સેલિબ્રિટી કાર્યક્રમોની અંદરની એક ઝલક.',
-  },
-  {
-    id: 'webstory5',
-    title: 'Fashion Trends',
-    titleGu: 'ફેશન હબ',
-    avatar: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/4.jpg',
-    description: 'Discover the trending jacket styles and color palettes for this winter.',
-    descriptionGu: 'આ શિયાળા માટે ટ્રેન્ડિંગ જેકેટ શૈલીઓ અને કલર કોમ્બિનેશન શોધો.',
-  },
-  {
-    id: 'webstory6',
-    title: 'Smile & Care',
-    titleGu: 'સ્મિત કલાજી',
-    avatar: 'https://images.unsplash.com/photo-1606811971618-4486d14f3f99?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/3.jpg',
-    description: 'Simple dental hygiene habits to keep your smile bright and healthy.',
-    descriptionGu: 'તમારા સ્મિતને તેજસ્વી અને સ્વસ્થ રાખવા માટે ડેન્ટલ હાઇજિન ટિપ્સ.',
-  },
-  {
-    id: 'webstory7',
-    title: 'Fact Check',
-    titleGu: 'ફેક્ટ ચેક',
-    avatar: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/8.jpg',
-    description: 'Verifying trending claims and statements to reveal the truth.',
-    descriptionGu: 'સત્ય જાહેર કરવા માટે ટ્રેન્ડિંગ દાવાઓ અને નિવેદનોની ચકાસણી કરવી.',
-  },
-  {
-    id: 'webstory8',
-    title: 'Gujarat Tourism',
-    titleGu: 'ગુજરાત પ્રવાસન',
-    avatar: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/5.jpg',
-    description: 'Explore the scenic beauty, heritage sites, and hidden gems of Gujarat.',
-    descriptionGu: 'ગુજરાતના દર્શનીય સ્થળો, હેરિટેજ અને ગુપ્ત સુંદર સ્થળોની મુલાકાત લો.',
-  },
-  {
-    id: 'webstory9',
-    title: 'Smart Gadgets',
-    titleGu: 'સ્માર્ટ ગેજેટ્સ',
-    avatar: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/2.jpg',
-    description: 'Top innovative smart gadgets transforming your everyday home life.',
-    descriptionGu: 'તમારા દૈનિક હોમ લાઈફને બદલતા ટોપ સ્માર્ટ આધુનિક ગેજેટ્સ.',
-  },
-  {
-    id: 'webstory10',
-    title: 'Fitness & Yoga',
-    titleGu: 'ફિટનેસ અને યોગ',
-    avatar: 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/1.jpg',
-    description: 'Daily yoga routines and workouts for mental peace and physical strength.',
-    descriptionGu: 'માનસિક શાંતિ અને શારીરિક શક્તિ માટે દૈનિક યોગાભ્યાસ અને વર્કઆઉટ.',
-  },
-  {
-    id: 'webstory11',
-    title: 'Cricket Special',
-    titleGu: 'ક્રિકેટ સ્પેશિયલ',
-    avatar: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/4.jpg',
-    description: 'Historic cricket moments, player updates, and match analysis.',
-    descriptionGu: 'ઐતિહાસિક ક્રિકેટ ક્ષણો, ખેલાડી અપડેટ્સ અને મેચ વિશ્લેષણ.',
-  },
-  {
-    id: 'webstory12',
-    title: 'Nature & Wildlife',
-    titleGu: 'પ્રકૃતિ અને વન્યજીવન',
-    avatar: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/3.jpg',
-    description: 'Breathtaking wildlife photography and nature conservation stories.',
-    descriptionGu: 'રોમાંચક વન્યજીવન ફોટોગ્રાફી અને પ્રકૃતિ સંરક્ષણ વાર્તાઓ.',
-  },
-  {
-    id: 'webstory13',
-    title: 'Automobile Hub',
-    titleGu: 'ઓટોમોબાઈલ હબ',
-    avatar: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/6.jpg',
-    description: 'Next-gen electric vehicles and luxury supercar launches in 2025.',
-    descriptionGu: '2025માં નેક્સ્ટ-જેન ઇલેક્ટ્રિક વાહનો અને લક્ઝરી કાર લોન્ચ.',
-  },
-  {
-    id: 'webstory14',
-    title: 'Space & Astronomy',
-    titleGu: 'અંતરિક્ષ અને વિજ્ઞાન',
-    avatar: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/7.jpg',
-    description: 'Discover the latest space exploration missions and galaxy discoveries.',
-    descriptionGu: 'અદ્યતન અંતરિક્ષ સંશોધન મિશન અને ગેલેક્સીની નવી શોધ જુઓ.',
-  }
 ];
-
-const AUTO_PLAY_DURATION = 5000;
 
 export default function WebStoriesSection() {
   const { language } = useApp();
+  const [stories, setStories] = useState<StoryItem[]>(FALLBACK_STORY_ITEMS);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    getPublicWebStories().then((res) => {
+      if (res && res.length > 0) {
+        const formatted: StoryItem[] = res.map((ws: any) => ({
+          id: ws.id,
+          title: ws.title,
+          titleGu: ws.titleGu,
+          avatar: ws.coverImage,
+          image: ws.coverImage,
+          description: ws.title,
+          descriptionGu: ws.titleGu,
+        }));
+        setStories(formatted);
+      }
+    });
+  }, []);
+
+  const STORY_ITEMS = stories;
   const [progress, setProgress] = useState(0);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
