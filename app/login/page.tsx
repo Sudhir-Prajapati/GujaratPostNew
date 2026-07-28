@@ -36,7 +36,7 @@ function LoginForm() {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL
         ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
-        : 'http://localhost:5000/api';
+        : 'https://gujaratpost.onrender.com/api';
 
       const response = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
