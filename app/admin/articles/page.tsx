@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
+import { getBackendApiUrl } from '@/lib/api';
 
 interface ArticleData {
   id: string;
