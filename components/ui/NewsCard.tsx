@@ -29,7 +29,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
 
   if (variant === 'hero') {
     return (
-      <Link href={`/news/${article.slug}`} className="news-card group relative block overflow-hidden rounded-xl bg-card">
+      <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group relative block overflow-hidden rounded-xl bg-card">
         <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
           <Image
             src={article.image || '/assets/demo/1.jpg'}
@@ -58,7 +58,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
 
   if (variant === 'small') {
     return (
-      <Link href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-xl bg-card">
+      <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-xl bg-card">
         <div className="relative aspect-[16/11] w-full">
           <Image src={article.image} alt={article.title} fill sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105" />
           <div className="img-overlay absolute inset-0" />
@@ -74,7 +74,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
 
   if (variant === 'horizontal') {
     return (
-      <Link href={`/news/${article.slug}`} className="news-card flex gap-3 rounded-lg border border-border bg-card p-2.5">
+      <Link prefetch={false} href={`/news/${article.slug}`} className="news-card flex gap-3 rounded-lg border border-border bg-card p-2.5">
         <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-md">
           <Image src={article.image} alt={article.title} fill sizes="128px" className="object-cover" />
         </div>
@@ -92,7 +92,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
 
   if (variant === 'compact') {
     return (
-      <Link href={`/news/${article.slug}`} className="flex gap-3 border-b border-border py-3 transition hover:opacity-75">
+      <Link prefetch={false} href={`/news/${article.slug}`} className="flex gap-3 border-b border-border py-3 transition hover:opacity-75">
         <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg">
           <Image src={article.image} alt={article.title} fill sizes="80px" className="object-cover" />
         </div>
@@ -124,7 +124,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
       : (article as any).views || formatViews(article.views);
 
     return (
-      <Link href={`/news/${article.slug}`} className="group block">
+      <Link prefetch={false} href={`/news/${article.slug}`} className="group block">
         <div className="relative aspect-[16/10] w-full overflow-hidden rounded bg-muted shadow-sm">
           <Image
             src={article.image}
@@ -152,7 +152,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
   }
 
   return (
-    <Link href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-lg border border-border bg-card">
+    <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-[16/9] w-full">
         <Image src={article.image} alt={article.title} fill sizes="(max-width: 768px) 50vw, 17vw" className="object-cover transition duration-300 group-hover:scale-105" />
         {article.isBreaking && <span className="absolute left-1.5 top-1.5 rounded bg-accent px-1.5 py-0.5 text-[9px] font-black text-white">BREAKING</span>}

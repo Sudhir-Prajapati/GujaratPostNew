@@ -14,6 +14,54 @@ export function getBackendApiUrl(path: string): string {
   return `${BACKEND_API_BASE}${cleanPath}`;
 }
 
+// Memory cache & In-flight request deduplication map
+const apiCache = new Map<string, { timestamp: number; data: any }>();
+const inFlightRequests = new Map<string, Promise<any>>();
+const CACHE_TTL_MS = 60000; // 60 seconds cache TTL for public API calls
+
+/**
+ * Fetch wrapper with caching & in-flight request deduplication
+ */
+async function fetchCachedJson<T = any>(url: string): Promise<T | null> {
+  const now = Date.now();
+  const cached = apiCache.get(url);
+  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data as T;
+  }
+
+  if (inFlightRequests.has(url)) {
+    try {
+      return (await inFlightRequests.get(url)) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  const fetchPromise = (async () => {
+    const res = await fetch(url, {
+      next: { revalidate: 60 },
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP error ${res.status}`);
+    }
+    const json = await res.json();
+    apiCache.set(url, { timestamp: Date.now(), data: json });
+    return json;
+  })();
+
+  inFlightRequests.set(url, fetchPromise);
+
+  try {
+    const data = await fetchPromise;
+    return data as T;
+  } catch (error: any) {
+    console.warn(`Backend API fetch error for ${url}:`, error?.message || error);
+    return null;
+  } finally {
+    inFlightRequests.delete(url);
+  }
+}
+
 /**
  * Fetch articles list from Express Backend API
  */
@@ -36,15 +84,11 @@ export async function getPublicArticles(options: {
     if (options.isBreaking) params.append('isBreaking', 'true');
     if (options.isFeatured) params.append('isFeatured', 'true');
 
-    const res = await fetch(`${API_BASE_URL}/articles?${params.toString()}`, {
-      cache: 'no-store',
-    });
+    const url = `${API_BASE_URL}/articles?${params.toString()}`;
+    const json = await fetchCachedJson<any>(url);
 
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.articles) {
-        return json.data;
-      }
+    if (json?.success && json.data?.articles) {
+      return json.data;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for articles:', error?.message || error);
@@ -62,15 +106,11 @@ export async function getPublicArticles(options: {
  */
 export async function getPublicArticleBySlug(slug: string): Promise<Article | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/articles/${slug}`, {
-      cache: 'no-store',
-    });
+    const url = `${API_BASE_URL}/articles/${slug}`;
+    const json = await fetchCachedJson<any>(url);
 
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.article) {
-        return json.data.article;
-      }
+    if (json?.success && json.data?.article) {
+      return json.data.article;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for article detail:', error?.message || error);
@@ -84,12 +124,10 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
  */
 export async function getPublicCategories(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/categories`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.categories) {
-        return json.data.categories;
-      }
+    const url = `${API_BASE_URL}/categories`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.categories) {
+      return json.data.categories;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for categories:', error?.message || error);
@@ -102,12 +140,10 @@ export async function getPublicCategories(): Promise<any[]> {
  */
 export async function getPublicAuthors(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/authors`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.authors) {
-        return json.data.authors;
-      }
+    const url = `${API_BASE_URL}/authors`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.authors) {
+      return json.data.authors;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for authors:', error?.message || error);
@@ -121,12 +157,9 @@ export async function getPublicAuthors(): Promise<any[]> {
 export async function getPublicVideos(type?: string): Promise<Video[]> {
   try {
     const url = type ? `${API_BASE_URL}/videos?type=${type}` : `${API_BASE_URL}/videos`;
-    const res = await fetch(url, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.videos) {
-        return json.data.videos;
-      }
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.videos) {
+      return json.data.videos;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for videos:', error?.message || error);
@@ -140,12 +173,10 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
  */
 export async function getPublicGallery(): Promise<Photo[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/gallery`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.photos) {
-        return json.data.photos;
-      }
+    const url = `${API_BASE_URL}/gallery`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.photos) {
+      return json.data.photos;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for gallery:', error?.message || error);
@@ -159,12 +190,10 @@ export async function getPublicGallery(): Promise<Photo[]> {
  */
 export async function getPublicStories(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stories`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.stories) {
-        return json.data.stories;
-      }
+    const url = `${API_BASE_URL}/stories`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.stories) {
+      return json.data.stories;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for stories:', error?.message || error);
@@ -177,12 +206,10 @@ export async function getPublicStories(): Promise<any[]> {
  */
 export async function getPublicWebStories(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/webstories`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.webStories) {
-        return json.data.webStories;
-      }
+    const url = `${API_BASE_URL}/webstories`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.webStories) {
+      return json.data.webStories;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for webstories:', error?.message || error);
@@ -195,12 +222,10 @@ export async function getPublicWebStories(): Promise<any[]> {
  */
 export async function getPublicTickers(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/tickers`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.tickers) {
-        return json.data.tickers;
-      }
+    const url = `${API_BASE_URL}/tickers`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.tickers) {
+      return json.data.tickers;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for tickers:', error?.message || error);
@@ -213,12 +238,10 @@ export async function getPublicTickers(): Promise<any[]> {
  */
 export async function getPublicAstrology(): Promise<any[]> {
   try {
-    const res = await fetch(`${API_BASE_URL}/astrology`, { cache: 'no-store' });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.success && json.data?.signs) {
-        return json.data.signs;
-      }
+    const url = `${API_BASE_URL}/astrology`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.signs) {
+      return json.data.signs;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for astrology:', error?.message || error);

@@ -50,7 +50,7 @@ export default function BreakingTicker() {
             const label = getLocalized(language, { en: item.en, gu: item.gu, hi: item.hi });
             return (
               <span key={`${item.slug}-${index}`} className="inline-flex items-center">
-                <Link href={`/news/${item.slug}`} className="px-2 hover:underline">
+                <Link prefetch={false} href={`/news/${item.slug}`} className="px-2 hover:underline">
                   {label}
                 </Link>
                 <span className="mx-4 h-1.5 w-1.5 rounded-full bg-white/60" />
