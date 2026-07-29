@@ -257,6 +257,21 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }
   }, [language]);
 
+  // Dynamically calculate sidebar item limits based on main article content length
+  const recommendedLimit = useMemo(() => {
+    const textLength = (article.content || '').length + ((article as any).contentGu || '').length + (article.excerpt || '').length;
+    if (textLength < 350) return 2;
+    if (textLength < 800) return 3;
+    return 5;
+  }, [article]);
+
+  const trendingLimit = useMemo(() => {
+    const textLength = (article.content || '').length + ((article as any).contentGu || '').length + (article.excerpt || '').length;
+    if (textLength < 350) return 3;
+    if (textLength < 800) return 4;
+    return 5;
+  }, [article]);
+
   useEffect(() => {
     const onScroll = () => {
       const total = document.documentElement.scrollHeight - window.innerHeight;
@@ -764,7 +779,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'સૌથી વધુ વંચાયેલા' : language === 'hi' ? 'सबसे ज्यादा पढ़े गए' : 'Most Read'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {trending.slice(0, 5).map((item, index) => {
+                  {trending.slice(0, trendingLimit).map((item, index) => {
                     const rankNum = String(index + 1);
 
                     return (
@@ -787,7 +802,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {related.slice(0, 5).map((item) => {
+                  {related.slice(0, recommendedLimit).map((item) => {
                     const itemTitle = getArticleTitle(item, language);
                     const itemCategory = getCategoryLabel(item, language);
                     return (

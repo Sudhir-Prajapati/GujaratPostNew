@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 import { 
   Search, 
   Plus, 
@@ -28,8 +28,10 @@ interface VideoData {
   duration: string;
   type: string;
   isFeatured: boolean;
-  publishedAt: string;
   channel: string | null;
+  views: number;
+  publishedAt: string;
+  createdAt: string;
 }
 
 export default function VideosPage() {
@@ -65,8 +67,7 @@ export default function VideosPage() {
     async function loadVideos() {
       setLoading(true);
       try {
-        const url = `/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`;
-        const res = await fetch(url);
+        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
         setVideos(json.data.videos || []);
@@ -81,12 +82,13 @@ export default function VideosPage() {
   }, [page, query, selectedType]);
 
   // Submit Add video
+  // Submit Add video
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !youtubeId) return alert('Title and YouTube Video ID are required');
     setSaving(true);
     try {
-      const res = await fetch(getBackendApiUrl('/api/admin/videos'), {
+      const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -108,7 +110,7 @@ export default function VideosPage() {
       setPage(1);
 
       // reload list
-      const rRes = await fetch(`/api/admin/videos?page=1&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`);
+      const rRes = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`));
       const rJson = await rRes.json();
       if (rRes.ok) setVideos(rJson.data.videos);
     } catch (err: any) {
@@ -140,7 +142,7 @@ export default function VideosPage() {
     if (!selectedVideo) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/admin/videos/${selectedVideo.id}`, {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/videos/${selectedVideo.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -164,7 +166,7 @@ export default function VideosPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this video?')) return;
     try {
-      const res = await fetch(`/api/admin/videos/${id}`, { method: 'DELETE' });
+      const res = await authFetch(getBackendApiUrl(`/api/admin/videos/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete video');
       setVideos(prev => prev.filter(v => v.id !== id));
     } catch (err: any) {

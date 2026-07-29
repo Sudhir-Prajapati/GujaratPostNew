@@ -26,7 +26,7 @@ import {
   CheckCircle,
   Play
 } from 'lucide-react';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 interface StatsData {
   articles: {
@@ -71,8 +71,8 @@ export default function AdminDashboard() {
     async function loadDashboardData() {
       try {
         const [meRes, statsRes] = await Promise.all([
-          fetch(getBackendApiUrl('/api/auth/me')),
-          fetch(getBackendApiUrl('/api/admin/stats'))
+          authFetch(getBackendApiUrl('/api/auth/me')),
+          authFetch(getBackendApiUrl('/api/admin/stats'))
         ]);
         const meJson = await meRes.json();
         const statsJson = await statsRes.json();

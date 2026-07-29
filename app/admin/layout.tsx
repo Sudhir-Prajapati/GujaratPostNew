@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userName, setUserName] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(getBackendApiUrl('/api/auth/me'))
+    authFetch(getBackendApiUrl('/api/auth/me'))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data?.user) {
@@ -87,9 +87,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = async () => {
     setLoggingOut(true);
     try {
-      await fetch(getBackendApiUrl('/api/auth/logout'), { method: 'POST' });
-      router.push('/login');
-      router.refresh();
+      await fetch(getBackendApiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' });
+      document.cookie = 'access_token=; path=/; max-age=0; SameSite=Lax';
+      window.location.href = '/login';
     } catch (err) {
       console.error('Logout failed:', err);
       setLoggingOut(false);
@@ -171,7 +171,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── Main Layout Body ── */}
-      <div className="flex flex-1 flex-col lg:pl-64">
+      <div className="flex flex-1 flex-col min-w-0 w-full lg:pl-64 overflow-x-hidden">
         
         {/* Navbar Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-zinc-200 bg-white/80 px-6 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
@@ -252,7 +252,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </header>
 
         {/* Content area */}
-        <main className="flex-1 p-6 md:p-8">
+        <main className="flex-1 p-6 md:p-8 min-w-0 w-full">
           {children}
         </main>
       </div>
