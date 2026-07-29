@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getBackendApiUrl, authFetch, getPublicArticles } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 type CatObj = { id: string; name: string; slug?: string };
@@ -304,14 +304,20 @@ export default function HeroManagerPage() {
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
+      clearApiCache();
       const pubRes = await getPublicArticles({ limit: 300 });
       const arts = (pubRes.articles || []) as unknown as Article[];
 
       setAllArticles(arts);
 
-      // Load the 3 currently isFeatured articles into slots
+      // Load the 3 currently isFeatured articles into slots; fallback to first 3 articles if none featured yet
       const featured = arts.filter((a) => a.isFeatured);
-      setSlots([featured[0] ?? null, featured[1] ?? null, featured[2] ?? null]);
+      const defaultSlots = [
+        featured[0] ?? arts[0] ?? null,
+        featured[1] ?? arts[1] ?? null,
+        featured[2] ?? arts[2] ?? null,
+      ];
+      setSlots(defaultSlots);
     } catch {
       showToast('Failed to load articles', false);
     } finally {
@@ -357,6 +363,7 @@ export default function HeroManagerPage() {
       const allOk = results.every((r) => r.ok);
 
       if (allOk) {
+        clearApiCache();
         showToast(`✅ Saved! ${usedIds.length} article${usedIds.length > 1 ? 's' : ''} now featured in the bottom row.`, true);
         // Update allArticles in-place (no re-fetch) so the slot ORDER stays exactly
         // as the admin selected them. Re-fetching re-sorts by updatedAt which shuffles slots.
