@@ -6,7 +6,7 @@ import NewsDetailClient from "./NewsDetailClient";
 
 export async function generateStaticParams() {
   const { articles } = await getPublicArticles({ limit: 50 });
-  return articles.map((article) => ({ slug: article.slug }));
+  return (articles || []).map((article) => ({ slug: article.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

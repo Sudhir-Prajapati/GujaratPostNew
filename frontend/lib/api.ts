@@ -59,15 +59,26 @@ async function fetchCachedJson<T = any>(url: string): Promise<T | null> {
   }
 
   const fetchPromise = (async () => {
-    const res = await fetch(url, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}`);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const res = await fetch(url, {
+        next: { revalidate: 60 },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error ${res.status}`);
+      }
+      const json = await res.json();
+      apiCache.set(url, { timestamp: Date.now(), data: json });
+      return json;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-    const json = await res.json();
-    apiCache.set(url, { timestamp: Date.now(), data: json });
-    return json;
   })();
 
   inFlightRequests.set(url, fetchPromise);
