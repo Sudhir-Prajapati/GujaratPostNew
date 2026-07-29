@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 type CatObj = { id: string; name: string; slug?: string };
@@ -304,7 +304,7 @@ export default function HeroManagerPage() {
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(getBackendApiUrl('/api/admin/articles?limit=300'));
+      const res = await authFetch(getBackendApiUrl('/api/admin/articles?limit=300'));
       const json = await res.json();
       const arts: Article[] = json.data?.articles ?? json.articles ?? json.data ?? [];
       setAllArticles(arts);
@@ -337,7 +337,7 @@ export default function HeroManagerPage() {
 
       // Step 1: Set the 3 selected articles as isFeatured=true
       const setTrue = usedIds.map((id) =>
-        fetch(`/api/admin/articles/${id}`, {
+        authFetch(getBackendApiUrl(`/api/admin/articles/${id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isFeatured: true }),
@@ -346,7 +346,7 @@ export default function HeroManagerPage() {
 
       // Step 2: Unset articles that were featured before but are not in the new selection
       const setFalse = prevFeatured.map((a) =>
-        fetch(`/api/admin/articles/${a.id}`, {
+        authFetch(getBackendApiUrl(`/api/admin/articles/${a.id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isFeatured: false }),

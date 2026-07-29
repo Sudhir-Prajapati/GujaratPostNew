@@ -97,7 +97,7 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to approve and publish this article?')) return;
     setActionLoadingId(id);
     try {
-      const res = await fetch(`/api/admin/articles/${id}`, {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/articles/${id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

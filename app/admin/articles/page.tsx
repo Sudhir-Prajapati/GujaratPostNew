@@ -164,7 +164,7 @@ export default function ArticleList() {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         setDeletingId(id);
         try {
-          const res = await fetch(`/api/admin/articles/${id}`, {
+          const res = await authFetch(getBackendApiUrl(`/api/admin/articles/${id}`), {
             method: 'DELETE',
           });
           const json = await res.json();
@@ -191,13 +191,13 @@ export default function ArticleList() {
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
-          const detailRes = await fetch(`/api/admin/articles/${art.id}`);
+          const detailRes = await authFetch(getBackendApiUrl(`/api/admin/articles/${art.id}`));
           const detailJson = await detailRes.json();
           if (!detailRes.ok) throw new Error(detailJson.error || 'Failed to fetch article details.');
 
           const fullData = detailJson.data;
 
-          const updateRes = await fetch(`/api/admin/articles/${art.id}`, {
+          const updateRes = await authFetch(getBackendApiUrl(`/api/admin/articles/${art.id}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -227,13 +227,13 @@ export default function ArticleList() {
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
-          const detailRes = await fetch(`/api/admin/articles/${art.id}`);
+          const detailRes = await authFetch(getBackendApiUrl(`/api/admin/articles/${art.id}`));
           const detailJson = await detailRes.json();
           if (!detailRes.ok) throw new Error(detailJson.error || 'Failed to fetch article details.');
 
           const fullData = detailJson.data;
 
-          const updateRes = await fetch(`/api/admin/articles/${art.id}`, {
+          const updateRes = await authFetch(getBackendApiUrl(`/api/admin/articles/${art.id}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
