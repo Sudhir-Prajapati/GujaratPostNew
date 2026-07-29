@@ -387,8 +387,16 @@ export default function HeroSection({
         setArticlesList(arts);
         setTopNews(arts.slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
-        const heroPool = arts.filter((a: Article) => !featuredIds.has(a.id));
+        // Prioritize articles with BREAKING, TRENDING, or FEATURED flags for main hero spotlight
+        const heroPool = arts
+          .filter((a: Article) => !featuredIds.has(a.id))
+          .sort((a: Article, b: Article) => {
+            const aScore = (a.isBreaking ? 3 : 0) + (a.isTrending ? 2 : 0) + (a.isFeatured ? 1 : 0);
+            const bScore = (b.isBreaking ? 3 : 0) + (b.isTrending ? 2 : 0) + (b.isFeatured ? 1 : 0);
+            return bScore - aScore;
+          });
         setTopStories(heroPool.slice(0, 16));
+
         const trending = arts.filter((a: Article) => a.isTrending);
         setTrendingArtDB(fillPool(trending, arts, 10));
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
@@ -543,11 +551,16 @@ export default function HeroSection({
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                         LIVE
                       </span>
-                    ) : (
+                    ) : uniqueTopStories[0].isTrending ? (
                       <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
                         {language === 'gu' ? 'ટ્રેન્ડ' : 'Trending'}
                       </span>
+                    ) : (
+                      <span className="bg-zinc-800 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
+                        {getCategoryLabel(uniqueTopStories[0], language)}
+                      </span>
                     )}
+
                     <span className="text-muted-foreground text-[11px] font-semibold">
                       {getCategoryLabel(uniqueTopStories[0], language)}
                     </span>
