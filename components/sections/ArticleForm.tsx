@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
-import { slugify } from '@/lib/utils';
-import { getPublicArticles } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 
 interface ArticleFormProps {
   articleId?: string; // If present, we are in Edit mode
@@ -336,7 +335,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     async function loadArticle() {
       try {
         setFetching(true);
-        const res = await fetch(`/api/admin/articles/${articleId}`);
+        const res = await authFetch(getBackendApiUrl(`/api/admin/articles/${articleId}`));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to load article.');
 
@@ -561,10 +560,10 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     };
 
     try {
-      const url = isEditMode ? `/api/admin/articles/${articleId}` : '/api/admin/articles';
+      const url = isEditMode ? getBackendApiUrl(`/api/admin/articles/${articleId}`) : getBackendApiUrl('/api/admin/articles');
       const method = isEditMode ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -573,6 +572,8 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       const result = await response.json();
 
       if (!response.ok) throw new Error(result.error || 'Failed to save article.');
+
+      clearApiCache();
 
       // Route back to list
       router.push('/admin/articles');
