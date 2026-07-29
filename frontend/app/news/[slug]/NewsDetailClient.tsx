@@ -48,14 +48,17 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     const images: string[] = [];
     if (article.image) images.push(article.image);
 
-    // Extract secondary image from direct properties if present
+    // Extract secondary images from direct properties if present
     if ((article as any).image2) images.push((article as any).image2);
+    if ((article as any).image3) images.push((article as any).image3);
+    if ((article as any).image4) images.push((article as any).image4);
+    if ((article as any).image5) images.push((article as any).image5);
     if ((article as any).galleryImage2) images.push((article as any).galleryImage2);
     if ((article as any).secondaryImage) images.push((article as any).secondaryImage);
 
     // Extract markdown image URLs ![...](url) from all article content strings
     const rawContent = `${article.content || ''}\n${(article as any).contentGu || ''}\n${(article as any).contentHi || ''}`;
-    const matches = rawContent.matchAll(/!\[(?:Gallery Image 2|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi);
+    const matches = rawContent.matchAll(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi);
     for (const match of matches) {
       if (match[1]) images.push(match[1]);
     }
@@ -87,6 +90,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }, 4000);
     return () => clearInterval(timer);
   }, [handleNextImage, slideImages.length]);
+
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -159,7 +163,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
 
   const displayParagraphs = useMemo(() => {
-    return paragraphs.filter((p) => {
+    let inlineImgIndex = 0;
+    return paragraphs.filter((p: string) => {
       const trimmed = p.trim();
       if (
         trimmed.includes('## 📌') ||
@@ -172,9 +177,22 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       ) {
         return false;
       }
+
+      // Check if this paragraph is an embedded markdown image
+      const imgMatch = trimmed.match(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
+      if (imgMatch) {
+        inlineImgIndex++;
+        // Show only the 1st inline gallery image (Image 2) in body; hide 3rd, 4th, 5th photos (they rotate in top slider)
+        if (inlineImgIndex > 1) {
+          return false;
+        }
+      }
+
       return true;
     });
   }, [paragraphs]);
+
+
 
   const gistPoints = useMemo(() => {
     const rawContent = body || (article as any).contentGu || (article as any).contentHi || article.content || '';
