@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicArticles } from '@/lib/api';
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 type CatObj = { id: string; name: string; slug?: string };
@@ -86,8 +86,8 @@ function ArticleSearchBox({
           catName(a.category).toLowerCase().includes(low) ||
           numMatch
         );
-      }).slice(0, 50)
-    : available.slice(0, 50);
+      }).slice(0, 150)
+    : available.slice(0, 150);
 
   return (
     <div ref={ref} className="relative">
@@ -118,7 +118,7 @@ function ArticleSearchBox({
           {/* Header */}
           <div className="sticky top-0 flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-100 dark:border-zinc-700 backdrop-blur-sm">
             <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
-              {q.trim() ? `${results.length} results` : 'Latest 50 Articles'}
+              {q.trim() ? `${results.length} search results` : `Select from Published Articles (${available.length})`}
             </span>
             <button onClick={() => setOpen(false)} className="text-[9px] font-semibold text-zinc-400 hover:text-zinc-600 transition">Close ✕</button>
           </div>
@@ -304,9 +304,25 @@ export default function HeroManagerPage() {
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await authFetch(getBackendApiUrl('/api/admin/articles?limit=300'));
-      const json = await res.json();
-      const arts: Article[] = json.data?.articles ?? json.articles ?? json.data ?? [];
+      let arts: Article[] = [];
+
+      // 1. Try fetching via admin endpoint first
+      try {
+        const res = await authFetch(getBackendApiUrl('/api/admin/articles?limit=300'));
+        if (res.ok) {
+          const json = await res.json();
+          arts = json.data?.articles ?? json.articles ?? json.data ?? [];
+        }
+      } catch (e) {
+        console.warn('Admin articles fetch error, using public API fallback:', e);
+      }
+
+      // 2. If admin fetch returned empty/error, fallback to public articles API
+      if (arts.length === 0) {
+        const pubRes = await getPublicArticles({ limit: 300 });
+        arts = (pubRes.articles || []) as unknown as Article[];
+      }
+
       setAllArticles(arts);
 
       // Load the 3 currently isFeatured articles into slots
