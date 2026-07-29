@@ -2756,15 +2756,26 @@ function CityHyperlocalSection({
 
     const targetCity = cityEnMap[tabGuKey];
     if (!targetCity) {
-      // 'અન્ય' (Other Cities)
+      // 'અન્ય' (Other Cities / Districts of Gujarat)
       const mainCities = ['ahmedabad', 'surat', 'vadodara', 'rajkot', 'gandhinagar'];
+      const nonGujaratCategories = ['world', 'education', 'fact check', 'photo gallery', 'lifestyle', 'business', 'sports', 'entertainment', 'tech', 'videos'];
+
       return articles.filter((art) => {
         const cat = getCategoryStr(art);
         const catGu = ((art as any).categoryGu || '').toLowerCase();
         const slug = (art.slug || '').toLowerCase();
         const title = (art.title || '').toLowerCase();
         const titleGu = ((art as any).titleGu || '').toLowerCase();
-        return !mainCities.some((c) => cat.includes(c) || catGu.includes(c) || slug.includes(c) || title.includes(c) || titleGu.includes(c));
+
+        // Exclude the 5 main cities
+        const isMainCity = mainCities.some((c) => cat.includes(c) || catGu.includes(c) || slug.includes(c) || title.includes(c) || titleGu.includes(c));
+        if (isMainCity) return false;
+
+        // Exclude purely non-Gujarat categories unless category is Gujarat/State
+        const isNonGujaratCat = nonGujaratCategories.some((nc) => cat === nc || cat.includes(nc));
+        if (isNonGujaratCat && !cat.includes('gujarat') && !cat.includes('state')) return false;
+
+        return true;
       });
     }
 
@@ -2795,8 +2806,44 @@ function CityHyperlocalSection({
     } else if ((art as any).categoryGu) {
       return (art as any).categoryGu;
     }
+
+    const categoryGuMap: Record<string, string> = {
+      'Gujarat': 'ગુજરાત',
+      'State': 'ગુજરાત રાજ્ય',
+      'Ahmedabad': 'અમદાવાદ',
+      'Surat': 'સુરત',
+      'Vadodara': 'વડોદરા',
+      'Rajkot': 'રાજકોટ',
+      'Gandhinagar': 'ગાંધીનગર',
+      'Bhavnagar': 'ભાવનગર',
+      'Junagadh': 'જૂનાગઢ',
+      'Anand': 'આણંદ',
+      'Jamnagar': 'જામનગર',
+      'Kutch': 'કચ્છ',
+      'Mehsana': 'મહેસાણા',
+      'Morbi': 'મોરબી',
+      'Other': 'અન્ય શહેરો',
+      'Other Cities': 'અન્ય શહેરો',
+      'Civic': 'સિવિક',
+      'Development': 'વિકાસ',
+      'Tourism': 'પર્યટન',
+      'Traffic': 'ટ્રાફિક',
+      'World': 'વિશ્વ',
+      'Education': 'શિક્ષણ',
+      'Fact Check': 'ફેક્ટ ચેક',
+      'Photo Gallery': 'ફોટો ગેલેરી',
+      'Lifestyle': 'લાઇફસ્ટાઇલ',
+      'Business': 'બિઝનેસ',
+      'Sports': 'રમતગમત',
+      'Entertainment': 'મનોરંજન',
+      'Tech': 'ટેકનોલોજી',
+    };
+
+    if (categoryGuMap[catName]) return categoryGuMap[catName];
     if (CITY_NAME_MAP[catName]) return getLocalized('gu', CITY_NAME_MAP[catName]);
-    return catName || tabGuKey;
+    if (CITY_NAME_MAP[tabGuKey]) return getLocalized('gu', CITY_NAME_MAP[tabGuKey]);
+
+    return (art as any).categoryGu || 'અન્ય શહેરો';
   };
 
   const getArtCategoryNameEn = (art: Article, tabGuKey: string) => {
@@ -2806,6 +2853,7 @@ function CityHyperlocalSection({
     if (typeof art.category === 'string') return art.category;
     return CITY_NAME_MAP[tabGuKey]?.en || 'City';
   };
+
 
   const tabApiArticles = useMemo(() => getArticlesForTab(activeTab), [getArticlesForTab, activeTab]);
 
