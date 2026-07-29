@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache, getHeroSettings, updateHeroSettings } from '@/lib/api';
+
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 type CatObj = { id: string; name: string; slug?: string };
@@ -305,25 +306,26 @@ export default function HeroManagerPage() {
     setLoading(true);
     try {
       clearApiCache();
-      const pubRes = await getPublicArticles({ limit: 300 });
-      const arts = (pubRes.articles || []) as unknown as Article[];
+      const [pubRes, heroRes] = await Promise.all([
+        getPublicArticles({ limit: 300 }),
+        getHeroSettings(),
+      ]);
 
+      const arts = (pubRes.articles || []) as unknown as Article[];
       setAllArticles(arts);
 
-      const featured = arts.filter((a) => a.isFeatured);
-
-      // Match the 3 bottom row articles (Article #13, #7, #17) from the homepage
-      const find13 = arts.find((a) => a.articleNumber === 13 || (a.titleGu ?? a.title ?? '').includes('#13'));
-      const find7 = arts.find((a) => a.articleNumber === 7 || (a.titleGu ?? a.title ?? '').includes('#7'));
-      const find17 = arts.find((a) => a.articleNumber === 17 || (a.titleGu ?? a.title ?? '').includes('#17'));
-
-      const slot0 = (featured.length === 3 ? featured[0] : find13) ?? featured[0] ?? arts[0] ?? null;
-      const slot1 = (featured.length === 3 ? featured[1] : find7) ?? featured[1] ?? arts[1] ?? null;
-      const slot2 = (featured.length === 3 ? featured[2] : find17) ?? featured[2] ?? arts[2] ?? null;
-
-      setSlots([slot0, slot1, slot2]);
+      if (heroRes && Array.isArray(heroRes.slots) && heroRes.slots.length > 0) {
+        setSlots([
+          heroRes.slots[0] ? (heroRes.slots[0] as unknown as Article) : null,
+          heroRes.slots[1] ? (heroRes.slots[1] as unknown as Article) : null,
+          heroRes.slots[2] ? (heroRes.slots[2] as unknown as Article) : null,
+        ]);
+      } else {
+        const featured = arts.filter((a) => a.isFeatured);
+        setSlots([featured[0] || arts[0] || null, featured[1] || arts[1] || null, featured[2] || arts[2] || null]);
+      }
     } catch {
-      showToast('Failed to load articles', false);
+      showToast('Failed to load hero section articles', false);
     } finally {
       setLoading(false);
     }
@@ -334,46 +336,26 @@ export default function HeroManagerPage() {
   const usedIds = slots.filter(Boolean).map((a) => a!.id);
 
   const handleSave = async () => {
-    if (usedIds.length === 0) {
-      showToast('Please select at least one article before saving.', false);
-      return;
-    }
     setSaving(true);
     try {
-      const newFeaturedIds = new Set<string>(usedIds);
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+      };
 
-      // Find articles that were previously featured but are no longer selected
-      const prevFeatured = allArticles.filter((a) => a.isFeatured && !newFeaturedIds.has(a.id));
+      const res = await updateHeroSettings(payload);
 
-      // Step 1: Set the 3 selected articles as isFeatured=true
-      const setTrue = usedIds.map((id) =>
-        authFetch(`/api/admin/articles/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isFeatured: true }),
-        })
-      );
-
-      // Step 2: Unset articles that were featured before but are not in the new selection
-      const setFalse = prevFeatured.map((a) =>
-        authFetch(`/api/admin/articles/${a.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isFeatured: false }),
-        })
-      );
-
-      const results = await Promise.all([...setTrue, ...setFalse]);
-      const allOk = results.every((r) => r.ok);
-
-      if (allOk) {
+      if (res && res.success) {
         clearApiCache();
-        showToast(`✅ Saved! ${usedIds.length} article${usedIds.length > 1 ? 's' : ''} now featured in the bottom row.`, true);
-        // Update allArticles in-place (no re-fetch) so the slot ORDER stays exactly
-        // as the admin selected them. Re-fetching re-sorts by updatedAt which shuffles slots.
-        setAllArticles((prev) =>
-          prev.map((a) => ({ ...a, isFeatured: newFeaturedIds.has(a.id) }))
-        );
+        showToast('✅ Saved! Hero section cards updated successfully.', true);
+        if (res.data?.slots) {
+          setSlots([
+            res.data.slots[0] ? (res.data.slots[0] as unknown as Article) : null,
+            res.data.slots[1] ? (res.data.slots[1] as unknown as Article) : null,
+            res.data.slots[2] ? (res.data.slots[2] as unknown as Article) : null,
+          ]);
+        }
       } else {
         showToast('Some updates failed. Please try again.', false);
       }
@@ -383,6 +365,7 @@ export default function HeroManagerPage() {
       setSaving(false);
     }
   };
+
 
   const setSlot = (idx: number, art: Article) => {
     setSlots((prev) => { const next = [...prev]; next[idx] = art; return next; });

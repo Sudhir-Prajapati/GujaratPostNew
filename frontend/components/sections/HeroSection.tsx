@@ -18,7 +18,8 @@ import {
   PHOTOS,
 } from '@/data';
 import { getCategoryColor } from '@/lib/utils';
-import { getPublicArticles, getPublicVideos } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings } from '@/lib/api';
+
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
 import InstagramStories from '@/components/sections/InstagramStories';
@@ -367,17 +368,17 @@ export default function HeroSection({
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
 
   useEffect(() => {
-    // Fetch main articles pool AND the 3 admin-selected featured articles in parallel
+    // Fetch main articles pool AND hero slots settings in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
-      getPublicArticles({ isFeatured: true, limit: 3 }),
-    ]).then(([mainRes, featuredRes]: any[]) => {
-      // Admin-selected bottom 3 image articles — dedicated fetch with isFeatured=true
-      const featuredArticles: Article[] = (featuredRes?.articles ?? []).slice(0, 3);
-      if (featuredArticles.length > 0) {
-        setBottomFeatured(featuredArticles);
+      getHeroSettings(),
+    ]).then(([mainRes, heroRes]: any[]) => {
+      // Admin-selected bottom 3 image articles from Hero Settings API
+      const slotsArticles: Article[] = (heroRes?.slots || []).filter(Boolean);
+      if (slotsArticles.length > 0) {
+        setBottomFeatured(slotsArticles);
       }
-      const featuredIds = new Set(featuredArticles.map((a: Article) => a.id));
+      const featuredIds = new Set(slotsArticles.map((a: Article) => a.id));
 
       // Main pool — powers main hero, right 2, text articles
       // Exclude the bottom-featured articles so they don't also appear in main hero/right side
@@ -398,6 +399,7 @@ export default function HeroSection({
         setSportsArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'sports').slice(0, 7));
       }
     });
+
     getPublicVideos()
       .then((res: any) => {
         if (res && res.length > 0) {

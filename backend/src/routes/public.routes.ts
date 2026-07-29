@@ -1,8 +1,16 @@
 import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
+import { HeroController } from '../controllers/hero.controller.js';
 
 const router = Router();
+
+/**
+ * GET /api/public/hero-settings
+ * Get hero section settings and assigned articles in exact slot order
+ */
+router.get('/hero-settings', HeroController.getHeroSettings);
+
 
 /**
  * GET /api/public/articles
