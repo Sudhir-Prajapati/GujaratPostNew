@@ -304,24 +304,8 @@ export default function HeroManagerPage() {
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
-      let arts: Article[] = [];
-
-      // 1. Try fetching via admin endpoint first
-      try {
-        const res = await authFetch(getBackendApiUrl('/api/admin/articles?limit=300'));
-        if (res.ok) {
-          const json = await res.json();
-          arts = json.data?.articles ?? json.articles ?? json.data ?? [];
-        }
-      } catch (e) {
-        console.warn('Admin articles fetch error, using public API fallback:', e);
-      }
-
-      // 2. If admin fetch returned empty/error, fallback to public articles API
-      if (arts.length === 0) {
-        const pubRes = await getPublicArticles({ limit: 300 });
-        arts = (pubRes.articles || []) as unknown as Article[];
-      }
+      const pubRes = await getPublicArticles({ limit: 300 });
+      const arts = (pubRes.articles || []) as unknown as Article[];
 
       setAllArticles(arts);
 
@@ -353,7 +337,7 @@ export default function HeroManagerPage() {
 
       // Step 1: Set the 3 selected articles as isFeatured=true
       const setTrue = usedIds.map((id) =>
-        authFetch(getBackendApiUrl(`/api/admin/articles/${id}`), {
+        authFetch(`/api/admin/articles/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isFeatured: true }),
@@ -362,7 +346,7 @@ export default function HeroManagerPage() {
 
       // Step 2: Unset articles that were featured before but are not in the new selection
       const setFalse = prevFeatured.map((a) =>
-        authFetch(getBackendApiUrl(`/api/admin/articles/${a.id}`), {
+        authFetch(`/api/admin/articles/${a.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isFeatured: false }),
