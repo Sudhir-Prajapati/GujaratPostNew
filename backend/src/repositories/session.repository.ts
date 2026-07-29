@@ -39,14 +39,16 @@ export class SessionRepository {
 
     // 2. Cache in Redis
     try {
-      const ttl = Math.floor((data.expiresAt.getTime() - Date.now()) / 1000);
-      if (ttl > 0) {
-        const cacheKey = this.getCacheKey(data.tokenHash);
-        const cacheValue = JSON.stringify({
-          ...session,
-          expiresAt: session.expiresAt.toISOString(),
-        });
-        await redisClient.setEx(cacheKey, ttl, cacheValue);
+      if (redisClient.isOpen) {
+        const ttl = Math.floor((data.expiresAt.getTime() - Date.now()) / 1000);
+        if (ttl > 0) {
+          const cacheKey = this.getCacheKey(data.tokenHash);
+          const cacheValue = JSON.stringify({
+            ...session,
+            expiresAt: session.expiresAt.toISOString(),
+          });
+          await redisClient.setEx(cacheKey, ttl, cacheValue);
+        }
       }
     } catch (error) {
       // Log error but don't fail request (fail-soft for caching)
