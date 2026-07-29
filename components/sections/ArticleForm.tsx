@@ -530,7 +530,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
 
     const payload = {
       slug: safeSlug,
-      articleNumber: articleNumber !== '' ? Number(articleNumber) : undefined,
+      articleNumber: isEditMode && articleNumber !== '' ? Number(articleNumber) : undefined,
       title: safeTitle || effectiveTitle,
       titleGu: safeTitleGu || effectiveTitle,
       titleHi: safeTitleHi || effectiveTitle,
@@ -1047,13 +1047,12 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
                 Article No. (#)
               </label>
-              <input
-                type="number"
-                value={articleNumber}
-                onChange={(e) => setArticleNumber(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="Auto-generated (e.g. 528)"
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-bold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
-              />
+              <div className="w-full rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 mt-1.5 px-4 py-3 text-sm font-bold text-zinc-600 dark:text-zinc-300 flex items-center justify-between">
+                <span>{articleNumber ? `#${articleNumber}` : 'Auto-generated on save'}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-200/80 dark:bg-zinc-800 px-2 py-0.5 rounded">
+                  Auto Sequence
+                </span>
+              </div>
             </div>
 
             <div>
