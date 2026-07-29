@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+
 import Link from 'next/link';
 import Image from 'next/image';
 import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles } from 'lucide-react';
@@ -834,7 +835,8 @@ export default function HeroSection({
 
       <VideoDesk videos={videos.slice(0, 7)} language={language} showShorts={false} />
 
-      <CityHyperlocalSection language={language} />
+      <CityHyperlocalSection language={language} articles={articlesList} />
+
 
       <NationalSection language={language} />
 
@@ -2194,8 +2196,10 @@ const getLocalizedTag = (tag: string, language: Language) => {
 /* --- City Hyperlocal Section ("ગુજરાત" Zone) ----------------------------- */
 function CityHyperlocalSection({
   language,
+  articles = [],
 }: {
   language: Language;
+  articles?: Article[];
 }) {
   const [slideIdx, setSlideIdx] = useState(0);
   const [activeTab, setActiveTab] = useState('અમદાવાદ');
@@ -2205,6 +2209,7 @@ function CityHyperlocalSection({
     setActiveTab(tab);
     setSlideIdx(0);
   };
+
 
   type SlideItem = {
     id: string; slug: string; image: string;
@@ -2727,10 +2732,141 @@ function CityHyperlocalSection({
     }
   };
 
+  // Filter API articles for active tab
+
+  const getArticlesForTab = useCallback((tabGuKey: string) => {
+    if (!articles || articles.length === 0) return [];
+
+    const cityEnMap: Record<string, string> = {
+      'અમદાવાદ': 'ahmedabad',
+      'સુરત': 'surat',
+      'વડોદરા': 'vadodara',
+      'રાજકોટ': 'rajkot',
+      'ગાંધીનગર': 'gandhinagar',
+    };
+
+    const targetCity = cityEnMap[tabGuKey];
+    if (!targetCity) {
+      // 'અન્ય' (Other Cities)
+      const mainCities = ['ahmedabad', 'surat', 'vadodara', 'rajkot', 'gandhinagar'];
+      return articles.filter((art) => {
+        const cat = (art.category || '').toLowerCase();
+        const catGu = (art.categoryGu || '').toLowerCase();
+        const slug = (art.slug || '').toLowerCase();
+        const title = (art.title || '').toLowerCase();
+        const titleGu = (art.titleGu || '').toLowerCase();
+        return !mainCities.some((c) => cat.includes(c) || catGu.includes(c) || slug.includes(c) || title.includes(c) || titleGu.includes(c));
+      });
+    }
+
+    return articles.filter((art) => {
+      const cat = (art.category || '').toLowerCase();
+      const catGu = (art.categoryGu || '').toLowerCase();
+      const slug = (art.slug || '').toLowerCase();
+      const title = (art.title || '').toLowerCase();
+      const titleGu = (art.titleGu || '').toLowerCase();
+      const content = (art.content || '').toLowerCase();
+      const contentGu = (art.contentGu || '').toLowerCase();
+
+      return (
+        cat.includes(targetCity) ||
+        catGu.includes(tabGuKey) ||
+        slug.includes(targetCity) ||
+        title.includes(targetCity) ||
+        titleGu.includes(tabGuKey) ||
+        content.includes(targetCity) ||
+        contentGu.includes(tabGuKey)
+      );
+    });
+  }, [articles]);
+
+  const tabApiArticles = useMemo(() => getArticlesForTab(activeTab), [getArticlesForTab, activeTab]);
+
+  const realSlides: SlideItem[] = useMemo(() => {
+    return tabApiArticles.slice(0, 3).map((art: Article) => ({
+      id: art.id,
+      slug: art.slug,
+      image: art.image || '/assets/demo/1.jpg',
+      titleGu: art.titleGu || art.title,
+      title: art.title,
+      titleHi: art.titleHi || art.title,
+      relativeTimeGu: formatTime(art.publishedAt),
+      relativeTime: formatTime(art.publishedAt),
+      relativeTimeHi: formatTime(art.publishedAt),
+      categoryGu: art.categoryGu || activeTab,
+      category: art.category || 'City',
+      categoryHi: art.categoryHi || activeTab,
+      viewsGu: `${art.views || 25}K`,
+      views: `${art.views || 25}K`,
+      excerptGu: art.excerptGu || art.excerpt || art.title,
+      excerpt: art.excerpt || art.title,
+      excerptHi: art.excerptHi || art.excerpt || art.title,
+      tags: (art.tags as any) && (art.tags as any).length > 0 ? (art.tags as any) : [activeTab, 'સમાચાર', 'લાઇવ'],
+    }));
+  }, [tabApiArticles, activeTab]);
+
+  const realList: ListItem[] = useMemo(() => {
+    return tabApiArticles.slice(3, 8).map((art: Article) => ({
+      id: art.id,
+      slug: art.slug,
+      image: art.image || '/assets/demo/2.jpg',
+      titleGu: art.titleGu || art.title,
+      title: art.title,
+      titleHi: art.titleHi || art.title,
+      relativeTimeGu: formatTime(art.publishedAt),
+      relativeTime: formatTime(art.publishedAt),
+      relativeTimeHi: formatTime(art.publishedAt),
+      categoryGu: art.categoryGu || activeTab,
+      category: art.category || 'City',
+      categoryHi: art.categoryHi || activeTab,
+      viewsGu: `${art.views || 20}K`,
+      views: `${art.views || 20}K`,
+    }));
+  }, [tabApiArticles, activeTab]);
+
+
   const activeCityData = cityData[activeTab] || cityData['અમદાવાદ'];
-  const mockSlides = activeCityData.slides;
-  const mockList = activeCityData.list;
+
+  const mockSlides = useMemo(() => {
+    if (realSlides.length >= 3) return realSlides;
+    if (realSlides.length > 0) {
+      const combined = [...realSlides];
+      for (const fallback of activeCityData.slides) {
+        if (combined.length >= 3) break;
+        if (!combined.some((s) => s.id === fallback.id)) {
+          combined.push(fallback);
+        }
+      }
+      return combined;
+    }
+    return activeCityData.slides;
+  }, [realSlides, activeCityData]);
+
+  const mockList = useMemo(() => {
+    if (realList.length >= 5) return realList;
+    if (realList.length > 0) {
+      const combined = [...realList];
+      for (const fallback of activeCityData.list) {
+        if (combined.length >= 5) break;
+        if (!combined.some((l) => l.id === fallback.id)) {
+          combined.push(fallback);
+        }
+      }
+      return combined;
+    }
+    return activeCityData.list;
+  }, [realList, activeCityData]);
+
+  useEffect(() => {
+    if (mockSlides.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIdx((prev) => (prev + 1) % mockSlides.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [mockSlides.length, activeTab]);
+
   const currentSlide = mockSlides[slideIdx % mockSlides.length];
+
 
   return (
     <section className="mt-6 border-t border-border pt-5">
