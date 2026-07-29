@@ -40,6 +40,10 @@ const apiCache = new Map<string, { timestamp: number; data: any }>();
 const inFlightRequests = new Map<string, Promise<any>>();
 const CACHE_TTL_MS = 60000; // 60 seconds cache TTL for public API calls
 
+export function clearApiCache(): void {
+  apiCache.clear();
+}
+
 /**
  * Fetch wrapper with caching & in-flight request deduplication
  */
