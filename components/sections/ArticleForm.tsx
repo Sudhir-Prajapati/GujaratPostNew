@@ -39,7 +39,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   // Form Fields State
   const [slug, setSlug] = useState('');
   const [articleNumber, setArticleNumber] = useState<number | ''>('');
-  
+
   // Multilingual Text
   const [title, setTitle] = useState('');
   const [titleGu, setTitleGu] = useState('');
@@ -47,7 +47,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [excerpt, setExcerpt] = useState('');
   const [excerptGu, setExcerptGu] = useState('');
   const [excerptHi, setExcerptHi] = useState('');
-  
+
   // Structured Article Sections (Matching Screenshot 2 layout)
   const [highlights, setHighlights] = useState('');
   const [highlightsGu, setHighlightsGu] = useState('');
@@ -87,7 +87,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED'>('DRAFT');
   const [priority, setPriority] = useState(0);
   const [readingTime, setReadingTime] = useState(3);
-  
+
   // Flags
   const [isTrending, setIsTrending] = useState(false);
   const [isBreaking, setIsBreaking] = useState(false);
@@ -223,7 +223,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         const catJson = await catRes.json();
         const autJson = await autRes.json();
         const meJson = await meRes.json();
-        
+
         if (catRes.ok) {
           const rawCats: any[] = catJson.data?.categories || catJson.data || [];
           setCategories(rawCats.filter((c) => !['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'].includes(c.slug?.toLowerCase())));
@@ -413,7 +413,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setIsTrending(art.isTrending || false);
         setIsBreaking(art.isBreaking || false);
         setIsFeatured(art.isFeatured || false);
-        
+
         setSeoTitle(art.seoTitle || '');
         setSeoDescription(art.seoDescription || '');
         setSeoKeywords(art.seoKeywords || '');
@@ -462,13 +462,13 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/admin/upload', {
+      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), {
         method: 'POST',
         body: formData,
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to upload image.');
+      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload image.');
 
       setFeaturedImage(json.url);
     } catch (err: any) {
@@ -595,7 +595,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      
+
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-zinc-200 pb-4 dark:border-zinc-800">
         <div className="flex items-center gap-3">
@@ -612,7 +612,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             </h1>
           </div>
         </div>
-        
+
         <button
           type="button"
           onClick={handleSubmit}
@@ -638,7 +638,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
 
       {/* Form Content Panel - Line-by-Line Flow */}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-6">
-        
+
 
 
         {/* LINE 1: News Name (In English / Slug) */}
@@ -825,22 +825,20 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               <button
                 type="button"
                 onClick={() => setImageMode('upload')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${
-                  imageMode === 'upload'
-                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${imageMode === 'upload'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
               >
                 Upload File
               </button>
               <button
                 type="button"
                 onClick={() => setImageMode('url')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${
-                  imageMode === 'url'
-                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${imageMode === 'url'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
               >
                 Image URL
               </button>
@@ -942,22 +940,20 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               <button
                 type="button"
                 onClick={() => setImage2Mode('upload')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${
-                  image2Mode === 'upload'
-                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${image2Mode === 'upload'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
               >
                 Upload File
               </button>
               <button
                 type="button"
                 onClick={() => setImage2Mode('url')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${
-                  image2Mode === 'url'
-                    ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
+                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${image2Mode === 'url'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+                  }`}
               >
                 Image URL
               </button>
@@ -977,9 +973,9 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                     try {
                       const formData = new FormData();
                       formData.append('file', file);
-                      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+                      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
                       const json = await res.json();
-                      if (res.ok) setImage2(json.url);
+                      if (res.ok && json.url) setImage2(json.url);
                     } catch (err) {
                       console.error(err);
                     } finally {
