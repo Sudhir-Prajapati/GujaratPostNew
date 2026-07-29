@@ -2732,8 +2732,17 @@ function CityHyperlocalSection({
     }
   };
 
-  // Filter API articles for active tab
+  const getCategoryStr = (art: Article) => {
+    if (!art || !art.category) return '';
+    if (typeof art.category === 'string') return art.category.toLowerCase();
+    if (typeof art.category === 'object') {
+      const c = art.category as any;
+      return `${c.name || ''} ${c.slug || ''}`.toLowerCase();
+    }
+    return '';
+  };
 
+  // Filter API articles for active tab
   const getArticlesForTab = useCallback((tabGuKey: string) => {
     if (!articles || articles.length === 0) return [];
 
@@ -2750,23 +2759,23 @@ function CityHyperlocalSection({
       // 'અન્ય' (Other Cities)
       const mainCities = ['ahmedabad', 'surat', 'vadodara', 'rajkot', 'gandhinagar'];
       return articles.filter((art) => {
-        const cat = (art.category || '').toLowerCase();
-        const catGu = (art.categoryGu || '').toLowerCase();
+        const cat = getCategoryStr(art);
+        const catGu = ((art as any).categoryGu || '').toLowerCase();
         const slug = (art.slug || '').toLowerCase();
         const title = (art.title || '').toLowerCase();
-        const titleGu = (art.titleGu || '').toLowerCase();
+        const titleGu = ((art as any).titleGu || '').toLowerCase();
         return !mainCities.some((c) => cat.includes(c) || catGu.includes(c) || slug.includes(c) || title.includes(c) || titleGu.includes(c));
       });
     }
 
     return articles.filter((art) => {
-      const cat = (art.category || '').toLowerCase();
-      const catGu = (art.categoryGu || '').toLowerCase();
+      const cat = getCategoryStr(art);
+      const catGu = ((art as any).categoryGu || '').toLowerCase();
       const slug = (art.slug || '').toLowerCase();
       const title = (art.title || '').toLowerCase();
-      const titleGu = (art.titleGu || '').toLowerCase();
+      const titleGu = ((art as any).titleGu || '').toLowerCase();
       const content = (art.content || '').toLowerCase();
-      const contentGu = (art.contentGu || '').toLowerCase();
+      const contentGu = ((art as any).contentGu || '').toLowerCase();
 
       return (
         cat.includes(targetCity) ||
@@ -2779,6 +2788,7 @@ function CityHyperlocalSection({
       );
     });
   }, [articles]);
+
 
   const tabApiArticles = useMemo(() => getArticlesForTab(activeTab), [getArticlesForTab, activeTab]);
 
