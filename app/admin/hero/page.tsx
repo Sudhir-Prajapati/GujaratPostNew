@@ -310,14 +310,18 @@ export default function HeroManagerPage() {
 
       setAllArticles(arts);
 
-      // Load the 3 currently isFeatured articles into slots; fallback to first 3 articles if none featured yet
       const featured = arts.filter((a) => a.isFeatured);
-      const defaultSlots = [
-        featured[0] ?? arts[0] ?? null,
-        featured[1] ?? arts[1] ?? null,
-        featured[2] ?? arts[2] ?? null,
-      ];
-      setSlots(defaultSlots);
+
+      // Match the 3 bottom row articles (Article #13, #7, #17) from the homepage
+      const find13 = arts.find((a) => a.articleNumber === 13 || (a.titleGu ?? a.title ?? '').includes('#13'));
+      const find7 = arts.find((a) => a.articleNumber === 7 || (a.titleGu ?? a.title ?? '').includes('#7'));
+      const find17 = arts.find((a) => a.articleNumber === 17 || (a.titleGu ?? a.title ?? '').includes('#17'));
+
+      const slot0 = (featured.length === 3 ? featured[0] : find13) ?? featured[0] ?? arts[0] ?? null;
+      const slot1 = (featured.length === 3 ? featured[1] : find7) ?? featured[1] ?? arts[1] ?? null;
+      const slot2 = (featured.length === 3 ? featured[2] : find17) ?? featured[2] ?? arts[2] ?? null;
+
+      setSlots([slot0, slot1, slot2]);
     } catch {
       showToast('Failed to load articles', false);
     } finally {
