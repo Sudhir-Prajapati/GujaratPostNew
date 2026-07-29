@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
 import { slugify } from '@/lib/utils';
+import { getPublicArticles } from '@/lib/api';
 
 interface ArticleFormProps {
   articleId?: string; // If present, we are in Edit mode
@@ -432,6 +433,24 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     }
     loadArticle();
   }, [articleId, isEditMode, userRole, userAuthorId]);
+
+  // Auto-fetch next available article number when creating a new article
+  useEffect(() => {
+    if (isEditMode) return;
+    getPublicArticles({ limit: 1 })
+      .then((res) => {
+        if (res?.articles && res.articles.length > 0) {
+          const topArt = res.articles[0];
+          const nextNum = (topArt.articleNumber ?? 0) + 1;
+          setArticleNumber(nextNum);
+        } else {
+          setArticleNumber(1001);
+        }
+      })
+      .catch(() => {
+        setArticleNumber(1001);
+      });
+  }, [isEditMode]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
