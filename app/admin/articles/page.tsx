@@ -387,24 +387,24 @@ export default function ArticleList() {
         ) : (
           <div className="overflow-x-auto w-full">
             <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
-              <thead className="border-b border-zinc-100 bg-zinc-50/50 font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-zinc-400">
+              <thead className="border-b border-zinc-100 bg-zinc-50/70 font-bold uppercase tracking-wider text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400 select-none">
                 <tr>
-                  <th className="px-6 py-4">Article</th>
-                  <th className="px-6 py-4">Category</th>
-                  <th className="px-6 py-4">Author</th>
-                  <th className="px-6 py-4">Views</th>
-                  <th className="px-6 py-4">Published At</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-4 py-3">Article</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Author</th>
+                  <th className="px-4 py-3">Views</th>
+                  <th className="px-4 py-3">Published At</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-850">
                 {articles.map((art) => (
-                  <tr key={art.id} className="group hover:bg-zinc-50/40 dark:hover:bg-zinc-950/10 transition-colors">
+                  <tr key={art.id} className="group hover:bg-zinc-50/60 dark:hover:bg-zinc-950/20 transition-colors">
                     {/* Thumbnail & Title */}
-                    <td className="px-6 py-4 font-medium min-w-[320px]">
-                      <div className="flex items-center gap-4">
-                        <div className="relative h-12 w-20 overflow-hidden rounded bg-zinc-100">
+                    <td className="px-4 py-2.5 font-medium min-w-[280px]">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-9 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800">
                           <img
                             src={art.featuredImage}
                             alt="thumb"
@@ -415,16 +415,16 @@ export default function ArticleList() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="line-clamp-2 text-zinc-900 font-bold leading-tight dark:text-white">
+                          <p className="line-clamp-2 text-zinc-900 font-bold text-[12.5px] leading-snug dark:text-white group-hover:text-[#B3121B] transition-colors">
                             {art.titleGu || art.title || art.titleHi}
                           </p>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-1.5 mt-0.5">
                             {art.articleNumber && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-red-100 text-[#B3121B] dark:bg-red-950/40 dark:text-red-400 text-[10px] font-black font-mono">
+                              <span className="inline-flex items-center px-1 py-0.2 rounded bg-red-50 text-[#B3121B] border border-red-100 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 text-[9px] font-black font-mono">
                                 #{art.articleNumber}
                               </span>
                             )}
-                            <span className="text-[10px] text-zinc-400 uppercase font-semibold tracking-wider font-mono truncate">
+                            <span className="text-[9px] text-zinc-400 uppercase font-medium tracking-wider font-mono truncate max-w-[200px]">
                               slug: {art.slug}
                             </span>
                           </div>
@@ -433,81 +433,81 @@ export default function ArticleList() {
                     </td>
 
                     {/* Category */}
-                    <td className="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400 font-medium">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400 font-medium">
                       {art.category.name}
                     </td>
 
                     {/* Author */}
-                    <td className="px-6 py-4 whitespace-nowrap text-zinc-600 dark:text-zinc-400 font-medium">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-xs text-zinc-600 dark:text-zinc-400 font-medium">
                       {art.author.name}
                     </td>
 
                     {/* Views */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1 text-zinc-600 dark:text-zinc-400">
-                        <Eye className="h-4 w-4 text-zinc-400" />
+                    <td className="px-4 py-2.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                        <Eye className="h-3.5 w-3.5 text-zinc-400" />
                         <span className="font-semibold">{art.views.toLocaleString('en-IN')}</span>
                       </div>
                     </td>
 
                     {/* Published Date */}
-                    <td className="px-6 py-4 whitespace-nowrap text-zinc-500 dark:text-zinc-400">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-xs text-zinc-500 dark:text-zinc-400">
                       {formatDate(art.createdAt || art.updatedAt || art.publishedAt)}
                     </td>
 
                     {/* Status badge */}
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap">
                       {getStatusBadge(art.status)}
                     </td>
 
                     {/* Actions */}
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-2.5">
+                    <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1.5">
                         {userRole !== 'REPORTER' && art.status !== 'PUBLISHED' && (
                           <button
                             onClick={() => handleQuickPublish(art)}
-                            className="rounded-lg p-1.5 text-green-600 hover:bg-green-105 hover:text-green-900 dark:text-green-400 dark:hover:bg-green-950/20"
+                            className="rounded-lg p-1 text-green-600 hover:bg-green-100 hover:text-green-900 dark:text-green-400 dark:hover:bg-green-950/20 transition-colors"
                             title="Quick Publish"
                           >
-                            <CheckCircle2 className="h-4 w-4" />
+                            <CheckCircle2 className="h-3.5 w-3.5" />
                           </button>
                         )}
                         {userRole !== 'REPORTER' && art.status === 'PUBLISHED' && (
                           <button
                             onClick={() => handleQuickUnpublish(art)}
-                            className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-100 hover:text-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                            className="rounded-lg p-1 text-amber-600 hover:bg-amber-100 hover:text-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/20 transition-colors"
                             title="Revert to Draft"
                           >
-                            <RotateCcw className="h-4 w-4" />
+                            <RotateCcw className="h-3.5 w-3.5" />
                           </button>
                         )}
                         {userRole !== 'REPORTER' || art.authorId === userAuthorId ? (
                           <a
                             href={`/admin/articles/${art.id}/edit`}
-                            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-150 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"
+                            className="rounded-lg p-1 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors"
                             title="Edit"
                           >
-                            <Edit2 className="h-4 w-4" />
+                            <Edit2 className="h-3.5 w-3.5" />
                           </a>
                         ) : (
                           <span
-                            className="p-1.5 text-zinc-300 dark:text-zinc-700 cursor-not-allowed"
+                            className="p-1 text-zinc-300 dark:text-zinc-700 cursor-not-allowed"
                             title="Forbidden: You cannot edit other authors' articles"
                           >
-                            <Edit2 className="h-4 w-4 opacity-40" />
+                            <Edit2 className="h-3.5 w-3.5 opacity-40" />
                           </span>
                         )}
                         {userRole !== 'REPORTER' && (
                           <button
                             onClick={() => handleDelete(art.id)}
                             disabled={deletingId === art.id}
-                            className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-650 dark:text-red-400 dark:hover:bg-red-950/20 disabled:opacity-50"
+                            className="rounded-lg p-1 text-red-500 hover:bg-red-50 hover:text-red-650 dark:text-red-400 dark:hover:bg-red-950/20 disabled:opacity-50 transition-colors"
                             title="Delete"
                           >
                             {deletingId === art.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             )}
                           </button>
                         )}
@@ -516,6 +516,7 @@ export default function ArticleList() {
                   </tr>
                 ))}
               </tbody>
+
             </table>
           </div>
         )}
