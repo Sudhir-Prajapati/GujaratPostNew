@@ -15,7 +15,7 @@ import {
   SlidersHorizontal,
   FolderPlus
 } from 'lucide-react';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 interface CategoryData {
   id: string;
@@ -57,7 +57,7 @@ export default function CategoriesPage() {
     async function loadCategories() {
       setLoading(true);
       try {
-        const res = await fetch(getBackendApiUrl('/api/admin/categories'));
+        const res = await authFetch(getBackendApiUrl('/api/admin/categories'));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch categories');
         setCategories(json.data || []);
@@ -131,7 +131,7 @@ export default function CategoriesPage() {
       const url = selectedCategory ? `/api/admin/categories/${selectedCategory.id}` : '/api/admin/categories';
       const method = selectedCategory ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(getBackendApiUrl(url), {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -155,7 +155,7 @@ export default function CategoriesPage() {
   // Toggle active status directly
   const handleToggleActive = async (cat: CategoryData) => {
     try {
-      const res = await fetch(`/api/admin/categories/${cat.id}`, {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/categories/${cat.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -176,7 +176,7 @@ export default function CategoriesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this category? All articles in it will become uncategorized.')) return;
     try {
-      const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' });
+      const res = await authFetch(getBackendApiUrl(`/api/admin/categories/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete category');
       setCategories(prev => prev.filter(c => c.id !== id));
     } catch (err: any) {

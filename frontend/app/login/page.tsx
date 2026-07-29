@@ -43,6 +43,7 @@ function LoginForm() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           email,
           password,
@@ -53,12 +54,19 @@ function LoginForm() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Invalid credentials. Please try again.');
+        throw new Error(result.error || result.message || 'Invalid credentials. Please try again.');
+      }
+
+      // Store access_token cookie for Next.js proxy middleware
+      const token = result.data?.accessToken || result.accessToken;
+      if (token) {
+        const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        document.cookie = `access_token=${token}; path=/; max-age=${maxAge}; ${isHttps ? 'Secure;' : ''} SameSite=Lax`;
       }
 
       // Success! Redirect to target page
-      router.push(redirectPath);
-      router.refresh();
+      window.location.href = redirectPath;
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
       setLoading(false);

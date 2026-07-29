@@ -14,6 +14,27 @@ export function getBackendApiUrl(path: string): string {
   return `${BACKEND_API_BASE}${cleanPath}`;
 }
 
+export function getAccessTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = getAccessTokenFromCookie();
+  const headers = new Headers(options.headers || {});
+
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+}
+
 // Memory cache & In-flight request deduplication map
 const apiCache = new Map<string, { timestamp: number; data: any }>();
 const inFlightRequests = new Map<string, Promise<any>>();

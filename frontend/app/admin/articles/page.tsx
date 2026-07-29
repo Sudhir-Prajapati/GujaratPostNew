@@ -18,7 +18,7 @@ import {
   CheckCircle2,
   RotateCcw,
 } from 'lucide-react';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 interface ArticleData {
   id: string;
@@ -88,7 +88,7 @@ export default function ArticleList() {
 
   // Fetch logged in user role
   useEffect(() => {
-    fetch(getBackendApiUrl('/api/auth/me'))
+    authFetch(getBackendApiUrl('/api/auth/me'))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data?.user) {
@@ -103,7 +103,7 @@ export default function ArticleList() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const res = await fetch(getBackendApiUrl('/api/admin/categories'));
+        const res = await authFetch(getBackendApiUrl('/api/admin/categories'));
         const json = await res.json();
         if (res.ok) {
           const raw: CategoryData[] = json.data || [];
@@ -122,14 +122,14 @@ export default function ArticleList() {
       setLoading(true);
       setError(null);
       try {
-        const url = new URL('/api/admin/articles', window.location.origin);
-        url.searchParams.set('page', String(page));
-        url.searchParams.set('limit', '10');
-        if (query.trim()) url.searchParams.set('query', query);
-        if (selectedCategory) url.searchParams.set('categorySlug', selectedCategory);
-        if (selectedStatus) url.searchParams.set('status', selectedStatus);
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', '10');
+        if (query.trim()) params.set('query', query);
+        if (selectedCategory) params.set('categorySlug', selectedCategory);
+        if (selectedStatus) params.set('status', selectedStatus);
 
-        const res = await fetch(url);
+        const res = await authFetch(getBackendApiUrl(`/api/admin/articles?${params.toString()}`));
         const json = await res.json();
 
         if (!res.ok) throw new Error(json.error || 'Failed to retrieve articles.');
@@ -366,7 +366,7 @@ export default function ArticleList() {
       </div>
 
       {/* Main Table Card */}
-      <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-900 w-full max-w-full">
         
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -385,8 +385,8 @@ export default function ArticleList() {
             <span className="text-sm">No articles match your search query.</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
               <thead className="border-b border-zinc-100 bg-zinc-50/50 font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-zinc-400">
                 <tr>
                   <th className="px-6 py-4">Article</th>

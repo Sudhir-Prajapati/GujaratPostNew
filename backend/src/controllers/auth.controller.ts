@@ -46,7 +46,11 @@ export class AuthController {
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
-      return sendSuccess(res, { user: result.user }, 'Logged in successfully');
+      return sendSuccess(
+        res,
+        { user: result.user, accessToken: result.accessToken, refreshToken: result.refreshToken },
+        'Logged in successfully'
+      );
     } catch (error) {
       next(error);
     }
