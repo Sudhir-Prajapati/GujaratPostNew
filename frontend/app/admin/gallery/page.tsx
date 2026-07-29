@@ -14,6 +14,7 @@ import {
   Compass,
   Plus
 } from 'lucide-react';
+import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 interface PhotoData {
   id: string;
@@ -80,7 +81,7 @@ export default function GalleryPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/admin/upload', {
+      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), {
         method: 'POST',
         body: formData,
       });
