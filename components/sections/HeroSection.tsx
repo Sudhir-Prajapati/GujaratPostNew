@@ -2768,27 +2768,44 @@ function CityHyperlocalSection({
       });
     }
 
+    // Match strictly by Category, Slug, or Title (do NOT match generic body content)
     return articles.filter((art) => {
       const cat = getCategoryStr(art);
       const catGu = ((art as any).categoryGu || '').toLowerCase();
       const slug = (art.slug || '').toLowerCase();
       const title = (art.title || '').toLowerCase();
       const titleGu = ((art as any).titleGu || '').toLowerCase();
-      const content = (art.content || '').toLowerCase();
-      const contentGu = ((art as any).contentGu || '').toLowerCase();
 
       return (
         cat.includes(targetCity) ||
         catGu.includes(tabGuKey) ||
         slug.includes(targetCity) ||
         title.includes(targetCity) ||
-        titleGu.includes(tabGuKey) ||
-        content.includes(targetCity) ||
-        contentGu.includes(tabGuKey)
+        titleGu.includes(tabGuKey)
       );
     });
   }, [articles]);
 
+  const getArtCategoryNameGu = (art: Article, tabGuKey: string) => {
+    let catName = '';
+    if (typeof art.category === 'object' && (art.category as any).name) {
+      catName = (art.category as any).name;
+    } else if (typeof art.category === 'string') {
+      catName = art.category;
+    } else if ((art as any).categoryGu) {
+      return (art as any).categoryGu;
+    }
+    if (CITY_NAME_MAP[catName]) return getLocalized('gu', CITY_NAME_MAP[catName]);
+    return catName || tabGuKey;
+  };
+
+  const getArtCategoryNameEn = (art: Article, tabGuKey: string) => {
+    if (typeof art.category === 'object' && (art.category as any).name) {
+      return (art.category as any).name;
+    }
+    if (typeof art.category === 'string') return art.category;
+    return CITY_NAME_MAP[tabGuKey]?.en || 'City';
+  };
 
   const tabApiArticles = useMemo(() => getArticlesForTab(activeTab), [getArticlesForTab, activeTab]);
 
@@ -2803,9 +2820,9 @@ function CityHyperlocalSection({
       relativeTimeGu: formatTime(art.publishedAt),
       relativeTime: formatTime(art.publishedAt),
       relativeTimeHi: formatTime(art.publishedAt),
-      categoryGu: art.categoryGu || activeTab,
-      category: art.category || 'City',
-      categoryHi: art.categoryHi || activeTab,
+      categoryGu: getArtCategoryNameGu(art, activeTab),
+      category: getArtCategoryNameEn(art, activeTab),
+      categoryHi: (art as any).categoryHi || activeTab,
       viewsGu: `${art.views || 25}K`,
       views: `${art.views || 25}K`,
       excerptGu: art.excerptGu || art.excerpt || art.title,
@@ -2826,13 +2843,14 @@ function CityHyperlocalSection({
       relativeTimeGu: formatTime(art.publishedAt),
       relativeTime: formatTime(art.publishedAt),
       relativeTimeHi: formatTime(art.publishedAt),
-      categoryGu: art.categoryGu || activeTab,
-      category: art.category || 'City',
-      categoryHi: art.categoryHi || activeTab,
+      categoryGu: getArtCategoryNameGu(art, activeTab),
+      category: getArtCategoryNameEn(art, activeTab),
+      categoryHi: (art as any).categoryHi || activeTab,
       viewsGu: `${art.views || 20}K`,
       views: `${art.views || 20}K`,
     }));
   }, [tabApiArticles, activeTab]);
+
 
 
   const activeCityData = cityData[activeTab] || cityData['અમદાવાદ'];
