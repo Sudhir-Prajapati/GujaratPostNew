@@ -69,6 +69,19 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [image2Mode, setImage2Mode] = useState<'upload' | 'url'>('upload');
   const [uploadingImage2, setUploadingImage2] = useState(false);
 
+  const [image3, setImage3] = useState('');
+  const [image3Mode, setImage3Mode] = useState<'upload' | 'url'>('upload');
+  const [uploadingImage3, setUploadingImage3] = useState(false);
+
+  const [image4, setImage4] = useState('');
+  const [image4Mode, setImage4Mode] = useState<'upload' | 'url'>('upload');
+  const [uploadingImage4, setUploadingImage4] = useState(false);
+
+  const [image5, setImage5] = useState('');
+  const [image5Mode, setImage5Mode] = useState<'upload' | 'url'>('upload');
+  const [uploadingImage5, setUploadingImage5] = useState(false);
+
+
   const [desc2, setDesc2] = useState('');
   const [desc2Gu, setDesc2Gu] = useState('');
   const [desc2Hi, setDesc2Hi] = useState('');
@@ -155,7 +168,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     qT: string,
     qC: string,
     d2Str: string,
-    img2: string,
+    galleryImages: string[],
     lang: 'en' | 'gu' | 'hi'
   ) => {
     const parts: string[] = [];
@@ -166,9 +179,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     if (d1Str.trim()) {
       parts.push(d1Str.trim());
     }
-    if (img2.trim()) {
-      parts.push(`![Gallery Image 2](${img2.trim()})`);
-    }
+    galleryImages.forEach((img, idx) => {
+      if (img && img.trim()) {
+        parts.push(`![Gallery Image ${idx + 2}](${img.trim()})`);
+      }
+    });
     if (qT.trim()) {
       const citeStr = qC.trim() ? `\n> — ${qC.trim()}` : '';
       parts.push(`> "${qT.trim()}"${citeStr}`);
@@ -248,7 +263,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     loadSelectors();
   }, []);
 
-  // Parse body string into distinct sections (Highlights, Desc1, Image2, Quote, Desc2)
+  // Parse body string into distinct sections (Highlights, Desc1, Image2..5, Quote, Desc2)
   const parseBodyToSections = (raw: string) => {
     let hl = '';
     let d1Str = '';
@@ -256,15 +271,25 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     let qC = '';
     let d2Str = '';
     let img2 = '';
+    let img3 = '';
+    let img4 = '';
+    let img5 = '';
 
-    if (!raw) return { hl, d1Str, qT, qC, d2Str, img2 };
+    if (!raw) return { hl, d1Str, qT, qC, d2Str, img2, img3, img4, img5 };
 
-    // Extract secondary image markdown if present: ![...](url)
-    const img2Match = raw.match(/!\[(?:Gallery Image 2|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
-    if (img2Match) {
-      img2 = img2Match[1];
-      raw = raw.replace(img2Match[0], '');
+    const galleryMatches = [...raw.matchAll(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi)];
+    const extractedImgs: string[] = [];
+    for (const match of galleryMatches) {
+      if (match[1]) {
+        extractedImgs.push(match[1]);
+        raw = raw.replace(match[0], '');
+      }
     }
+    img2 = extractedImgs[0] || '';
+    img3 = extractedImgs[1] || '';
+    img4 = extractedImgs[2] || '';
+    img5 = extractedImgs[3] || '';
+
 
     const paragraphs = raw.split(/\n\n+/);
     const d1Paras: string[] = [];
@@ -325,7 +350,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       d1Str = raw.trim();
     }
 
-    return { hl, d1Str, qT, qC, d2Str, img2 };
+    return { hl, d1Str, qT, qC, d2Str, img2, img3, img4, img5 };
   };
 
   // Load article values if in edit mode
@@ -395,9 +420,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setQuoteCiteHi(parsedHi.qC || parsedEn.qC || '');
         setDesc2Hi(parsedHi.d2Str || parsedEn.d2Str || '');
 
-        // Populate 2nd optional gallery photo from article property or parsed markdown
-        const extractedImage2 = art.image2 || art.galleryImage2 || art.secondaryImage || parsedEn.img2 || parsedGu.img2 || parsedHi.img2 || '';
-        setImage2(extractedImage2);
+        // Populate optional gallery photos (Images 2..5) from article property or parsed markdown
+        setImage2(art.image2 || art.galleryImage2 || art.secondaryImage || parsedEn.img2 || parsedGu.img2 || parsedHi.img2 || '');
+        setImage3(art.image3 || parsedEn.img3 || parsedGu.img3 || parsedHi.img3 || '');
+        setImage4(art.image4 || parsedEn.img4 || parsedGu.img4 || parsedHi.img4 || '');
+        setImage5(art.image5 || parsedEn.img5 || parsedGu.img5 || parsedHi.img5 || '');
 
         setFeaturedImage(art.featuredImage || '');
         if (art.featuredImage && (art.featuredImage.startsWith('http://') || art.featuredImage.startsWith('https://'))) {
@@ -517,9 +544,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     }
 
     // Compile distinct input sections into complete article content strings
-    const compiledEn = compileStructuredContent(highlights.trim() || effectiveHighlights, desc1.trim() || effectiveD1, quoteText.trim() || effectiveQuoteText, quoteCite.trim() || effectiveQuoteCite, desc2.trim() || effectiveD2, image2, 'en');
-    const compiledGu = compileStructuredContent(highlightsGu.trim() || effectiveHighlights, desc1Gu.trim() || effectiveD1, quoteTextGu.trim() || effectiveQuoteText, quoteCiteGu.trim() || effectiveQuoteCite, desc2Gu.trim() || effectiveD2, image2, 'gu');
-    const compiledHi = compileStructuredContent(highlightsHi.trim() || effectiveHighlights, desc1Hi.trim() || effectiveD1, quoteTextHi.trim() || effectiveQuoteText, quoteCiteHi.trim() || effectiveQuoteCite, desc2Hi.trim() || effectiveD2, image2, 'hi');
+    const galleryPayload = [image2, image3, image4, image5];
+    const compiledEn = compileStructuredContent(highlights.trim() || effectiveHighlights, desc1.trim() || effectiveD1, quoteText.trim() || effectiveQuoteText, quoteCite.trim() || effectiveQuoteCite, desc2.trim() || effectiveD2, galleryPayload, 'en');
+    const compiledGu = compileStructuredContent(highlightsGu.trim() || effectiveHighlights, desc1Gu.trim() || effectiveD1, quoteTextGu.trim() || effectiveQuoteText, quoteCiteGu.trim() || effectiveQuoteCite, desc2Gu.trim() || effectiveD2, galleryPayload, 'gu');
+    const compiledHi = compileStructuredContent(highlightsHi.trim() || effectiveHighlights, desc1Hi.trim() || effectiveD1, quoteTextHi.trim() || effectiveQuoteText, quoteCiteHi.trim() || effectiveQuoteCite, desc2Hi.trim() || effectiveD2, galleryPayload, 'hi');
+
 
     // Convert comma-separated tags to object array
     const tags = tagsString
@@ -930,89 +959,111 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
-        {/* 🖼️ DISTINCT SECTION 5: Upload Images (2nd Optional Gallery Photo) */}
-        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/20">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-              Upload Images (2nd Optional Gallery Photo) [Size: 1100px X 541px]
-            </label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setImage2Mode('upload')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${image2Mode === 'upload'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-900'
-                  }`}
-              >
-                Upload File
-              </button>
-              <button
-                type="button"
-                onClick={() => setImage2Mode('url')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${image2Mode === 'url'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-900'
-                  }`}
-              >
-                Image URL
-              </button>
+        {/* 🖼️ DISTINCT SECTION 5: Upload Additional Gallery Photos (Up to 4 additional - Total 5 Photos max) */}
+        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/20">
+          <div className="flex items-center justify-between border-b border-zinc-200/60 pb-2 dark:border-zinc-800">
+            <div>
+              <label className="block text-xs font-black text-zinc-800 uppercase tracking-wider dark:text-zinc-200">
+                Upload Additional Gallery Photos (Up to 4 optional photos - Total max 5 photos)
+              </label>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Upload up to 4 additional images for this article [Recommended size: 1100px x 541px].
+              </p>
             </div>
+            <span className="text-xs font-black text-red-600 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-md border border-red-100 dark:border-red-900/50">
+              Max 5 Photos Total
+            </span>
           </div>
 
-          {image2Mode === 'upload' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setUploadingImage2(true);
-                    try {
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
-                      const json = await res.json();
-                      if (res.ok && json.url) setImage2(json.url);
-                    } catch (err) {
-                      console.error(err);
-                    } finally {
-                      setUploadingImage2(false);
-                    }
-                  }}
-                  disabled={uploadingImage2}
-                  className="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-200 file:text-zinc-800 hover:file:bg-zinc-300 cursor-pointer"
-                />
-                {uploadingImage2 && <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
+          {[
+            { num: 2, label: '2nd Optional Gallery Photo', val: image2, setVal: setImage2, mode: image2Mode, setMode: setImage2Mode, loading: uploadingImage2, setLoading: setUploadingImage2 },
+            { num: 3, label: '3rd Optional Gallery Photo', val: image3, setVal: setImage3, mode: image3Mode, setMode: setImage3Mode, loading: uploadingImage3, setLoading: setUploadingImage3 },
+            { num: 4, label: '4th Optional Gallery Photo', val: image4, setVal: setImage4, mode: image4Mode, setMode: setImage4Mode, loading: uploadingImage4, setLoading: setUploadingImage4 },
+            { num: 5, label: '5th Optional Gallery Photo', val: image5, setVal: setImage5, mode: image5Mode, setMode: setImage5Mode, loading: uploadingImage5, setLoading: setUploadingImage5 },
+          ].map((slot) => (
+            <div key={slot.num} className="p-3.5 rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  Image {slot.num} ({slot.label})
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => slot.setMode('upload')}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${slot.mode === 'upload'
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                      : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                  >
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => slot.setMode('url')}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${slot.mode === 'url'
+                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                      : 'text-zinc-500 hover:text-zinc-900'
+                      }`}
+                  >
+                    Image URL
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <input
-              type="url"
-              value={image2 || ''}
-              onChange={(e) => setImage2(e.target.value)}
-              placeholder="https://images.unsplash.com/photo-..."
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
-            />
-          )}
 
-          {image2 && (
-            <div className="space-y-2">
-              <div className="relative aspect-[16/9] max-w-sm overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-black">
-                <img src={image2} alt="Image 2 preview" className="h-full w-full object-cover" />
-              </div>
-              <button
-                type="button"
-                onClick={() => setImage2('')}
-                className="text-xs font-bold text-red-600 hover:underline"
-              >
-                Remove 2nd Photo
-              </button>
+              {slot.mode === 'upload' ? (
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      slot.setLoading(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
+                        const json = await res.json();
+                        if (res.ok && json.url) slot.setVal(json.url);
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        slot.setLoading(false);
+                      }
+                    }}
+                    disabled={slot.loading}
+                    className="block w-full text-xs text-zinc-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-800 hover:file:bg-zinc-200 cursor-pointer"
+                  />
+                  {slot.loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
+                </div>
+              ) : (
+                <input
+                  type="url"
+                  value={slot.val || ''}
+                  onChange={(e) => slot.setVal(e.target.value)}
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+                />
+              )}
+
+              {slot.val && (
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-zinc-200 bg-black shrink-0">
+                    <img src={slot.val} alt={`Image ${slot.num} preview`} className="h-full w-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => slot.setVal('')}
+                    className="text-xs font-bold text-red-600 hover:underline"
+                  >
+                    Remove Photo {slot.num}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
+
 
         {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
         <div className="space-y-2">
