@@ -155,16 +155,26 @@ export class ArticleController {
       }
 
       let assignedArticleNum: number;
-      if (articleNumber !== undefined && articleNumber !== null) {
-        const num = parseInt(articleNumber, 10);
-        if (isNaN(num) || num <= 0) {
-          throw new BadRequestError('Invalid article number.');
+      if (articleNumber !== undefined && articleNumber !== null && String(articleNumber).trim() !== '') {
+        const num = parseInt(String(articleNumber), 10);
+        if (!isNaN(num) && num > 0) {
+          const dup = await prisma.post.findFirst({ where: { articleNumber: num } });
+          if (!dup) {
+            assignedArticleNum = num;
+          } else {
+            const maxArticle = await prisma.post.findFirst({
+              orderBy: { articleNumber: 'desc' },
+              select: { articleNumber: true },
+            });
+            assignedArticleNum = (maxArticle?.articleNumber ?? 0) + 1;
+          }
+        } else {
+          const maxArticle = await prisma.post.findFirst({
+            orderBy: { articleNumber: 'desc' },
+            select: { articleNumber: true },
+          });
+          assignedArticleNum = (maxArticle?.articleNumber ?? 0) + 1;
         }
-        const dup = await prisma.post.findFirst({ where: { articleNumber: num } });
-        if (dup) {
-          throw new BadRequestError(`Article number ${num} is already taken.`);
-        }
-        assignedArticleNum = num;
       } else {
         const maxArticle = await prisma.post.findFirst({
           orderBy: { articleNumber: 'desc' },
@@ -312,8 +322,8 @@ export class ArticleController {
       if (isTrending !== undefined) updateData.isTrending = !!isTrending;
       if (isBreaking !== undefined) updateData.isBreaking = !!isBreaking;
       if (isFeatured !== undefined) updateData.isFeatured = !!isFeatured;
-      if (articleNumber !== undefined) {
-        const num = parseInt(articleNumber, 10);
+      if (articleNumber !== undefined && articleNumber !== null && String(articleNumber).trim() !== '') {
+        const num = parseInt(String(articleNumber), 10);
         if (!isNaN(num) && num > 0) {
           // Check if the number is already taken by another article
           const duplicate = await prisma.post.findFirst({
@@ -321,8 +331,6 @@ export class ArticleController {
           });
           if (!duplicate) {
             updateData.articleNumber = num;
-          } else {
-            throw new BadRequestError(`Article number ${num} is already used by another article.`);
           }
         }
       }
