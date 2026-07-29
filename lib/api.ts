@@ -284,3 +284,40 @@ export async function getPublicAstrology(): Promise<any[]> {
   }
   return [];
 }
+
+/**
+ * Fetch Hero section settings and slot articles from Express Backend API
+ */
+export async function getHeroSettings(): Promise<{ slots: (Article | null)[]; setting: any }> {
+  try {
+    const url = `${API_BASE_URL}/hero-settings`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.slots) {
+      return json.data;
+    }
+  } catch (error: any) {
+    console.warn('Backend API fetch error for hero-settings:', error?.message || error);
+  }
+  return { slots: [null, null, null], setting: null };
+}
+
+/**
+ * Update Hero section settings (Admin)
+ */
+export async function updateHeroSettings(payload: {
+  slot1Id?: string | null;
+  slot2Id?: string | null;
+  slot3Id?: string | null;
+}): Promise<any> {
+  const res = await authFetch('/api/admin/hero-settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to update hero settings');
+  }
+  clearApiCache();
+  return res.json();
+}
+
