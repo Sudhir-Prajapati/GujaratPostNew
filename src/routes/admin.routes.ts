@@ -6,7 +6,9 @@ import { ArticleController } from '../controllers/article.controller.js';
 import { VideoController } from '../controllers/video.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 import { StatsController } from '../controllers/stats.controller.js';
+import { HeroController } from '../controllers/hero.controller.js';
 import uploadRoutes from './upload.routes.js';
+
 
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -71,5 +73,11 @@ router.use('/upload', requireAuth, uploadRoutes);
 // ==========================================
 router.get('/stats', requireAuth, StatsController.getStats);
 
+// ==========================================
+// 9. Hero Section Settings
+// ==========================================
+router.get('/hero-settings', requireAuth, HeroController.getHeroSettings);
+router.put('/hero-settings', requireAuth, HeroController.updateHeroSettings);
 
 export default router;
+
