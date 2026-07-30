@@ -56,19 +56,13 @@ router.get('/articles', async (req, res, next) => {
     if (categorySlug) {
       const slugLower = categorySlug.toLowerCase();
       where.AND.push({
-        OR: [
-          {
-            category: {
-              OR: [
-                { slug: slugLower },
-                { name: categorySlug },
-                { nameGu: categorySlug },
-              ],
-            },
-          },
-          { location: { equals: categorySlug } },
-          { location: { equals: slugLower } },
-        ],
+        category: {
+          OR: [
+            { slug: slugLower },
+            { name: categorySlug },
+            { nameGu: categorySlug },
+          ],
+        },
       });
     }
 
