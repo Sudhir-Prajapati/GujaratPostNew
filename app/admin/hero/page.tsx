@@ -296,10 +296,12 @@ export default function HeroManagerPage() {
 
   const DEFAULT_TOPICS = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
 
-  // 3 bottom image slots & trending topics
+  // 3 bottom image slots, trending topics & trending news slider articles
   const [slots, setSlots] = useState<(Article | null)[]>([null, null, null]);
   const [trendingTopics, setTrendingTopics] = useState<string[]>(DEFAULT_TOPICS);
   const [newTopicInput, setNewTopicInput] = useState('');
+  const [trendingNewsArticles, setTrendingNewsArticles] = useState<Article[]>([]);
+  const [savingTrendingNews, setSavingTrendingNews] = useState(false);
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -334,6 +336,12 @@ export default function HeroManagerPage() {
       } else if (heroRes && heroRes.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
         setTrendingTopics(heroRes.setting.trendingTopics);
       }
+
+      if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
+        setTrendingNewsArticles((heroRes as any).trendingNewsArticles as unknown as Article[]);
+      } else {
+        setTrendingNewsArticles(arts.filter((a) => a.isTrending).slice(0, 10));
+      }
     } catch {
       showToast('Failed to load hero section articles', false);
     } finally {
@@ -353,6 +361,7 @@ export default function HeroManagerPage() {
         slot2Id: slots[1]?.id || null,
         slot3Id: slots[2]?.id || null,
         trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
       };
 
       const res = await updateHeroSettings(payload);
@@ -414,6 +423,7 @@ export default function HeroManagerPage() {
         slot2Id: slots[1]?.id || null,
         slot3Id: slots[2]?.id || null,
         trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
       };
 
       const res = await updateHeroSettings(payload);
@@ -431,6 +441,51 @@ export default function HeroManagerPage() {
       showToast('Save failed. Please try again.', false);
     } finally {
       setSavingTopics(false);
+    }
+  };
+
+  const handleAddTrendingNewsArticle = (art: Article) => {
+    if (trendingNewsArticles.some((a) => a.id === art.id)) {
+      showToast('Article already in Trending News list', false);
+      return;
+    }
+    if (trendingNewsArticles.length >= 10) {
+      showToast('⚠️ Limit reached (10 articles max for Trending News). Please remove one first.', false);
+      return;
+    }
+    setTrendingNewsArticles((prev) => [...prev, art]);
+  };
+
+  const handleRemoveTrendingNewsArticle = (id: string) => {
+    setTrendingNewsArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleSaveTrendingNews = async () => {
+    setSavingTrendingNews(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        clearApiCache();
+        showToast('✅ Saved! Trending News slider articles updated live on user side.', true);
+        if (res.data?.trendingNewsArticles && Array.isArray(res.data.trendingNewsArticles)) {
+          setTrendingNewsArticles(res.data.trendingNewsArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Trending News articles. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingTrendingNews(false);
     }
   };
 
@@ -625,10 +680,93 @@ export default function HeroManagerPage() {
             </div>
           </div>
 
+          {/* Managing Trending News Section (ટ્રેન્ડિંગ ન્યૂઝ Slider) */}
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800 mb-5 gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">⚡</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-zinc-900 dark:text-white">Trending News Slider (ટ્રેન્ડિંગ ન્યૂઝ)</h3>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${trendingNewsArticles.length >= 10 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+                      {trendingNewsArticles.length} / 10 Max
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Select up to 10 articles to feature in the horizontal Trending News (ટ્રેન્ડિંગ ન્યૂઝ) slider on the homepage.</p>
+                </div>
+              </div>
+
+              {/* Dedicated Save Trending News Button */}
+              <button
+                type="button"
+                onClick={handleSaveTrendingNews}
+                disabled={savingTrendingNews}
+                className="flex items-center gap-2 rounded-xl bg-[#B3121B] hover:bg-[#B3121B]/90 px-5 py-2.5 text-xs font-black text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {savingTrendingNews ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                <span>Save Trending News</span>
+              </button>
+            </div>
+
+            {/* Article Search Box for Trending News */}
+            <div className="mb-5">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                + Add Article to Trending News Slider
+              </label>
+              <ArticleSearchBox
+                placeholder={trendingNewsArticles.length >= 10 ? '[ Limit 10 reached — remove an article to add new ]' : 'Search published articles by title, article #, or category to add to Trending News...'}
+                onSelect={(art) => handleAddTrendingNewsArticle(art)}
+                excluded={trendingNewsArticles.map((a) => a.id)}
+                allArticles={allArticles}
+              />
+            </div>
+
+            {/* Current Selected Trending News Articles Grid */}
+            {trendingNewsArticles.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-8 text-center text-xs text-zinc-400">
+                No articles assigned. Default top trending articles will be displayed automatically.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                {trendingNewsArticles.map((art, idx) => (
+                  <div
+                    key={art.id}
+                    className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40 hover:border-[#B3121B]/40 transition-colors group"
+                  >
+                    <div>
+                      {/* Thumbnail & Rank Badge */}
+                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                        <span className="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#B3121B] text-white text-[10px] font-black shadow-sm">
+                          {idx + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTrendingNewsArticle(art.id)}
+                          className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer"
+                          title="Remove from Trending News"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <p className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
+                        {getTitle(art)}
+                      </p>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-zinc-400 pt-1.5 border-t border-zinc-100 dark:border-zinc-800">
+                      <span>{art.articleNumber ? `#${art.articleNumber}` : ''}</span>
+                      <span className="text-[#B3121B]">{catName(art.category)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Info note */}
           <div className="mt-6 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <span className="mt-0.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-400 text-[10px] font-black">i</span>
-            <span><strong>Note:</strong> The 3 articles selected here appear as the <strong>bottom image row</strong> of the homepage hero section. Trending topics appear as interactive search pills. Click <strong>Save Changes</strong> at the top to apply live to the website.</span>
+            <span><strong>Note:</strong> Bottom row image cards, Trending Topics, and Trending News slider articles can be saved independently using their dedicated <strong>Save</strong> buttons.</span>
           </div>
         </>
       )}
