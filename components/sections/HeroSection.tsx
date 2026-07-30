@@ -5750,6 +5750,106 @@ const mockWorldCards = [
   }
 ];
 
+/* --- Dynamic Foreign Exchange Rates Widget ──────────────────────────────── */
+function CurrencyRatesWidget({ language }: { language: Language }) {
+  const [rates, setRates] = useState<Array<{
+    symbol: string;
+    code: string;
+    pair: string;
+    nameEn: string;
+    nameGu: string;
+    nameHi: string;
+    rate: number;
+    change: number;
+    bgColor: string;
+    textColor: string;
+  }>>([
+    { symbol: '$', code: 'USD', pair: 'USD/INR', nameEn: 'US Dollar', nameGu: 'યુએસ ડોલર', nameHi: 'यूएस डॉलर', rate: 86.85, change: 0.12, bgColor: 'bg-green-500/10', textColor: 'text-green-600' },
+    { symbol: '€', code: 'EUR', pair: 'EUR/INR', nameEn: 'Euro', nameGu: 'યુરો', nameHi: 'यूरो', rate: 90.45, change: -0.20, bgColor: 'bg-blue-500/10', textColor: 'text-blue-600' },
+    { symbol: 'د.إ', code: 'AED', pair: 'AED/INR', nameEn: 'UAE Dirham', nameGu: 'યુએઈ દિરહામ', nameHi: 'यूएई दिरहम', rate: 23.64, change: -0.05, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-600' },
+    { symbol: 'A$', code: 'AUD', pair: 'AUD/INR', nameEn: 'Australian Dollar', nameGu: 'ઓસ્ટ્રેલિયન ડોલર', nameHi: 'ऑस्ट्रेलियन डॉलर', rate: 55.48, change: 0.03, bgColor: 'bg-yellow-500/10', textColor: 'text-yellow-600' },
+    { symbol: '£', code: 'GBP', pair: 'GBP/INR', nameEn: 'British Pound', nameGu: 'બ્રિટિશ પાઉન્ડ', nameHi: 'ब्रिटिश पाउंड', rate: 108.78, change: 0.00, bgColor: 'bg-amber-500/10', textColor: 'text-amber-600' },
+    { symbol: 'C$', code: 'CAD', pair: 'CAD/INR', nameEn: 'Canadian Dollar', nameGu: 'કેનેડિયન ડોલર', nameHi: 'कनाडाई डॉलर', rate: 61.20, change: 0.08, bgColor: 'bg-red-500/10', textColor: 'text-red-600' },
+  ]);
+
+  const [lastUpdated, setLastUpdated] = useState<string>('Live');
+
+  useEffect(() => {
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.result === 'success' && data.rates && data.rates.INR) {
+          const usdInr = data.rates.INR;
+          const getInrRate = (currCode: string) => {
+            if (currCode === 'USD') return usdInr;
+            if (data.rates[currCode]) return usdInr / data.rates[currCode];
+            return null;
+          };
+
+          setRates((prev) =>
+            prev.map((item) => {
+              const liveRate = getInrRate(item.code);
+              if (liveRate) {
+                const diff = liveRate - item.rate;
+                return {
+                  ...item,
+                  rate: Number(liveRate.toFixed(2)),
+                  change: Number(diff.toFixed(2)),
+                };
+              }
+              return item;
+            })
+          );
+          setLastUpdated(new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }));
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully to preset exchange rates
+      });
+  }, []);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between pb-1 mb-2 select-none border-b border-border/80">
+        <span className="text-[#B3121B] font-extrabold text-[14px] md:text-[15px]">
+          {language === 'gu' ? '• વિદેશી ચલણ' : language === 'hi' ? '• विदेशी मुद्रा' : '• Foreign Exchange'}
+        </span>
+        <span className="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Live {lastUpdated}</span>
+        </span>
+      </div>
+      <div className="border border-border/80 rounded-sm bg-card divide-y divide-border/60 shadow-sm">
+        {rates.map((item) => {
+          const name = language === 'gu' ? item.nameGu : language === 'hi' ? item.nameHi : item.nameEn;
+          const isUp = item.change > 0;
+          const isDown = item.change < 0;
+
+          return (
+            <div key={item.code} className="flex items-center justify-between p-2.5 px-3 hover:bg-muted/30 transition-colors">
+              <div className="flex items-center gap-2.5">
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${item.bgColor} ${item.textColor} font-extrabold text-[12px] select-none shrink-0`}>
+                  {item.symbol}
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[12px] font-black text-foreground">{name}</span>
+                  <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">{item.pair}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[13px] font-black text-foreground">₹{item.rate.toFixed(2)}</span>
+                <span className={`text-[10.5px] font-black tracking-tight select-none ${isUp ? 'text-green-600' : isDown ? 'text-red-600' : 'text-muted-foreground'}`}>
+                  {isUp ? `▲ +${item.change.toFixed(2)}` : isDown ? `▼ ${item.change.toFixed(2)}` : '— Stable'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* --- World Section ("વિશ્વ" Zone) ----------------------------- */
 export function WorldSection({ language }: { language: Language }) {
   const [dbWorldArticles, setDbWorldArticles] = useState<Article[]>([]);
@@ -5926,129 +6026,8 @@ export function WorldSection({ language }: { language: Language }) {
             </button>
           </div>
 
-          {/* Foreign Currency Widget */}
-          <div>
-            <div className="flex items-center gap-1.5 pb-1 mb-2 select-none border-b border-border/80">
-              <span className="text-[#B3121B] font-extrabold text-[14px] md:text-[15px]">
-                {language === 'gu' ? '• વિદેશી ચલણ' : '• Foreign Exchange'}
-              </span>
-            </div>
-            <div className="border border-border/80 rounded-sm bg-card divide-y divide-border/60 shadow-sm">
-              {/* USD */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/10 text-green-600 font-extrabold text-[14px] select-none">
-                    $
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">US Doller</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">USD/INR</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹83.92</span>
-                  <span className="text-green-600 text-[10.5px] font-black tracking-tight select-none">▲ 0.12</span>
-                </div>
-              </div>
-
-              {/* EUR */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-blue-600 font-extrabold text-[14px] select-none">
-                    €
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">Euro</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">EUR/INR</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹90.45</span>
-                  <span className="text-red-600 text-[10.5px] font-black tracking-tight select-none">▼ 0.20</span>
-                </div>
-              </div>
-
-              {/* AED */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 font-extrabold text-[11px] select-none">
-                    د.إ
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">UAE Dirham</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">
-                      AED/INR
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹22.85</span>
-                  <span className="text-red-600 text-[10.5px] font-black tracking-tight select-none">
-                    ▼ 0.05
-                  </span>
-                </div>
-              </div>
-
-              {/* AUD */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow-500/10 text-yellow-600 font-extrabold text-[12px] select-none">
-                    A$
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">Australian Dollar</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">
-                      AUD/INR
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹55.48</span>
-                  <span className="text-green-600 text-[10.5px] font-black tracking-tight select-none">
-                    ▲ 0.03
-                  </span>
-                </div>
-              </div>
-
-              {/* GBP */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 font-extrabold text-[14px] select-none">
-                    £
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">Brities Pound </span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">GBP/INR</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹106.78</span>
-                  <span className="text-muted-foreground text-[10px] font-extrabold tracking-tight select-none">— Stabal</span>
-                </div>
-              </div>
-
-              {/* CAD */}
-              <div className="flex items-center justify-between p-2.5 px-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-red-500/10 text-red-600 font-extrabold text-[12px] select-none">
-                    C$
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[12px] font-black text-foreground">Canadian Dollar</span>
-                    <span className="text-[9px] text-muted-foreground font-semibold uppercase leading-none mt-0.5">
-                      CAD/INR
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[13px] font-black text-foreground">₹61.20</span>
-                  <span className="text-green-600 text-[10.5px] font-black tracking-tight select-none">
-                    ▲ 0.08
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Dynamic Foreign Currency Widget */}
+          <CurrencyRatesWidget language={language} />
 
         </div>
 
