@@ -86,9 +86,24 @@ export class HeroController {
         slot3Id ? postsMap.get(slot3Id) || null : null,
       ];
 
+      const DEFAULT_TOPICS = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
+
+      let parsedTopics = DEFAULT_TOPICS;
+      if (heroSetting?.trendingTopics) {
+        try {
+          parsedTopics = JSON.parse(heroSetting.trendingTopics);
+        } catch {
+          parsedTopics = heroSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+        }
+      }
+
       return sendSuccess(res, {
-        setting: heroSetting || { id: 'default', slot1Id, slot2Id, slot3Id },
+        setting: {
+          ...(heroSetting || { id: 'default', slot1Id, slot2Id, slot3Id }),
+          trendingTopics: parsedTopics,
+        },
         slots,
+        trendingTopics: parsedTopics,
       }, 'Hero section settings retrieved successfully.');
     } catch (error) {
       next(error);
@@ -96,11 +111,17 @@ export class HeroController {
   }
 
   /**
-   * Update hero section slot articles
+   * Update hero section slot articles and trending topics
    */
   static async updateHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      const { slot1Id, slot2Id, slot3Id } = req.body;
+      const { slot1Id, slot2Id, slot3Id, trendingTopics } = req.body;
+
+      const topicsStr = Array.isArray(trendingTopics)
+        ? JSON.stringify(trendingTopics)
+        : typeof trendingTopics === 'string'
+        ? trendingTopics
+        : null;
 
       const updatedSetting = await prisma.heroSetting.upsert({
         where: { id: 'default' },
@@ -108,12 +129,14 @@ export class HeroController {
           slot1Id: slot1Id || null,
           slot2Id: slot2Id || null,
           slot3Id: slot3Id || null,
+          trendingTopics: topicsStr,
         },
         create: {
           id: 'default',
           slot1Id: slot1Id || null,
           slot2Id: slot2Id || null,
           slot3Id: slot3Id || null,
+          trendingTopics: topicsStr,
         },
       });
 
@@ -133,6 +156,15 @@ export class HeroController {
         data: { isFeatured: false },
       });
 
+      let parsedTopics = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
+      if (updatedSetting.trendingTopics) {
+        try {
+          parsedTopics = JSON.parse(updatedSetting.trendingTopics);
+        } catch {
+          parsedTopics = updatedSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+        }
+      }
+
       const postsMap = new Map<string, any>();
       if (featuredIds.length > 0) {
         const posts = await prisma.post.findMany({
@@ -149,8 +181,12 @@ export class HeroController {
       ];
 
       return sendSuccess(res, {
-        setting: updatedSetting,
+        setting: {
+          ...updatedSetting,
+          trendingTopics: parsedTopics,
+        },
         slots,
+        trendingTopics: parsedTopics,
       }, 'Hero section settings updated successfully.');
     } catch (error) {
       next(error);
