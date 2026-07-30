@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
@@ -22,6 +22,8 @@ interface AuthorData {
 
 const LOCATION_OPTIONS = [
   { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
+  { value: 'National', label: 'National', sublabel: 'દેશ' },
+  { value: 'International', label: 'International', sublabel: 'વિદેશ' },
   { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
   { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
   { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
@@ -31,8 +33,6 @@ const LOCATION_OPTIONS = [
   { value: 'Jamnagar', label: 'Jamnagar', sublabel: 'જામનગર' },
   { value: 'Junagadh', label: 'Junagadh', sublabel: 'જૂનાગઢ' },
   { value: 'Kutch', label: 'Kutch / Bhuj', sublabel: 'કચ્છ' },
-  { value: 'National', label: 'National', sublabel: 'દેશ' },
-  { value: 'International', label: 'International', sublabel: 'વિદેશ' },
 ];
 
 export default function ArticleForm({ articleId }: ArticleFormProps) {
@@ -649,6 +649,40 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     }
   };
 
+  const categoryOptions = useMemo(() => {
+    const topTopics = [
+      'gujarat',
+      'politics',
+      'business',
+      'crime',
+      'education',
+      'entertainment',
+      'health',
+      'sports',
+      'fact check',
+      'lifestyle',
+      'technology',
+      'weather',
+      'world',
+    ];
+
+    const getPriority = (name: string) => {
+      const lower = name.toLowerCase().trim();
+      const idx = topTopics.indexOf(lower);
+      if (idx !== -1) return idx;
+      return 999;
+    };
+
+    return [...categories]
+      .sort((a, b) => {
+        const pA = getPriority(a.name);
+        const pB = getPriority(b.name);
+        if (pA !== pB) return pA - pB;
+        return a.name.localeCompare(b.name);
+      })
+      .map((cat) => ({ value: cat.id, label: cat.name }));
+  }, [categories]);
+
   if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -756,7 +790,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             <CustomSelect
               value={categoryId || ''}
               onChange={(val) => handleCategorySelect(val)}
-              options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+              options={categoryOptions}
               placeholder="[Choose category]"
               required
               searchable
