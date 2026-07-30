@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDate, getArticleTitle } from '@/data';
-import { getPublicArticles } from '@/lib/api';
+import { getPublicArticles, getHeroSettings } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import type { Article } from '@/types';
 
@@ -17,9 +17,14 @@ export default function TrendingSection() {
   const [showRightArrow, setShowRightArrow] = useState(true);
 
   useEffect(() => {
-    getPublicArticles({ isTrending: true, limit: 10 }).then((res) => {
-      if (res && res.articles) {
-        setTrending(res.articles);
+    Promise.all([
+      getHeroSettings(),
+      getPublicArticles({ isTrending: true, limit: 10 }),
+    ]).then(([heroRes, articlesRes]) => {
+      if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
+        setTrending((heroRes as any).trendingNewsArticles);
+      } else if (articlesRes && articlesRes.articles && articlesRes.articles.length > 0) {
+        setTrending(articlesRes.articles);
       }
     });
   }, []);

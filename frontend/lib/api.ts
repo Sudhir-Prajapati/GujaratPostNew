@@ -309,6 +309,7 @@ export async function updateHeroSettings(payload: {
   slot2Id?: string | null;
   slot3Id?: string | null;
   trendingTopics?: string[];
+  trendingNewsIds?: string[];
 }): Promise<any> {
   const res = await authFetch('/api/admin/hero-settings', {
     method: 'PUT',
