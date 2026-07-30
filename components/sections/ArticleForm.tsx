@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
+import CustomSelect from '@/components/ui/CustomSelect';
 
 interface ArticleFormProps {
   articleId?: string; // If present, we are in Edit mode
@@ -717,72 +718,63 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         {/* LINE 3: Category (Topic) (*), City / Location, & Publish By (Author) (*) */}
         <div className="grid gap-4 md:grid-cols-3">
           <div>
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
+            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5">
               Category (Topic) (*) <span className="text-red-500">*</span>
             </label>
-            <select
+            <CustomSelect
               value={categoryId || ''}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-semibold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+              onChange={(val) => setCategoryId(val)}
+              options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
+              placeholder="[Choose category]"
               required
-            >
-              <option value="">[Choose category]</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
+              searchable
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 flex items-center justify-between">
+            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center justify-between">
               <span>City / Location</span>
               <span className="text-[10px] text-zinc-400 font-normal">Optional</span>
             </label>
-            <select
+            <CustomSelect
               value={location || ''}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-semibold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
-            >
-              <option value="">[Select City / Region]</option>
-              <option value="Gujarat">Gujarat (ગુજરાત)</option>
-              <option value="Ahmedabad">Ahmedabad (અમદાવાદ)</option>
-              <option value="Gandhinagar">Gandhinagar (ગાંધીનગર)</option>
-              <option value="Rajkot">Rajkot (રાજકોટ)</option>
-              <option value="Surat">Surat (સુરત)</option>
-              <option value="Vadodara">Vadodara (વડોદરા)</option>
-              <option value="Bhavnagar">Bhavnagar (ભાવનગર)</option>
-              <option value="Jamnagar">Jamnagar (જામનગર)</option>
-              <option value="Junagadh">Junagadh (જૂનાગઢ)</option>
-              <option value="Kutch">Kutch / Bhuj (કચ્છ)</option>
-              <option value="National">National (દેશ)</option>
-              <option value="International">International (વિદેશ)</option>
-            </select>
+              onChange={(val) => setLocation(val)}
+              options={[
+                { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
+                { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
+                { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
+                { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
+                { value: 'Surat', label: 'Surat', sublabel: 'સુરત' },
+                { value: 'Vadodara', label: 'Vadodara', sublabel: 'વડોદરા' },
+                { value: 'Bhavnagar', label: 'Bhavnagar', sublabel: 'ભાવનગર' },
+                { value: 'Jamnagar', label: 'Jamnagar', sublabel: 'જામનગર' },
+                { value: 'Junagadh', label: 'Junagadh', sublabel: 'જૂનાગઢ' },
+                { value: 'Kutch', label: 'Kutch / Bhuj', sublabel: 'કચ્છ' },
+                { value: 'National', label: 'National', sublabel: 'દેશ' },
+                { value: 'International', label: 'International', sublabel: 'વિદેશ' },
+              ]}
+              placeholder="[Select City / Region]"
+              searchable
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
+            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5">
               Publish By (Author) (*) <span className="text-red-500">*</span>
             </label>
             {userRole === 'REPORTER' ? (
-              <div className="w-full rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950/40 mt-1.5 px-4 py-3 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
+              <div className="w-full rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950/40 px-4 py-3 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
                 {userAuthorName || 'Your Author Profile'}
               </div>
             ) : (
-              <select
+              <CustomSelect
                 value={authorId || ''}
-                onChange={(e) => setAuthorId(e.target.value)}
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-semibold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+                onChange={(val) => setAuthorId(val)}
+                options={authors.map((aut) => ({ value: aut.id, label: aut.name }))}
+                placeholder="Select Author / Reporter"
                 required
-              >
-                <option value="">Select Author / Reporter</option>
-                {authors.map((aut) => (
-                  <option key={aut.id} value={aut.id}>
-                    {aut.name}
-                  </option>
-                ))}
-              </select>
+                searchable
+              />
             )}
           </div>
         </div>
@@ -1140,16 +1132,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                   Draft (Pending Review)
                 </div>
               ) : (
-                <select
+                <CustomSelect
                   value={status || 'DRAFT'}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-bold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
-                >
-                  <option value="PUBLISHED">Publish</option>
-                  <option value="DRAFT">Draft</option>
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="ARCHIVED">Archived</option>
-                </select>
+                  onChange={(val) => setStatus(val as any)}
+                  options={[
+                    { value: 'PUBLISHED', label: 'Publish' },
+                    { value: 'DRAFT', label: 'Draft' },
+                    { value: 'SCHEDULED', label: 'Scheduled' },
+                    { value: 'ARCHIVED', label: 'Archived' },
+                  ]}
+                  placeholder="Select Status"
+                  searchable={false}
+                />
               )}
             </div>
 
