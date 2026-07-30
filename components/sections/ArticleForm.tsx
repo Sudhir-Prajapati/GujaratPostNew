@@ -20,20 +20,60 @@ interface AuthorData {
   name: string;
 }
 
-const LOCATION_OPTIONS = [
-  { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
-  { value: 'National', label: 'National', sublabel: 'દેશ' },
-  { value: 'International', label: 'International', sublabel: 'વિદેશ' },
+// All Gujarat city/region options
+const GUJARAT_LOCATIONS = [
   { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
   { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
-  { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
   { value: 'Surat', label: 'Surat', sublabel: 'સુરત' },
   { value: 'Vadodara', label: 'Vadodara', sublabel: 'વડોદરા' },
+  { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
   { value: 'Bhavnagar', label: 'Bhavnagar', sublabel: 'ભાવનગર' },
   { value: 'Jamnagar', label: 'Jamnagar', sublabel: 'જામનગર' },
   { value: 'Junagadh', label: 'Junagadh', sublabel: 'જૂનાગઢ' },
   { value: 'Kutch', label: 'Kutch / Bhuj', sublabel: 'કચ્છ' },
+  { value: 'Anand', label: 'Anand', sublabel: 'આણંદ' },
+  { value: 'Mehsana', label: 'Mehsana', sublabel: 'મહેસાણા' },
+  { value: 'Morbi', label: 'Morbi', sublabel: 'મોરબી' },
+  { value: 'Gujarat', label: 'Gujarat (Other)', sublabel: 'ગુજરાત (અન્ય)' },
 ];
+
+// National India locations
+const NATIONAL_LOCATIONS = [
+  { value: 'National', label: 'National', sublabel: 'દેશ' },
+  { value: 'Delhi', label: 'New Delhi', sublabel: 'નવી દિલ્હી' },
+  { value: 'Mumbai', label: 'Mumbai', sublabel: 'મુંબઈ' },
+  { value: 'Kolkata', label: 'Kolkata', sublabel: 'કોલકાતા' },
+  { value: 'Chennai', label: 'Chennai', sublabel: 'ચેન્નઈ' },
+  { value: 'Bangalore', label: 'Bangalore', sublabel: 'બેંગ્લોર' },
+  { value: 'Hyderabad', label: 'Hyderabad', sublabel: 'હૈદ્રાબાદ' },
+  { value: 'Pune', label: 'Pune', sublabel: 'પૂણે' },
+  { value: 'Jaipur', label: 'Jaipur', sublabel: 'જયપુર' },
+];
+
+// International locations
+const INTERNATIONAL_LOCATIONS = [
+  { value: 'International', label: 'International', sublabel: 'વિદેશ' },
+  { value: 'USA', label: 'USA', sublabel: 'અમેરિકા' },
+  { value: 'UK', label: 'UK', sublabel: 'બ્રિટન' },
+  { value: 'China', label: 'China', sublabel: 'ચીન' },
+  { value: 'Pakistan', label: 'Pakistan', sublabel: 'પાકિસ્તાન' },
+  { value: 'UAE', label: 'UAE', sublabel: 'UAE' },
+  { value: 'Canada', label: 'Canada', sublabel: 'કેનેડા' },
+  { value: 'Australia', label: 'Australia', sublabel: 'ઓસ્ટ્રેલિયા' },
+];
+
+// Default / All locations combined
+const LOCATION_OPTIONS = [
+  ...GUJARAT_LOCATIONS,
+  ...NATIONAL_LOCATIONS,
+  ...INTERNATIONAL_LOCATIONS,
+];
+
+// Map categories to location group
+const NATIONAL_CATEGORY_NAMES = ['national', 'india', 'politics', 'crime', 'education', 'health', 'sports', 'fact check', 'lifestyle', 'technology', 'weather', 'business', 'entertainment', 'defense', 'railway', 'election'];
+const INTERNATIONAL_CATEGORY_NAMES = ['world', 'international', 'global', 'foreign'];
+const GUJARAT_CATEGORY_NAMES = ['gujarat', 'ahmedabad', 'surat', 'vadodara', 'rajkot', 'gandhinagar', 'bhavnagar', 'jamnagar', 'kutch', 'junagadh', 'morbi', 'mehsana', 'anand'];
+
 
 export default function ArticleForm({ articleId }: ArticleFormProps) {
   const router = useRouter();
@@ -637,17 +677,28 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     const selectedCat = categories.find((c) => c.id === val);
     if (selectedCat) {
       const catNameLower = selectedCat.name.trim().toLowerCase();
-      const cityMatch = LOCATION_OPTIONS.find(
-        (loc) =>
-          loc.value.toLowerCase() === catNameLower ||
-          loc.label.toLowerCase() === catNameLower ||
-          catNameLower.includes(loc.value.toLowerCase())
-      );
-      if (cityMatch) {
-        setLocation(cityMatch.value);
+
+      // Auto-set location based on category type
+      if (INTERNATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n))) {
+        setLocation('International');
+      } else if (NATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+        setLocation('National');
+      } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+        // Try to match exact city, else default to Gujarat
+        const cityMatch = GUJARAT_LOCATIONS.find(
+          (loc) => loc.value.toLowerCase() === catNameLower || catNameLower.includes(loc.value.toLowerCase())
+        );
+        setLocation(cityMatch ? cityMatch.value : 'Gujarat');
+      } else {
+        // No match — try direct match across all options
+        const directMatch = LOCATION_OPTIONS.find(
+          (loc) => loc.value.toLowerCase() === catNameLower || loc.label.toLowerCase() === catNameLower
+        );
+        if (directMatch) setLocation(directMatch.value);
       }
     }
   };
+
 
   const categoryOptions = useMemo(() => {
     const topTopics = [
@@ -800,12 +851,34 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           <div>
             <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center justify-between">
               <span>City / Location</span>
-              <span className="text-[10px] text-zinc-400 font-normal">Optional</span>
+              {(() => {
+                const selectedCat = categories.find((c) => c.id === categoryId);
+                const catNameLower = selectedCat?.name?.trim().toLowerCase() || '';
+                if (INTERNATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n))) {
+                  return <span className="text-[10px] text-blue-500 font-semibold bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">🌍 International</span>;
+                } else if (NATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+                  return <span className="text-[10px] text-orange-500 font-semibold bg-orange-50 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">🇮🇳 National</span>;
+                } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+                  return <span className="text-[10px] text-green-600 font-semibold bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-full">🏙️ Gujarat</span>;
+                }
+                return <span className="text-[10px] text-zinc-400 font-normal">Optional</span>;
+              })()}
             </label>
             <CustomSelect
               value={location || ''}
               onChange={(val) => setLocation(val)}
-              options={LOCATION_OPTIONS}
+              options={(() => {
+                const selectedCat = categories.find((c) => c.id === categoryId);
+                const catNameLower = selectedCat?.name?.trim().toLowerCase() || '';
+                if (INTERNATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n))) {
+                  return INTERNATIONAL_LOCATIONS;
+                } else if (NATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+                  return NATIONAL_LOCATIONS;
+                } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+                  return GUJARAT_LOCATIONS;
+                }
+                return LOCATION_OPTIONS; // All options when no category selected
+              })()}
               placeholder="[Select City / Region]"
               searchable
             />
