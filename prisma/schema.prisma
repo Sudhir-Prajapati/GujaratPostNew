@@ -272,6 +272,7 @@ model HeroSetting {
   slot3Id         String?
   trendingTopics  String?  @db.Text
   trendingNewsIds String?  @db.Text
+  popularNewsIds  String?  @db.Text
   updatedAt       DateTime @updatedAt
 
   @@map("hero_settings")

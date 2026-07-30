@@ -119,16 +119,41 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      let parsedPopularNewsIds: string[] = [];
+      if (heroSetting?.popularNewsIds) {
+        try {
+          parsedPopularNewsIds = JSON.parse(heroSetting.popularNewsIds);
+        } catch {
+          parsedPopularNewsIds = [];
+        }
+      }
+
+      let popularNewsArticles: any[] = [];
+      if (parsedPopularNewsIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedPopularNewsIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        popularNewsArticles = parsedPopularNewsIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...(heroSetting || { id: 'default', slot1Id, slot2Id, slot3Id }),
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
+          popularNewsIds: parsedPopularNewsIds,
         },
         slots,
         trendingTopics: parsedTopics,
         trendingNewsIds: parsedTrendingNewsIds,
         trendingNewsArticles,
+        popularNewsIds: parsedPopularNewsIds,
+        popularNewsArticles,
       }, 'Hero section settings retrieved successfully.');
     } catch (error) {
       next(error);
@@ -136,11 +161,11 @@ export class HeroController {
   }
 
   /**
-   * Update hero section slot articles, trending topics, and trending news articles
+   * Update hero section slot articles, trending topics, trending news, and popular news
    */
   static async updateHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds } = req.body;
+      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds, popularNewsIds } = req.body;
 
       const topicsStr = Array.isArray(trendingTopics)
         ? JSON.stringify(trendingTopics)
@@ -154,6 +179,12 @@ export class HeroController {
         ? trendingNewsIds
         : null;
 
+      const popularIdsStr = Array.isArray(popularNewsIds)
+        ? JSON.stringify(popularNewsIds)
+        : typeof popularNewsIds === 'string'
+        ? popularNewsIds
+        : null;
+
       const updatedSetting = await prisma.heroSetting.upsert({
         where: { id: 'default' },
         update: {
@@ -162,6 +193,7 @@ export class HeroController {
           slot3Id: slot3Id || null,
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
+          popularNewsIds: popularIdsStr,
         },
         create: {
           id: 'default',
@@ -170,6 +202,7 @@ export class HeroController {
           slot3Id: slot3Id || null,
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
+          popularNewsIds: popularIdsStr,
         },
       });
 
@@ -215,6 +248,15 @@ export class HeroController {
         }
       }
 
+      let parsedPopularNewsIds: string[] = [];
+      if (updatedSetting.popularNewsIds) {
+        try {
+          parsedPopularNewsIds = JSON.parse(updatedSetting.popularNewsIds);
+        } catch {
+          parsedPopularNewsIds = [];
+        }
+      }
+
       const postsMap = new Map<string, any>();
       if (featuredIds.length > 0) {
         const posts = await prisma.post.findMany({
@@ -243,16 +285,32 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      let popularNewsArticles: any[] = [];
+      if (parsedPopularNewsIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedPopularNewsIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        popularNewsArticles = parsedPopularNewsIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...updatedSetting,
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
+          popularNewsIds: parsedPopularNewsIds,
         },
         slots,
         trendingTopics: parsedTopics,
         trendingNewsIds: parsedTrendingNewsIds,
         trendingNewsArticles,
+        popularNewsIds: parsedPopularNewsIds,
+        popularNewsArticles,
       }, 'Hero section settings updated successfully.');
     } catch (error) {
       next(error);
