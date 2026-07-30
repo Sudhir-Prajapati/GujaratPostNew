@@ -20,6 +20,21 @@ interface AuthorData {
   name: string;
 }
 
+const LOCATION_OPTIONS = [
+  { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
+  { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
+  { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
+  { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
+  { value: 'Surat', label: 'Surat', sublabel: 'સુરત' },
+  { value: 'Vadodara', label: 'Vadodara', sublabel: 'વડોદરા' },
+  { value: 'Bhavnagar', label: 'Bhavnagar', sublabel: 'ભાવનગર' },
+  { value: 'Jamnagar', label: 'Jamnagar', sublabel: 'જામનગર' },
+  { value: 'Junagadh', label: 'Junagadh', sublabel: 'જૂનાગઢ' },
+  { value: 'Kutch', label: 'Kutch / Bhuj', sublabel: 'કચ્છ' },
+  { value: 'National', label: 'National', sublabel: 'દેશ' },
+  { value: 'International', label: 'International', sublabel: 'વિદેશ' },
+];
+
 export default function ArticleForm({ articleId }: ArticleFormProps) {
   const router = useRouter();
   const isEditMode = !!articleId;
@@ -617,6 +632,23 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     }
   };
 
+  const handleCategorySelect = (val: string) => {
+    setCategoryId(val);
+    const selectedCat = categories.find((c) => c.id === val);
+    if (selectedCat) {
+      const catNameLower = selectedCat.name.trim().toLowerCase();
+      const cityMatch = LOCATION_OPTIONS.find(
+        (loc) =>
+          loc.value.toLowerCase() === catNameLower ||
+          loc.label.toLowerCase() === catNameLower ||
+          catNameLower.includes(loc.value.toLowerCase())
+      );
+      if (cityMatch) {
+        setLocation(cityMatch.value);
+      }
+    }
+  };
+
   if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -723,7 +755,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             </label>
             <CustomSelect
               value={categoryId || ''}
-              onChange={(val) => setCategoryId(val)}
+              onChange={(val) => handleCategorySelect(val)}
               options={categories.map((cat) => ({ value: cat.id, label: cat.name }))}
               placeholder="[Choose category]"
               required
@@ -739,20 +771,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             <CustomSelect
               value={location || ''}
               onChange={(val) => setLocation(val)}
-              options={[
-                { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
-                { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
-                { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
-                { value: 'Rajkot', label: 'Rajkot', sublabel: 'રાજકોટ' },
-                { value: 'Surat', label: 'Surat', sublabel: 'સુરત' },
-                { value: 'Vadodara', label: 'Vadodara', sublabel: 'વડોદરા' },
-                { value: 'Bhavnagar', label: 'Bhavnagar', sublabel: 'ભાવનગર' },
-                { value: 'Jamnagar', label: 'Jamnagar', sublabel: 'જામનગર' },
-                { value: 'Junagadh', label: 'Junagadh', sublabel: 'જૂનાગઢ' },
-                { value: 'Kutch', label: 'Kutch / Bhuj', sublabel: 'કચ્છ' },
-                { value: 'National', label: 'National', sublabel: 'દેશ' },
-                { value: 'International', label: 'International', sublabel: 'વિદેશ' },
-              ]}
+              options={LOCATION_OPTIONS}
               placeholder="[Select City / Region]"
               searchable
             />
