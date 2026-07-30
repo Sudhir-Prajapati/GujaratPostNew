@@ -3224,6 +3224,15 @@ function CrimeSection({
   const [slideIdx, setSlideIdx] = useState(0);
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
+  const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    getPublicArticles({ categorySlug: 'crime', limit: 10 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
+        setDbCrimeArticles(res.articles);
+      }
+    });
+  }, []);
 
   const mockSlides = [
     {
@@ -3489,7 +3498,48 @@ function CrimeSection({
     mockZodiacArticles[(popularStartIndex + 2) % mockZodiacArticles.length]
   ];
 
-  const currentSlide = mockSlides[slideIdx];
+  const slides = useMemo(() => {
+    if (dbCrimeArticles.length > 0) {
+      return dbCrimeArticles.slice(0, 3).map((art) => ({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[0],
+        category: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        categoryGu: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        categoryHi: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        title: art.title,
+        titleGu: art.titleGu || art.title,
+        titleHi: (art as any).titleHi || art.title,
+        relativeTime: formatTime(art.publishedAt),
+        relativeTimeGu: formatTime(art.publishedAt),
+        relativeTimeHi: formatTime(art.publishedAt),
+        clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:30 AM',
+      }));
+    }
+    return mockSlides.map((s) => ({ ...s, clockTime: getMockTime(s.id) }));
+  }, [dbCrimeArticles, language]);
+
+  const rightList = useMemo(() => {
+    if (dbCrimeArticles.length > 3) {
+      return dbCrimeArticles.slice(3, 7).map((art) => ({
+        id: art.id,
+        slug: art.slug,
+        category: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        categoryGu: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        categoryHi: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
+        title: art.title,
+        titleGu: art.titleGu || art.title,
+        titleHi: (art as any).titleHi || art.title,
+        relativeTime: formatTime(art.publishedAt),
+        relativeTimeGu: formatTime(art.publishedAt),
+        relativeTimeHi: formatTime(art.publishedAt),
+        clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:45 AM',
+      }));
+    }
+    return mockList.map((item) => ({ ...item, clockTime: getMockTime(item.id) }));
+  }, [dbCrimeArticles, language]);
+
+  const currentSlide = slides[slideIdx % slides.length];
 
   const leftContent = (
     <div className="flex flex-col min-w-0">
@@ -3521,7 +3571,7 @@ function CrimeSection({
               />
               <button
                 type="button"
-                onClick={() => setSlideIdx((prev) => (prev - 1 + mockSlides.length) % mockSlides.length)}
+                onClick={() => setSlideIdx((prev) => (prev - 1 + slides.length) % slides.length)}
                 className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-black/60 hover:bg-[#B3121B] hover:border-[#B3121B] text-white transition-all duration-200 shadow-md backdrop-blur-md z-10 cursor-pointer select-none"
                 aria-label="Previous slide"
               >
@@ -3529,7 +3579,7 @@ function CrimeSection({
               </button>
               <button
                 type="button"
-                onClick={() => setSlideIdx((prev) => (prev + 1) % mockSlides.length)}
+                onClick={() => setSlideIdx((prev) => (prev + 1) % slides.length)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-black/60 hover:bg-[#B3121B] hover:border-[#B3121B] text-white transition-all duration-200 shadow-md backdrop-blur-md z-10 cursor-pointer select-none"
                 aria-label="Next slide"
               >
@@ -3537,8 +3587,8 @@ function CrimeSection({
               </button>
               <span className="absolute top-2.5 left-2.5 bg-black/70 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-sm z-10 select-none">
                 {language === 'gu'
-                  ? `${toGuLocal(slideIdx + 1)} / ${toGuLocal(mockSlides.length)}`
-                  : `${slideIdx + 1} / ${mockSlides.length}`}
+                  ? `${toGuLocal((slideIdx % slides.length) + 1)} / ${toGuLocal(slides.length)}`
+                  : `${(slideIdx % slides.length) + 1} / ${slides.length}`}
               </span>
             </div>
 
@@ -3560,7 +3610,7 @@ function CrimeSection({
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>{getMockTime(currentSlide.id)}</span>
+                  <span>{currentSlide.clockTime}</span>
                 </span>
               </div>
             </div>
@@ -3570,7 +3620,7 @@ function CrimeSection({
         {/* List side updates (Text lists only, no images, matching the screen!) */}
         <div className="flex flex-col min-w-0 md:border-l md:border-border/60 md:pl-6 gap-0">
 
-          {mockList.map((item) => (
+          {rightList.map((item) => (
             <Link
               key={item.id}
               href={`/news/${item.slug}`}
@@ -3589,7 +3639,7 @@ function CrimeSection({
                 <span>•</span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3 text-muted-foreground/60" />
-                  <span>{getMockTime(item.id)}</span>
+                  <span>{item.clockTime}</span>
                 </span>
               </div>
             </Link>
