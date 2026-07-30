@@ -367,6 +367,7 @@ export default function HeroSection({
   const [worldArtDB, setWorldArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
+  const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
 
   useEffect(() => {
     // Fetch main articles pool AND hero slots settings in parallel
@@ -374,6 +375,12 @@ export default function HeroSection({
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
     ]).then(([mainRes, heroRes]: any[]) => {
+      if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
+        setDynamicTrendingTopics(heroRes.trendingTopics);
+      } else if (heroRes?.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
+        setDynamicTrendingTopics(heroRes.setting.trendingTopics);
+      }
+
       // Admin-selected bottom 3 image articles from Hero Settings API
       const slotsArticles: Article[] = (heroRes?.slots || []).filter(Boolean);
       if (slotsArticles.length > 0) {
@@ -835,7 +842,7 @@ export default function HeroSection({
 
       <VideoDesk videos={videos.slice(0, 7)} language={language} showShorts={false} />
 
-      <CityHyperlocalSection language={language} articles={articlesList} />
+      <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
 
 
       <NationalSection language={language} />
@@ -2197,9 +2204,11 @@ const getLocalizedTag = (tag: string, language: Language) => {
 function CityHyperlocalSection({
   language,
   articles = [],
+  dynamicTrendingTopics = [],
 }: {
   language: Language;
   articles?: Article[];
+  dynamicTrendingTopics?: string[];
 }) {
   const [slideIdx, setSlideIdx] = useState(0);
   const [activeTab, setActiveTab] = useState('અમદાવાદ');
@@ -3180,16 +3189,17 @@ function CityHyperlocalSection({
             </div>
             <div className="border border-border rounded-sm bg-card p-2.5 shadow-sm">
               <div className="flex flex-wrap gap-1.5">
-                {getLocalizedTrendingTags(language).map((tag) => {
+                {(dynamicTrendingTopics.length > 0 ? dynamicTrendingTopics : getLocalizedTrendingTags(language)).map((tag) => {
                   const cleanTag = tag.startsWith('#') ? tag.slice(1) : tag;
                   return (
-                    <span
+                    <Link
                       key={tag}
+                      href={`/search?q=${encodeURIComponent(cleanTag)}`}
                       className="border border-neutral-300 dark:border-neutral-700 text-[11px] font-black px-2.5 py-2 rounded-full text-foreground hover:border-[#B3121B] hover:bg-[#B3121B]/5 hover:text-[#B3121B] transition-all bg-card shadow-sm cursor-pointer select-none"
                     >
                       <span className="text-[#B3121B] font-extrabold mr-0.5">#</span>
                       {cleanTag}
-                    </span>
+                    </Link>
                   );
                 })}
               </div>

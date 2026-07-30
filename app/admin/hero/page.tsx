@@ -294,8 +294,12 @@ export default function HeroManagerPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  // 3 bottom image slots
+  const DEFAULT_TOPICS = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
+
+  // 3 bottom image slots & trending topics
   const [slots, setSlots] = useState<(Article | null)[]>([null, null, null]);
+  const [trendingTopics, setTrendingTopics] = useState<string[]>(DEFAULT_TOPICS);
+  const [newTopicInput, setNewTopicInput] = useState('');
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -324,6 +328,12 @@ export default function HeroManagerPage() {
         const featured = arts.filter((a) => a.isFeatured);
         setSlots([featured[0] || arts[0] || null, featured[1] || arts[1] || null, featured[2] || arts[2] || null]);
       }
+
+      if (heroRes && (heroRes as any).trendingTopics && Array.isArray((heroRes as any).trendingTopics)) {
+        setTrendingTopics((heroRes as any).trendingTopics);
+      } else if (heroRes && heroRes.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
+        setTrendingTopics(heroRes.setting.trendingTopics);
+      }
     } catch {
       showToast('Failed to load hero section articles', false);
     } finally {
@@ -342,19 +352,23 @@ export default function HeroManagerPage() {
         slot1Id: slots[0]?.id || null,
         slot2Id: slots[1]?.id || null,
         slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
       };
 
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
         clearApiCache();
-        showToast('✅ Saved! Hero section cards updated successfully.', true);
+        showToast('✅ Saved! Hero section cards & trending topics updated successfully.', true);
         if (res.data?.slots) {
           setSlots([
             res.data.slots[0] ? (res.data.slots[0] as unknown as Article) : null,
             res.data.slots[1] ? (res.data.slots[1] as unknown as Article) : null,
             res.data.slots[2] ? (res.data.slots[2] as unknown as Article) : null,
           ]);
+        }
+        if (res.data?.trendingTopics && Array.isArray(res.data.trendingTopics)) {
+          setTrendingTopics(res.data.trendingTopics);
         }
       } else {
         showToast('Some updates failed. Please try again.', false);
@@ -366,6 +380,25 @@ export default function HeroManagerPage() {
     }
   };
 
+  const handleAddTopic = () => {
+    const val = newTopicInput.trim().replace(/^#/, '');
+    if (!val) return;
+    if (trendingTopics.includes(val)) {
+      showToast('Topic already exists in list', false);
+      return;
+    }
+    setTrendingTopics((prev) => [...prev, val]);
+    setNewTopicInput('');
+  };
+
+  const handleRemoveTopic = (topicToRemove: string) => {
+    setTrendingTopics((prev) => prev.filter((t) => t !== topicToRemove));
+  };
+
+  const handleResetTopics = () => {
+    setTrendingTopics(DEFAULT_TOPICS);
+    showToast('Reset to default topics', true);
+  };
 
   const setSlot = (idx: number, art: Article) => {
     setSlots((prev) => { const next = [...prev]; next[idx] = art; return next; });
@@ -479,10 +512,68 @@ export default function HeroManagerPage() {
             ))}
           </div>
 
+          {/* Managing Trending Topics Section */}
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🔥</span>
+                <div>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">Trending Topics (Trending વિષયો)</h3>
+                  <p className="text-xs text-zinc-500 font-medium">Manage the trending topic pills shown on the homepage sidebar. Click Save Changes to update live on the website.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetTopics}
+                className="text-xs font-bold text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 underline cursor-pointer"
+              >
+                Reset Defaults
+              </button>
+            </div>
+
+            {/* List of current topic pills */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {trendingTopics.map((topic) => (
+                <span
+                  key={topic}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3.5 py-1.5 text-xs font-extrabold text-zinc-800 border border-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 shadow-xs"
+                >
+                  <span className="text-[#B3121B] font-black">#</span> {topic}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTopic(topic)}
+                    className="ml-1 text-zinc-400 hover:text-red-500 focus:outline-none cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+
+            {/* Add new topic tag input */}
+            <div className="flex items-center gap-2 max-w-lg">
+              <input
+                type="text"
+                value={newTopicInput}
+                onChange={(e) => setNewTopicInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTopic(); } }}
+                placeholder="[Enter new topic, e.g. વડોદરા ]"
+                className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-extrabold text-zinc-900 focus:border-[#B3121B] focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddTopic}
+                className="rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+              >
+                + Add Topic
+              </button>
+            </div>
+          </div>
+
           {/* Info note */}
           <div className="mt-6 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <span className="mt-0.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-400 text-[10px] font-black">i</span>
-            <span><strong>Note:</strong> The 3 articles selected here appear as the <strong>bottom image row</strong> of the homepage hero section. The main hero and right side cards auto-populate from the latest news. Click <strong>Save Changes</strong> to apply.</span>
+            <span><strong>Note:</strong> The 3 articles selected here appear as the <strong>bottom image row</strong> of the homepage hero section. Trending topics appear as interactive search pills. Click <strong>Save Changes</strong> at the top to apply live to the website.</span>
           </div>
         </>
       )}
