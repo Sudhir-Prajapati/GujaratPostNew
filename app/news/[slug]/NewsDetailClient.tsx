@@ -20,6 +20,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
+import { getBackendApiUrl } from '@/lib/api';
 
 interface Props {
   article: Article;
@@ -43,6 +44,14 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }, 4500);
     return () => clearInterval(timer);
   }, []);
+
+  // Increment view count in real browser when reader opens the article page
+  useEffect(() => {
+    if (article?.id) {
+      const endpoint = getBackendApiUrl(`/api/public/articles/${article.id}/view`);
+      fetch(endpoint, { method: 'POST' }).catch(() => {});
+    }
+  }, [article?.id]);
 
   const slideImages = useMemo(() => {
     const images: string[] = [];
