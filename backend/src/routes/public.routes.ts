@@ -173,6 +173,12 @@ router.get('/articles/:slug', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Article not found' });
     }
 
+    // Increment view count in background on fetch
+    prisma.post.update({
+      where: { id: p.id },
+      data: { views: { increment: 1 } },
+    }).catch(() => {});
+
     const article = {
       id: p.id,
       slug: p.slug,
@@ -212,10 +218,28 @@ router.get('/articles/:slug', async (req, res, next) => {
       isTrending: p.isTrending,
       isBreaking: p.isBreaking,
       isFeatured: p.isFeatured,
-      views: p.views,
+      views: p.views + 1,
     };
 
     return sendSuccess(res, { article }, 'Article details retrieved');
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/public/articles/:id/view
+ * Increment article view count
+ */
+router.post('/articles/:id/view', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updated = await prisma.post.update({
+      where: { id },
+      data: { views: { increment: 1 } },
+      select: { id: true, views: true },
+    });
+    return sendSuccess(res, { views: updated.views }, 'View count incremented');
   } catch (error) {
     next(error);
   }
