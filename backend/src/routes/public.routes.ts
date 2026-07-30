@@ -94,7 +94,7 @@ router.get('/articles', async (req, res, next) => {
         orderBy: isFeatured
           ? [{ createdAt: 'asc' }]
           : [
-              { updatedAt: 'desc' },
+              { articleNumber: 'desc' },
               { createdAt: 'desc' },
               { priority: 'desc' },
             ],
