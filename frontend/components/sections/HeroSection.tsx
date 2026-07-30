@@ -5752,6 +5752,69 @@ const mockWorldCards = [
 
 /* --- World Section ("વિશ્વ" Zone) ----------------------------- */
 export function WorldSection({ language }: { language: Language }) {
+  const [dbWorldArticles, setDbWorldArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    getPublicArticles({ categorySlug: 'world', limit: 10 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
+        setDbWorldArticles(res.articles);
+      }
+    });
+  }, []);
+
+  const featured = useMemo(() => {
+    if (dbWorldArticles.length > 0) {
+      const art = dbWorldArticles[0];
+      return {
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[0],
+        categoryGu: art.categoryGu || art.category || 'વિશ્વ',
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        excerpt: getLocalized(language, { en: art.excerpt || '', gu: art.excerptGu || art.excerpt || '', hi: (art as any).excerptHi || art.excerpt || '' }),
+        watermarkGu: 'ગુજરાત પોસ્ટ',
+      };
+    }
+    return {
+      id: mockWorldFeatured.id,
+      slug: mockWorldFeatured.slug,
+      image: mockWorldFeatured.image,
+      categoryGu: mockWorldFeatured.categoryGu,
+      title: getMockTitle(mockWorldFeatured, language),
+      excerpt: language === 'gu' ? mockWorldFeatured.excerptGu : language === 'hi' ? 'अधिकांश सदस्य देशों द्वारा भारत के प्रस्ताव का समर्थन करने से स्थिति मजबूत हुई।' : 'With broad support from member nations, India’s global standing strengthens further.',
+      watermarkGu: 'ગુજરાત પોસ્ટ',
+    };
+  }, [dbWorldArticles, language]);
+
+  const cardsList = useMemo(() => {
+    const list: Array<{ id: string; slug: string; image: string; title: string; categoryLabel: string; time: string }> = [];
+    dbWorldArticles.slice(1, 5).forEach((art) => {
+      list.push({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[1],
+        categoryLabel: art.categoryGu || art.category || 'વિશ્વ',
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        time: formatTime(art.publishedAt),
+      });
+    });
+    if (list.length < 4) {
+      mockWorldCards.forEach((card) => {
+        if (list.length < 4 && !list.some((item) => item.id === card.id)) {
+          list.push({
+            id: card.id,
+            slug: card.slug,
+            image: card.image,
+            categoryLabel: language === 'gu' ? card.categoryGu : language === 'hi' ? (card.categoryGu === 'યુરોપ' ? 'यूरोप' : card.categoryGu === 'અમેરિકા' ? 'अमेरिका' : card.categoryGu === 'એશિયા' ? 'एशिया' : 'मध्य-पूर्व') : (card.categoryGu === 'યુરોપ' ? 'Europe' : card.categoryGu === 'અમેરિકા' ? 'USA' : card.categoryGu === 'એશિયા' ? 'Asia' : 'Middle East'),
+            title: getMockTitle(card, language),
+            time: getMockRelativeTime(card.relativeTimeGu, language),
+          });
+        }
+      });
+    }
+    return list;
+  }, [dbWorldArticles, language]);
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-4">
       {/* Section Header */}
@@ -5775,72 +5838,67 @@ export function WorldSection({ language }: { language: Language }) {
 
           {/* Big Horizontal Featured Card */}
           <Link
-            href={`/news/${mockWorldFeatured.slug}`}
+            href={`/news/${featured.slug}`}
             className="group grid grid-cols-1 md:grid-cols-2 gap-6 bg-card border border-border/80 rounded-sm p-5 md:p-6 mb-8 hover:shadow-sm transition-shadow duration-200"
           >
             {/* Content Left */}
             <div className="flex flex-col justify-center min-w-0 order-2 md:order-1">
               <span className="text-red-600 font-extrabold text-[12px] md:text-[13px] mb-2 select-none uppercase tracking-wide">
-                {language === 'gu' ? mockWorldFeatured.categoryGu : language === 'hi' ? 'संयुक्त राष्ट्र' : 'United Nations'}
+                {featured.categoryGu}
               </span>
               <h3 className="text-[17px] md:text-[19px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors">
-                {getMockTitle(mockWorldFeatured, language)}
+                {featured.title}
               </h3>
               <p className="text-muted-foreground text-[13px] leading-relaxed mt-3.5 line-clamp-4 select-none">
-                {language === 'gu' ? mockWorldFeatured.excerptGu : language === 'hi' ? 'अधिकांश सदस्य देशों द्वारा भारत के प्रस्ताव का समर्थन करने से स्थिति मजबूत हुई।' : 'With broad support from member nations, India’s global standing strengthens further.'}
+                {featured.excerpt}
               </p>
             </div>
 
             {/* Image Right with Watermark */}
             <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted order-1 md:order-2">
               <Image
-                src={mockWorldFeatured.image}
-                alt={getMockTitle(mockWorldFeatured, language)}
+                src={featured.image}
+                alt={featured.title}
                 fill
                 sizes="(max-width: 768px) 100vw, 30vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               />
               <span className="absolute bottom-2.5 right-2.5 bg-black/60 text-white text-[9.5px] font-black px-2 py-0.5 rounded-sm select-none tracking-tight">
-                {language === 'gu' ? mockWorldFeatured.watermarkGu : 'Gujarat Post'}
+                {featured.watermarkGu}
               </span>
             </div>
           </Link>
 
           {/* Grid of 4 Vertical Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {mockWorldCards.map((card) => {
-              const cardTitle = getMockTitle(card, language);
-              const cardTime = getMockRelativeTime(card.relativeTimeGu, language);
-              const categoryLabel = language === 'gu' ? card.categoryGu : language === 'hi' ? (card.categoryGu === 'યુરોપ' ? 'यूरोप' : card.categoryGu === 'અમેરિકા' ? 'अमेरिका' : card.categoryGu === 'એશિયા' ? 'एशिया' : 'मध्य-पूर्व') : (card.categoryGu === 'યુરોપ' ? 'Europe' : card.categoryGu === 'અમેરિકા' ? 'USA' : card.categoryGu === 'એશિયા' ? 'Asia' : 'Middle East');
-              return (
-                <div key={card.id} className="flex flex-col min-w-0">
-                  <Link
-                    href={`/news/${card.slug}`}
-                    className="group flex flex-col"
-                  >
-                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                      <Image
-                        src={card.image}
-                        alt={cardTitle}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 20vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase leading-none">
-                      {categoryLabel}
-                    </span>
-                    <h4 className="text-[13px] md:text-[13.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-                      {cardTitle}
-                    </h4>
-                  </Link>
-                  <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-muted-foreground font-semibold">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                    <span>{cardTime}</span>
+            {cardsList.map((card) => (
+              <div key={card.id} className="flex flex-col min-w-0">
+                <Link
+                  href={`/news/${card.slug}`}
+                  className="group flex flex-col"
+                >
+                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
+                    <Image
+                      src={card.image}
+                      alt={card.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 20vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
                   </div>
+                  <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase leading-none">
+                    {card.categoryLabel}
+                  </span>
+                  <h4 className="text-[13px] md:text-[13.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
+                    {card.title}
+                  </h4>
+                </Link>
+                <div className="flex items-center gap-1.5 mt-2.5 text-[11px] text-muted-foreground font-semibold">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span>{card.time}</span>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
 
         </div>
