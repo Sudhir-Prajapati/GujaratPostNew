@@ -96,6 +96,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [categoryId, setCategoryId] = useState('');
+  const [location, setLocation] = useState('');
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED'>('DRAFT');
   const [priority, setPriority] = useState(0);
@@ -433,6 +434,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           setImageMode('upload');
         }
         setCategoryId(art.categoryId || art.category?.id || '');
+        setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
         setStatus(art.status || 'PUBLISHED');
         setPriority(art.priority || 0);
@@ -572,6 +574,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       featuredImage: finalFeaturedImage,
       thumbnail: finalFeaturedImage,
       categoryId,
+      location: location || null,
       authorId,
       status,
       priority: Number(priority),
@@ -711,11 +714,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           />
         </div>
 
-        {/* LINE 3: Category (*) & Publish By (Author) (*) & Placement Flags */}
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* LINE 3: Category (Topic) (*), City / Location, & Publish By (Author) (*) */}
+        <div className="grid gap-4 md:grid-cols-3">
           <div>
             <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-              Category (*) <span className="text-red-500">*</span>
+              Category (Topic) (*) <span className="text-red-500">*</span>
             </label>
             <select
               value={categoryId || ''}
@@ -729,6 +732,32 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                   {cat.name}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 flex items-center justify-between">
+              <span>City / Location</span>
+              <span className="text-[10px] text-zinc-400 font-normal">Optional</span>
+            </label>
+            <select
+              value={location || ''}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-semibold focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+            >
+              <option value="">[Select City / Region]</option>
+              <option value="Gujarat">Gujarat (ગુજરાત)</option>
+              <option value="Ahmedabad">Ahmedabad (અમદાવાદ)</option>
+              <option value="Gandhinagar">Gandhinagar (ગાંધીનગર)</option>
+              <option value="Rajkot">Rajkot (રાજકોટ)</option>
+              <option value="Surat">Surat (સુરત)</option>
+              <option value="Vadodara">Vadodara (વડોદરા)</option>
+              <option value="Bhavnagar">Bhavnagar (ભાવનગર)</option>
+              <option value="Jamnagar">Jamnagar (જામનગર)</option>
+              <option value="Junagadh">Junagadh (જૂનાગઢ)</option>
+              <option value="Kutch">Kutch / Bhuj (કચ્છ)</option>
+              <option value="National">National (દેશ)</option>
+              <option value="International">International (વિદેશ)</option>
             </select>
           </div>
 

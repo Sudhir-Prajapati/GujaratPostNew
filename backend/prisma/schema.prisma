@@ -115,6 +115,7 @@ model Post {
   author         Author     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categoryId     String
   category       Category   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  location       String?
   tags           PostTag[]
   readingTime    Int        @default(0)
   priority       Int        @default(0)
