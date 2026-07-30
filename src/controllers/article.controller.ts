@@ -75,7 +75,7 @@ export class ArticleController {
             tags: true,
           },
           orderBy: [
-            { updatedAt: 'desc' },
+            { articleNumber: 'desc' },
             { createdAt: 'desc' },
           ],
           skip,
