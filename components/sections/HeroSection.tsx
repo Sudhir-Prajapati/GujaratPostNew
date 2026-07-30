@@ -3225,11 +3225,18 @@ function CrimeSection({
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
   const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
+  const [dbAllArticles, setDbAllArticles] = useState<Article[]>([]);
 
   useEffect(() => {
-    getPublicArticles({ categorySlug: 'crime', limit: 10 }).then((res) => {
-      if (res && res.articles && res.articles.length > 0) {
-        setDbCrimeArticles(res.articles);
+    Promise.all([
+      getPublicArticles({ categorySlug: 'crime', limit: 10 }),
+      getPublicArticles({ limit: 20 }),
+    ]).then(([crimeRes, allRes]) => {
+      if (crimeRes && crimeRes.articles && crimeRes.articles.length > 0) {
+        setDbCrimeArticles(crimeRes.articles);
+      }
+      if (allRes && allRes.articles && allRes.articles.length > 0) {
+        setDbAllArticles(allRes.articles);
       }
     });
   }, []);
@@ -3539,6 +3546,58 @@ function CrimeSection({
     return mockList.map((item) => ({ ...item, clockTime: getMockTime(item.id) }));
   }, [dbCrimeArticles, language]);
 
+  const popularColumns = useMemo(() => {
+    const list = dbAllArticles.length > 0 ? dbAllArticles : dbCrimeArticles;
+    if (list.length > 0) {
+      const cols = [];
+      for (let c = 0; c < 3; c++) {
+        const featArt = list[c] || list[0];
+        const subs = [];
+        for (let s = 0; s < 3; s++) {
+          const subIdx = 3 + c * 3 + s;
+          const subArt = list[subIdx] || list[(c * 3 + s) % list.length];
+          if (subArt) {
+            subs.push({
+              id: subArt.id,
+              slug: subArt.slug,
+              image: subArt.image || DEMO_IMAGES[s % DEMO_IMAGES.length],
+              title: getLocalized(language, { en: subArt.title, gu: subArt.titleGu || subArt.title, hi: (subArt as any).titleHi || subArt.title }),
+              time: formatTime(subArt.publishedAt),
+            });
+          }
+        }
+        cols.push({
+          colId: c + 1,
+          featured: {
+            id: featArt.id,
+            slug: featArt.slug,
+            image: featArt.image || DEMO_IMAGES[c],
+            title: getLocalized(language, { en: featArt.title, gu: featArt.titleGu || featArt.title, hi: (featArt as any).titleHi || featArt.title }),
+          },
+          subs,
+        });
+      }
+      return cols;
+    }
+
+    return mockPopularColumns.map((col) => ({
+      colId: col.colId,
+      featured: {
+        id: col.featured.id,
+        slug: col.featured.slug,
+        image: col.featured.image,
+        title: getMockTitle(col.featured, language),
+      },
+      subs: col.subs.map((sub) => ({
+        id: sub.id,
+        slug: sub.slug,
+        image: sub.image,
+        title: getMockTitle(sub, language),
+        time: getMockRelativeTime(sub.relativeTimeGu, language),
+      })),
+    }));
+  }, [dbAllArticles, dbCrimeArticles, language]);
+
   const currentSlide = slides[slideIdx % slides.length];
 
   const leftContent = (
@@ -3649,7 +3708,7 @@ function CrimeSection({
 
       {/* 3-Column Popular Stories Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/40 pt-5 mt-3">
-        {mockPopularColumns.map((col) => (
+        {popularColumns.map((col) => (
           <div key={col.colId} className="flex flex-col min-w-0">
             <Link
               href={`/news/${col.featured.slug}`}
@@ -3658,50 +3717,46 @@ function CrimeSection({
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
                 <Image
                   src={col.featured.image}
-                  alt={col.featured.titleGu}
+                  alt={col.featured.title}
                   fill
                   sizes="(max-width: 768px) 100vw, 25vw"
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <h3 className="text-[13px] md:text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
-                {getMockTitle(col.featured, language)}
+                {col.featured.title}
               </h3>
             </Link>
 
             <div className="flex flex-col divide-y divide-border/40 border-t border-border/40 mt-1">
-              {col.subs.slice(0, 3).map((sub) => {
-                const subTitle = getMockTitle(sub, language);
-                const subTime = getMockRelativeTime(sub.relativeTimeGu, language);
-                return (
-                  <Link
-                    key={sub.id}
-                    href={`/news/${sub.slug}`}
-                    className="group py-3 flex items-center gap-3"
-                  >
-                    {/* Thumbnail photo on left */}
-                    <div className="relative h-16 w-20 shrink-0 rounded-lg overflow-hidden border border-border/20 bg-muted">
-                      <Image
-                        src={sub.image || '/assets/demo/5.jpg'}
-                        alt={subTitle}
-                        fill
-                        sizes="80px"
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
+              {col.subs.slice(0, 3).map((sub) => (
+                <Link
+                  key={sub.id}
+                  href={`/news/${sub.slug}`}
+                  className="group py-3 flex items-center gap-3"
+                >
+                  {/* Thumbnail photo on left */}
+                  <div className="relative h-16 w-20 shrink-0 rounded-lg overflow-hidden border border-border/20 bg-muted">
+                    <Image
+                      src={sub.image || '/assets/demo/5.jpg'}
+                      alt={sub.title}
+                      fill
+                      sizes="80px"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
 
-                    {/* Title & Metadata on right */}
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <h4 className="text-[12.5px] md:text-[13px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
-                        {subTitle}
-                      </h4>
-                      <div className="flex items-center gap-1.5 mt-1.5 text-[10.5px] text-muted-foreground font-semibold select-none">
-                        <span>{subTime}</span>
-                      </div>
+                  {/* Title & Metadata on right */}
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <h4 className="text-[12.5px] md:text-[13px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
+                      {sub.title}
+                    </h4>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10.5px] text-muted-foreground font-semibold select-none">
+                      <span>{sub.time}</span>
                     </div>
-                  </Link>
-                );
-              })}
+                  </div>
+                </Link>
+              ))}
             </div>
           </div>
         ))}
