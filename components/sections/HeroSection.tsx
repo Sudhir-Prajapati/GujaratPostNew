@@ -3229,7 +3229,7 @@ function CrimeSection({
 
   useEffect(() => {
     Promise.all([
-      getPublicArticles({ categorySlug: 'crime', limit: 10 }),
+      getPublicArticles({ categorySlug: 'crime', limit: 12 }),
       getPublicArticles({ limit: 20 }),
     ]).then(([crimeRes, allRes]) => {
       if (crimeRes && crimeRes.articles && crimeRes.articles.length > 0) {
@@ -3528,7 +3528,7 @@ function CrimeSection({
 
   const rightList = useMemo(() => {
     if (dbCrimeArticles.length > 3) {
-      return dbCrimeArticles.slice(3, 7).map((art) => ({
+      return dbCrimeArticles.slice(3, 8).map((art) => ({
         id: art.id,
         slug: art.slug,
         category: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
