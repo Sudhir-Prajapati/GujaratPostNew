@@ -5198,6 +5198,74 @@ const mockPoliticsBottomCards = [
 
 /* --- Politics Section ("રાજકારણ" Zone) ----------------------------- */
 export function PoliticsSection({ language }: { language: Language }) {
+  const [dbPoliticsArticles, setDbPoliticsArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    getPublicArticles({ categorySlug: 'politics', limit: 12 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
+        setDbPoliticsArticles(res.articles);
+      }
+    });
+  }, []);
+
+  const top3 = useMemo(() => {
+    const list: Array<{ id: string; slug: string; image: string; title: string; categoryLabel: string; time: string }> = [];
+    dbPoliticsArticles.slice(0, 3).forEach((art) => {
+      list.push({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[0],
+        categoryLabel: art.categoryGu || art.category || 'રાજકારણ',
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        time: formatTime(art.publishedAt),
+      });
+    });
+    if (list.length < 3) {
+      mockPoliticsColumns.forEach((col) => {
+        if (list.length < 3 && !list.some((item) => item.id === col.featured.id)) {
+          list.push({
+            id: col.featured.id,
+            slug: col.featured.slug,
+            image: col.featured.image,
+            categoryLabel: language === 'gu' ? col.featured.categoryGu : 'Politics',
+            title: getMockTitle(col.featured, language),
+            time: getMockRelativeTime(col.featured.relativeTimeGu, language),
+          });
+        }
+      });
+    }
+    return list;
+  }, [dbPoliticsArticles, language]);
+
+  const bottomGrid = useMemo(() => {
+    const list: Array<{ id: string; slug: string; image: string; title: string; categoryLabel: string; time: string }> = [];
+    dbPoliticsArticles.slice(3, 8).forEach((art) => {
+      list.push({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[1],
+        categoryLabel: art.categoryGu || art.category || 'રાજકારણ',
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        time: formatTime(art.publishedAt),
+      });
+    });
+    if (list.length < 5) {
+      mockPoliticsBottomCards.forEach((card) => {
+        if (list.length < 5 && !list.some((item) => item.id === card.id)) {
+          list.push({
+            id: card.id,
+            slug: card.slug,
+            image: card.image,
+            categoryLabel: language === 'gu' ? card.categoryGu : 'Politics',
+            title: getMockTitle(card, language),
+            time: getMockRelativeTime(card.relativeTimeGu, language),
+          });
+        }
+      });
+    }
+    return list;
+  }, [dbPoliticsArticles, language]);
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8">
       {/* Section Header */}
@@ -5215,80 +5283,70 @@ export function PoliticsSection({ language }: { language: Language }) {
 
       {/* 3-Column Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
-        {mockPoliticsColumns.map((col) => {
-          const featuredTitle = getMockTitle(col.featured, language);
-          const featuredTime = getMockRelativeTime(col.featured.relativeTimeGu, language);
-          const categoryLabel = language === 'gu' ? col.featured.categoryGu : language === 'hi' ? (col.featured.categoryGu === 'ચૂંટણી' ? 'चुनाव' : col.featured.categoryGu === 'સરકાર' ? 'सरकार' : 'संगठन') : (col.featured.categoryGu === 'ચૂંટણી' ? 'Election' : col.featured.categoryGu === 'સરકાર' ? 'Government' : 'Organization');
-          return (
-            <div key={col.colId} className="flex flex-col min-w-0">
-              <div className="flex flex-col min-w-0">
-                <Link
-                  href={`/news/${col.featured.slug}`}
-                  className="group flex flex-col mb-2.5"
-                >
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                    <Image
-                      src={col.featured.image || ''}
-                      alt={featuredTitle}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 25vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                  <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase">
-                    {categoryLabel}
-                  </span>
-                  <h3 className="text-[14px] md:text-[15.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2 min-h-[40px] md:min-h-[46px]">
-                    {featuredTitle}
-                  </h3>
-                </Link>
-
-                {/* Clock Meta Row */}
-                <div className="flex items-center gap-1.5 mb-1 pb-2 border-b border-border/40 text-[10.5px] text-muted-foreground font-semibold">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>{featuredTime}</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 5-Card Politics Bottom Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 border-t border-border/40 pt-6 ">
-        {mockPoliticsBottomCards.map((card) => {
-          const cardTitle = getMockTitle(card, language);
-          const cardTime = getMockRelativeTime(card.relativeTimeGu, language);
-          const categoryLabel = language === 'gu' ? card.categoryGu : language === 'hi' ? (card.categoryGu === 'સંસદ' ? 'संसद' : card.categoryGu === 'પાર્ટી' ? 'पार्टी' : card.categoryGu === 'ગૃહ વિભાગ' ? 'गृह विभाग' : card.categoryGu === 'સ્થાનિક સ્વરાજ્ય' ? 'स्थानीय निकाय' : 'गठबंधन') : (card.categoryGu === 'સંસદ' ? 'Parliament' : card.categoryGu === 'પાર્ટી' ? 'Party' : card.categoryGu === 'ગૃહ વિભાગ' ? 'Home Dept' : card.categoryGu === 'સ્થાનિક સ્વરાજ્ય' ? 'Civic Body' : 'Alliance');
-          return (
-            <div key={card.id} className="flex flex-col min-w-0">
+        {top3.map((card) => (
+          <div key={card.id} className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0">
               <Link
                 href={`/news/${card.slug}`}
-                className="group flex flex-col"
+                className="group flex flex-col mb-2.5"
               >
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
                   <Image
-                    src={card.image}
-                    alt={cardTitle}
+                    src={card.image || ''}
+                    alt={card.title}
                     fill
-                    sizes="(max-width: 768px) 100vw, 20vw"
+                    sizes="(max-width: 768px) 100vw, 25vw"
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
-                <span className="text-[#B3121B] font-extrabold text-[11px] mb-1.5 select-none uppercase leading-none">
-                  {categoryLabel}
+                <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase">
+                  {card.categoryLabel}
                 </span>
-                <h4 className="text-[12.5px] md:text-[13px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-                  {cardTitle}
-                </h4>
+                <h3 className="text-[14px] md:text-[15.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2 min-h-[40px] md:min-h-[46px]">
+                  {card.title}
+                </h3>
               </Link>
-              <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
+
+              {/* Clock Meta Row */}
+              <div className="flex items-center gap-1.5 mb-1 pb-2 border-b border-border/40 text-[10.5px] text-muted-foreground font-semibold">
                 <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                <span>{cardTime}</span>
+                <span>{card.time}</span>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
+      </div>
+
+      {/* 5-Card Politics Bottom Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6 border-t border-border/40 pt-6 mt-6">
+        {bottomGrid.map((card) => (
+          <div key={card.id} className="flex flex-col min-w-0">
+            <Link
+              href={`/news/${card.slug}`}
+              className="group flex flex-col"
+            >
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
+                <Image
+                  src={card.image}
+                  alt={card.title}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 20vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <span className="text-[#B3121B] font-extrabold text-[11px] mb-1.5 select-none uppercase leading-none">
+                {card.categoryLabel}
+              </span>
+              <h4 className="text-[12.5px] md:text-[13px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
+                {card.title}
+              </h4>
+            </Link>
+            <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+              <span>{card.time}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
