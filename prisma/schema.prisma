@@ -266,11 +266,12 @@ model AstrologySign {
 }
 
 model HeroSetting {
-  id        String   @id @default("default")
-  slot1Id   String?
-  slot2Id   String?
-  slot3Id   String?
-  updatedAt DateTime @updatedAt
+  id             String   @id @default("default")
+  slot1Id        String?
+  slot2Id        String?
+  slot3Id        String?
+  trendingTopics String?  @db.Text
+  updatedAt      DateTime @updatedAt
 
   @@map("hero_settings")
 }
