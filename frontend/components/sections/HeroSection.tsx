@@ -5559,18 +5559,17 @@ const mockNationalColumns = [
 ];
 
 /* --- National Section ("દેશ" Zone) ----------------------------- */
-export function NationalSection({ language, articles = [] }: { language: Language; articles?: Article[] }) {
-  const dbNationalArticles = useMemo(() => {
-    if (!articles || articles.length === 0) return [];
-    return articles.filter((art) => {
-      const loc = ((art as any).location || '').toLowerCase();
-      const cat = typeof art.category === 'object' ? ((art.category as any).name || '').toLowerCase() : (art.category || '').toLowerCase();
-      return (
-        loc === 'national' || loc.includes('national') || loc.includes('india') ||
-        cat === 'national' || cat.includes('national') || cat.includes('india')
-      );
+export function NationalSection({ language }: { language: Language }) {
+  const [dbNationalArticles, setDbNationalArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    // Fetch national articles directly with categorySlug filter so we get all of them
+    getPublicArticles({ categorySlug: 'national', limit: 12 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
+        setDbNationalArticles(res.articles);
+      }
     });
-  }, [articles]);
+  }, []);
 
   const top3 = useMemo(() => {
     const list: Array<{ id: string; slug: string; image: string; title: string; time: string }> = [];
