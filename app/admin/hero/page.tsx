@@ -302,6 +302,9 @@ export default function HeroManagerPage() {
   const [newTopicInput, setNewTopicInput] = useState('');
   const [trendingNewsArticles, setTrendingNewsArticles] = useState<Article[]>([]);
   const [savingTrendingNews, setSavingTrendingNews] = useState(false);
+  const [popularNewsArticles, setPopularNewsArticles] = useState<Article[]>([]);
+  const [savingPopularNews, setSavingPopularNews] = useState(false);
+  const [draggedPopularIndex, setDraggedPopularIndex] = useState<number | null>(null);
 
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
@@ -341,6 +344,12 @@ export default function HeroManagerPage() {
         setTrendingNewsArticles((heroRes as any).trendingNewsArticles as unknown as Article[]);
       } else {
         setTrendingNewsArticles(arts.filter((a) => a.isTrending).slice(0, 10));
+      }
+
+      if (heroRes && Array.isArray((heroRes as any).popularNewsArticles) && (heroRes as any).popularNewsArticles.length > 0) {
+        setPopularNewsArticles((heroRes as any).popularNewsArticles as unknown as Article[]);
+      } else {
+        setPopularNewsArticles(arts.slice(0, 12));
       }
     } catch {
       showToast('Failed to load hero section articles', false);
@@ -505,6 +514,7 @@ export default function HeroManagerPage() {
         slot3Id: slots[2]?.id || null,
         trendingTopics: trendingTopics,
         trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
       };
 
       const res = await updateHeroSettings(payload);
@@ -522,6 +532,86 @@ export default function HeroManagerPage() {
       showToast('Save failed. Please try again.', false);
     } finally {
       setSavingTrendingNews(false);
+    }
+  };
+
+  const handleAddPopularNewsArticle = (art: Article) => {
+    if (popularNewsArticles.some((a) => a.id === art.id)) {
+      showToast('Article already in Popular News list', false);
+      return;
+    }
+    if (popularNewsArticles.length >= 12) {
+      showToast('⚠️ Limit reached (12 articles max for Popular News). Please remove one first.', false);
+      return;
+    }
+    setPopularNewsArticles((prev) => [...prev, art]);
+  };
+
+  const handleRemovePopularNewsArticle = (id: string) => {
+    setPopularNewsArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleDragStartPopular = (e: React.DragEvent, index: number) => {
+    setDraggedPopularIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOverPopular = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedPopularIndex === null || draggedPopularIndex === targetIndex) return;
+
+    setPopularNewsArticles((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedPopularIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+    setDraggedPopularIndex(targetIndex);
+  };
+
+  const handleDragEndPopular = () => {
+    setDraggedPopularIndex(null);
+  };
+
+  const movePopularArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= popularNewsArticles.length) return;
+    setPopularNewsArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
+  const handleSavePopularNews = async () => {
+    setSavingPopularNews(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        clearApiCache();
+        showToast('✅ Saved! Popular News slider articles updated live on user side.', true);
+        if (res.data?.popularNewsArticles && Array.isArray(res.data.popularNewsArticles)) {
+          setPopularNewsArticles(res.data.popularNewsArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Popular News articles. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingPopularNews(false);
     }
   };
 
@@ -849,10 +939,143 @@ export default function HeroManagerPage() {
             )}
           </div>
 
+          {/* Managing Popular News Section (લોકપ્રિય સમાચાર Slider) */}
+          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800 mb-5 gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌟</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-zinc-900 dark:text-white">Popular News Slider (લોકપ્રિય સમાચાર)</h3>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${popularNewsArticles.length >= 12 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+                      {popularNewsArticles.length} / 12 Max
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Select up to 12 articles to feature in the Popular News (લોકપ્રિય સમાચાર) slider. Drag & drop or use &lt; / &gt; arrows to change number rank.</p>
+                </div>
+              </div>
+
+              {/* Dedicated Save Popular News Button */}
+              <button
+                type="button"
+                onClick={handleSavePopularNews}
+                disabled={savingPopularNews}
+                className="flex items-center gap-2 rounded-xl bg-[#B3121B] hover:bg-[#B3121B]/90 px-5 py-2.5 text-xs font-black text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+              >
+                {savingPopularNews ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                <span>Save Popular News</span>
+              </button>
+            </div>
+
+            {/* Article Search Box for Popular News */}
+            <div className="mb-5">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
+                + Add Article to Popular News Slider
+              </label>
+              <ArticleSearchBox
+                placeholder={popularNewsArticles.length >= 12 ? '[ Limit 12 reached — remove an article to add new ]' : 'Search published articles by title, article #, or category to add to Popular News...'}
+                onSelect={(art) => handleAddPopularNewsArticle(art)}
+                excluded={popularNewsArticles.map((a) => a.id)}
+                allArticles={allArticles}
+              />
+            </div>
+
+            {/* Current Selected Popular News Articles Grid */}
+            {popularNewsArticles.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-8 text-center text-xs text-zinc-400">
+                No articles assigned. Default top popular articles will be displayed automatically.
+              </div>
+            ) : (
+              <>
+                <div className="mb-3 flex items-center justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <GripVertical className="h-3.5 w-3.5 text-[#B3121B]" />
+                    <span><strong>Drag & Drop</strong> cards to change rank (e.g. #12 to #1), or use <strong>&lt; / &gt; arrows</strong> below cards.</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-medium">Order 1 to {popularNewsArticles.length}</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                  {popularNewsArticles.map((art, idx) => (
+                    <div
+                      key={art.id}
+                      draggable
+                      onDragStart={(e) => handleDragStartPopular(e, idx)}
+                      onDragOver={(e) => handleDragOverPopular(e, idx)}
+                      onDragEnd={handleDragEndPopular}
+                      className={`relative flex flex-col justify-between overflow-hidden rounded-xl border p-2.5 transition-all duration-150 cursor-grab active:cursor-grabbing group ${
+                        draggedPopularIndex === idx
+                          ? 'border-[#B3121B] bg-[#B3121B]/10 shadow-xl scale-105 z-20 ring-2 ring-[#B3121B]/40'
+                          : 'border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-800/40 hover:border-[#B3121B]/50 hover:shadow-md'
+                      }`}
+                    >
+                      <div>
+                        {/* Thumbnail, Rank Badge & Drag Handle */}
+                        <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
+                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
+
+                          {/* Rank Badge */}
+                          <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-sm bg-black/80 text-white text-[11px] font-black shadow-md z-10 select-none">
+                            {idx + 1}
+                          </span>
+
+                          {/* Drag Handle Icon Indicator */}
+                          <div className="absolute top-1.5 left-8 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-xs opacity-70 group-hover:opacity-100 transition z-10" title="Click & Drag to reorder">
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </div>
+
+                          {/* Remove Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemovePopularNewsArticle(art.id); }}
+                            className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer z-10"
+                            title="Remove from Popular News"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug select-none">
+                          {getTitle(art)}
+                        </p>
+                      </div>
+
+                      {/* Bottom Footer with Article Info & Left/Right Reorder Arrows */}
+                      <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-zinc-400 pt-1.5 border-t border-zinc-100 dark:border-zinc-800">
+                        <span className="truncate max-w-[80px]">{art.articleNumber ? `#${art.articleNumber}` : catName(art.category)}</span>
+
+                        {/* Reorder Buttons (Move Left & Right) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); movePopularArticle(idx, -1); }}
+                            disabled={idx === 0}
+                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
+                            title="Move left/up"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); movePopularArticle(idx, 1); }}
+                            disabled={idx === popularNewsArticles.length - 1}
+                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
+                            title="Move right/down"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Info note */}
           <div className="mt-6 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <span className="mt-0.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-400 text-[10px] font-black">i</span>
-            <span><strong>Note:</strong> Bottom row image cards, Trending Topics, and Trending News slider articles can be saved independently using their dedicated <strong>Save</strong> buttons.</span>
+            <span><strong>Note:</strong> Bottom row image cards, Trending Topics, Trending News slider, and Popular News slider articles can all be saved independently using their dedicated <strong>Save</strong> buttons.</span>
           </div>
         </>
       )}

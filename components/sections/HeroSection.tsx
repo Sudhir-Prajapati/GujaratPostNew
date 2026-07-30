@@ -3849,6 +3849,26 @@ function PopularStoriesSection({
   const ITEMS_PER_SLIDE = 3;
   const [groupIndex, setGroupIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [popularList, setPopularList] = useState<any[]>([]);
+
+  useEffect(() => {
+    getHeroSettings().then((res: any) => {
+      if (res && Array.isArray(res.popularNewsArticles) && res.popularNewsArticles.length > 0) {
+        const mapped = res.popularNewsArticles.map((a: any, idx: number) => ({
+          id: a.id,
+          slug: a.slug,
+          image: a.image || a.featuredImage || '/assets/demo/3.jpg',
+          titleGu: a.titleGu || a.title,
+          title: a.title || a.titleGu,
+          relativeTimeGu: formatDate(a.publishedAt || a.createdAt),
+          relativeTime: formatDate(a.publishedAt || a.createdAt),
+          viewsGu: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+          views: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+        }));
+        setPopularList(mapped);
+      }
+    });
+  }, []);
 
   const mockArticles = [
     {
@@ -3985,10 +4005,10 @@ function PopularStoriesSection({
     }
   ];
 
-  // Total groups: ceil(12 / 3) = 4  (groups: 0→[1-3], 1→[4-6], 2→[7-9], 3→[10-12])
-  const totalGroups = Math.ceil(mockArticles.length / ITEMS_PER_SLIDE);
+  const articlesToUse = popularList.length > 0 ? popularList : mockArticles;
+  const totalGroups = Math.ceil(articlesToUse.length / ITEMS_PER_SLIDE);
   const startIndex = groupIndex * ITEMS_PER_SLIDE;
-  const visibleArticles = mockArticles.slice(startIndex, startIndex + ITEMS_PER_SLIDE);
+  const visibleArticles = articlesToUse.slice(startIndex, startIndex + ITEMS_PER_SLIDE);
 
   // Auto-scroll: advance one group every 2s, loops back to group 0
   useEffect(() => {
