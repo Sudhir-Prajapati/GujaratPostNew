@@ -368,13 +368,15 @@ export default function HeroSection({
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
   const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     // Fetch main articles pool AND hero slots settings in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
-    ]).then(([mainRes, heroRes]: any[]) => {
+      getPublicVideos(),
+    ]).then(([mainRes, heroRes, videoRes]: any[]) => {
       if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
         setDynamicTrendingTopics(heroRes.trendingTopics);
       } else if (heroRes?.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
@@ -414,15 +416,23 @@ export default function HeroSection({
         setBusinessArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'business').slice(0, 4));
         setSportsArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'sports').slice(0, 7));
       }
+
+      if (videoRes && videoRes.length > 0) {
+        setVideosList(videoRes);
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 300);
     });
 
-    getPublicVideos()
-      .then((res: any) => {
-        if (res && res.length > 0) {
-          setVideosList(res);
-        }
-      })
-      .catch(() => { });
+    const safetyTimer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   // Sidebar auto-changing video state (cycles every 10s)
@@ -521,7 +531,40 @@ export default function HeroSection({
     return Array.from(uniqueMap.values());
   }, [uniqueTopStories, articlesList, initialArticles]);
 
-  if (!topStories.length) return <HeroSectionSkeleton language={language} />;
+  if (isInitialLoading || !topStories.length) {
+    return (
+      <div className="relative min-h-[70vh] w-full">
+        {/* Branded loading overlay */}
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-md text-foreground transition-all duration-500">
+          <div className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-card/90 border border-border/50 shadow-2xl backdrop-blur-xl max-w-sm w-full mx-4 text-center">
+            {/* Branded Logo Emblem */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute h-20 w-20 rounded-full bg-[#B3121B]/20 animate-ping" />
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#B3121B] text-white font-black text-2xl shadow-lg shadow-[#B3121B]/40 border border-white/20">
+                GP
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-1">
+              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground">
+                {language === 'gu' ? 'ગુજરાત પોસ્ટ' : 'GUJARAT POST'}
+              </h2>
+              <p className="text-xs font-bold text-muted-foreground animate-pulse">
+                {language === 'gu' ? 'સમાચાર લોડ થઈ રહ્યા છે...' : 'Loading latest news...'}
+              </p>
+            </div>
+
+            {/* Spinner */}
+            <div className="flex items-center justify-center mt-1">
+              <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#B3121B] border-t-transparent" />
+            </div>
+          </div>
+        </div>
+
+        <HeroSectionSkeleton language={language} />
+      </div>
+    );
+  }
   return (
     <div className="mx-auto max-w-screen-xl px-2 py-0.5 space-y-1">
 
