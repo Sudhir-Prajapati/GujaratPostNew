@@ -24,8 +24,13 @@ export class ArticleController {
       const query = req.query.query as string || '';
       const categorySlug = req.query.categorySlug as string || '';
       const status = req.query.status as string || '';
+      const location = req.query.location as string || '';
 
       const where: any = {};
+
+      if (location) {
+        where.location = { contains: location };
+      }
 
       if (query) {
         const cleanQuery = query.replace(/^#/, '').trim();
@@ -148,6 +153,7 @@ export class ArticleController {
         metaRobots,
         tags, // array of { name: string }
         slug,
+        location,
       } = req.body;
 
       if (!title || !content || !categoryId || !authorId) {
@@ -229,6 +235,7 @@ export class ArticleController {
           status: status || 'DRAFT',
           authorId,
           categoryId,
+          location: location ? String(location).trim() : null,
           priority: priority ? Number(priority) : 0,
           readingTime: readingTime ? Number(readingTime) : 0,
           isTrending: !!isTrending,
@@ -293,6 +300,7 @@ export class ArticleController {
         metaRobots,
         tags, // array of { name: string }
         slug,
+        location,
       } = req.body;
 
       const existingPost = await prisma.post.findUnique({
@@ -303,6 +311,8 @@ export class ArticleController {
       }
 
       const updateData: any = {};
+
+      if (location !== undefined) updateData.location = location ? String(location).trim() : null;
 
       if (title !== undefined) updateData.title = title.trim();
       if (titleGu !== undefined) updateData.titleGu = titleGu.trim();

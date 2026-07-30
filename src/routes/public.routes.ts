@@ -30,29 +30,50 @@ router.get('/articles', async (req, res, next) => {
 
     const where: any = {
       status: 'PUBLISHED', // Only show published articles on the public site
+      AND: [],
     };
 
     if (query) {
       const cleanQuery = query.replace(/^#/, '').trim();
       const numQuery = parseInt(cleanQuery, 10);
-      where.OR = [
-        { title: { contains: query } },
-        { titleGu: { contains: query } },
-        { titleHi: { contains: query } },
-        { content: { contains: query } },
-        ...(!isNaN(numQuery) && numQuery > 0 ? [{ articleNumber: numQuery }] : []),
-      ];
+      where.AND.push({
+        OR: [
+          { title: { contains: query } },
+          { titleGu: { contains: query } },
+          { titleHi: { contains: query } },
+          { content: { contains: query } },
+          ...(!isNaN(numQuery) && numQuery > 0 ? [{ articleNumber: numQuery }] : []),
+        ],
+      });
+    }
+
+    const locationParam = (req.query.location as string) || '';
+
+    if (locationParam) {
+      where.location = { contains: locationParam };
     }
 
     if (categorySlug) {
       const slugLower = categorySlug.toLowerCase();
-      where.category = {
+      where.AND.push({
         OR: [
-          { slug: slugLower },
-          { name: categorySlug },
-          { nameGu: categorySlug },
+          {
+            category: {
+              OR: [
+                { slug: slugLower },
+                { name: categorySlug },
+                { nameGu: categorySlug },
+              ],
+            },
+          },
+          { location: { equals: categorySlug } },
+          { location: { equals: slugLower } },
         ],
-      };
+      });
+    }
+
+    if (where.AND.length === 0) {
+      delete where.AND;
     }
 
     if (isTrending) where.isTrending = true;
@@ -100,6 +121,7 @@ router.get('/articles', async (req, res, next) => {
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
+      location: p.location || null,
       tags: (p.tags as any[]).map((t: any) => t.name || t.tag?.name || ''),
       tagsGu: (p.tags as any[]).map((t: any) => t.nameGu || t.tag?.nameGu || ''),
       tagsHi: (p.tags as any[]).map((t: any) => t.nameHi || t.tag?.nameHi || ''),
@@ -167,6 +189,7 @@ router.get('/articles/:slug', async (req, res, next) => {
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
+      location: p.location || null,
       tags: (p.tags as any[]).map((t: any) => t.name || t.tag?.name || ''),
       tagsGu: (p.tags as any[]).map((t: any) => t.nameGu || t.tag?.nameGu || ''),
       tagsHi: (p.tags as any[]).map((t: any) => t.nameHi || t.tag?.nameHi || ''),
