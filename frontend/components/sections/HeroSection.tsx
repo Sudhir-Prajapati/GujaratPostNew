@@ -5559,7 +5559,66 @@ const mockNationalColumns = [
 ];
 
 /* --- National Section ("દેશ" Zone) ----------------------------- */
-export function NationalSection({ language }: { language: Language }) {
+export function NationalSection({ language, articles = [] }: { language: Language; articles?: Article[] }) {
+  const dbNationalArticles = useMemo(() => {
+    if (!articles || articles.length === 0) return [];
+    return articles.filter((art) => {
+      const loc = ((art as any).location || '').toLowerCase();
+      const cat = typeof art.category === 'object' ? ((art.category as any).name || '').toLowerCase() : (art.category || '').toLowerCase();
+      return (
+        loc === 'national' || loc.includes('national') || loc.includes('india') ||
+        cat === 'national' || cat.includes('national') || cat.includes('india')
+      );
+    });
+  }, [articles]);
+
+  const top3 = useMemo(() => {
+    const list: Array<{ id: string; slug: string; image: string; title: string; time: string }> = [];
+    dbNationalArticles.slice(0, 3).forEach((art) => {
+      list.push({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[0],
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        time: formatTime(art.publishedAt),
+      });
+    });
+    if (list.length < 3) {
+      mockNationalColumns.forEach((col) => {
+        if (list.length < 3 && !list.some((item) => item.id === col.featured.id)) {
+          list.push({ id: col.featured.id, slug: col.featured.slug, image: col.featured.image, title: getMockTitle(col.featured, language), time: getMockRelativeTime(col.featured.relativeTimeGu, language) });
+        }
+      });
+    }
+    return list;
+  }, [dbNationalArticles, language]);
+
+  const bottomGrid = useMemo(() => {
+    const list: Array<{ id: string; slug: string; image: string; title: string; time: string }> = [];
+    dbNationalArticles.slice(3, 12).forEach((art) => {
+      list.push({
+        id: art.id,
+        slug: art.slug,
+        image: art.image || DEMO_IMAGES[1],
+        title: getLocalized(language, { en: art.title, gu: art.titleGu || art.title, hi: (art as any).titleHi || art.title }),
+        time: formatTime(art.publishedAt),
+      });
+    });
+    if (list.length < 9) {
+      mockNationalColumns.forEach((col) => {
+        col.subs.forEach((sub) => {
+          if (list.length < 9 && !list.some((item) => item.id === sub.id)) {
+            list.push({ id: sub.id, slug: sub.slug, image: sub.image, title: getMockTitle(sub, language), time: getMockRelativeTime(sub.relativeTimeGu, language) });
+          }
+        });
+      });
+    }
+    const col1 = list.filter((_, i) => i % 3 === 0);
+    const col2 = list.filter((_, i) => i % 3 === 1);
+    const col3 = list.filter((_, i) => i % 3 === 2);
+    return { col1, col2, col3, totalRows: Math.max(col1.length, col2.length, col3.length) };
+  }, [dbNationalArticles, language]);
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-1">
       {/* Section Header */}
@@ -5575,74 +5634,42 @@ export function NationalSection({ language }: { language: Language }) {
         </Link>
       </div>
 
-      {/* Top Row: 3 Featured Article Cards (Equal Height Grid) */}
+      {/* Top Row: 3 Featured Big Image Article Cards from DB */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch mb-4">
-        {mockNationalColumns.map((col) => {
-          const featuredTitle = getMockTitle(col.featured, language);
-          const featuredTime = getMockRelativeTime(col.featured.relativeTimeGu, language);
-          return (
-            <div key={col.colId} className="flex flex-col justify-between min-w-0 border-b border-border/40 pb-3">
-              {/* Featured Article Card */}
-              <Link
-                href={`/news/${col.featured.slug}`}
-                className="group flex flex-col"
-              >
-                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                  <Image
-                    src={col.featured.image}
-                    alt={featuredTitle}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-                <h3 className="text-[14px] md:text-[15.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
-                  {featuredTitle}
-                </h3>
-              </Link>
-              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-2.5">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                <span>{featuredTime}</span>
+        {top3.map((item) => (
+          <div key={item.id} className="flex flex-col justify-between min-w-0 border-b border-border/40 pb-3">
+            <Link href={`/news/${item.slug}`} className="group flex flex-col">
+              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
+                <Image src={item.image} alt={item.title} fill sizes="(max-width: 768px) 100vw, 25vw" className="object-cover transition-transform duration-300 group-hover:scale-105" />
               </div>
+              <h3 className="text-[14px] md:text-[15.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">{item.title}</h3>
+            </Link>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-2.5">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+              <span>{item.time}</span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
-      {/* Bottom Rows: 3 Sub-article Grid Rows (Synchronized Horizontal Alignment) */}
+      {/* Bottom Grid: Sub-articles in 3 columns */}
       <div className="flex flex-col gap-3">
-        {[0, 1, 2].map((subIndex) => (
-          <div key={subIndex} className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-            {mockNationalColumns.map((col) => {
-              const sub = col.subs[subIndex];
-              if (!sub) return <div key={col.colId} />;
-              const subTitle = getMockTitle(sub, language);
-              const subTime = getMockRelativeTime(sub.relativeTimeGu, language);
+        {Array.from({ length: bottomGrid.totalRows }).map((_, rowIdx) => (
+          <div key={rowIdx} className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            {[bottomGrid.col1[rowIdx], bottomGrid.col2[rowIdx], bottomGrid.col3[rowIdx]].map((sub, colIdx) => {
+              if (!sub) return <div key={colIdx} />;
               return (
-                <Link
-                  key={sub.id}
-                  href={`/news/${sub.slug}`}
-                  className="group flex gap-3 hover:bg-muted/10 transition-colors p-1 min-w-0"
-                >
+                <Link key={sub.id} href={`/news/${sub.slug}`} className="group flex gap-3 hover:bg-muted/10 transition-colors p-1 min-w-0">
                   <div className="relative h-[56px] w-[86px] shrink-0 overflow-hidden rounded-sm border border-border/10 bg-muted">
-                    <Image
-                      src={sub.image}
-                      alt={subTitle}
-                      fill
-                      sizes="86px"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
+                    <Image src={sub.image} alt={sub.title} fill sizes="86px" className="object-cover transition-transform duration-300 group-hover:scale-105" />
                   </div>
                   <div className="flex flex-col justify-center min-w-0 flex-1">
-                    <h4 className={`text-[12.5px] font-extrabold leading-snug line-clamp-2 transition-colors ${sub.isHighlighted
-                      ? 'text-red-600'
-                      : 'text-foreground group-hover:text-[#B3121B]'
-                      }`}>
-                      {subTitle}
+                    <h4 className="text-[12.5px] font-extrabold leading-snug line-clamp-2 text-foreground group-hover:text-[#B3121B] transition-colors">
+                      {sub.title}
                     </h4>
                     <div className="flex items-center gap-1.5 mt-1 text-[10px] text-muted-foreground font-semibold">
                       <Clock className="h-3 w-3 text-muted-foreground/60" />
-                      <span>{subTime}</span>
+                      <span>{sub.time}</span>
                     </div>
                   </div>
                 </Link>
