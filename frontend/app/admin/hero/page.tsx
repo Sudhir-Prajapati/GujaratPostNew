@@ -380,9 +380,15 @@ export default function HeroManagerPage() {
     }
   };
 
+  const [savingTopics, setSavingTopics] = useState(false);
+
   const handleAddTopic = () => {
     const val = newTopicInput.trim().replace(/^#/, '');
     if (!val) return;
+    if (trendingTopics.length >= 8) {
+      showToast('⚠️ Limit reached (8 topics max). Please remove one topic first before adding a new one.', false);
+      return;
+    }
     if (trendingTopics.includes(val)) {
       showToast('Topic already exists in list', false);
       return;
@@ -398,6 +404,34 @@ export default function HeroManagerPage() {
   const handleResetTopics = () => {
     setTrendingTopics(DEFAULT_TOPICS);
     showToast('Reset to default topics', true);
+  };
+
+  const handleSaveTrendingTopics = async () => {
+    setSavingTopics(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        clearApiCache();
+        showToast('✅ Saved! Trending topics updated live on user side.', true);
+        if (res.data?.trendingTopics && Array.isArray(res.data.trendingTopics)) {
+          setTrendingTopics(res.data.trendingTopics);
+        }
+      } else {
+        showToast('Failed to save trending topics. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingTopics(false);
+    }
   };
 
   const setSlot = (idx: number, art: Article) => {
@@ -518,8 +552,13 @@ export default function HeroManagerPage() {
               <div className="flex items-center gap-2">
                 <span className="text-xl">🔥</span>
                 <div>
-                  <h3 className="text-base font-black text-zinc-900 dark:text-white">Trending Topics (Trending વિષયો)</h3>
-                  <p className="text-xs text-zinc-500 font-medium">Manage the trending topic pills shown on the homepage sidebar. Click Save Changes to update live on the website.</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-zinc-900 dark:text-white">Trending Topics (Trending વિષયો)</h3>
+                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${trendingTopics.length >= 8 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'}`}>
+                      {trendingTopics.length} / 8 Max
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Maximum 8 trending topic pills allowed. If you want to add a new topic, remove an existing topic first.</p>
                 </div>
               </div>
               <button
@@ -532,7 +571,7 @@ export default function HeroManagerPage() {
             </div>
 
             {/* List of current topic pills */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 mb-5">
               {trendingTopics.map((topic) => (
                 <span
                   key={topic}
@@ -543,6 +582,7 @@ export default function HeroManagerPage() {
                     type="button"
                     onClick={() => handleRemoveTopic(topic)}
                     className="ml-1 text-zinc-400 hover:text-red-500 focus:outline-none cursor-pointer"
+                    title="Remove topic"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -550,22 +590,37 @@ export default function HeroManagerPage() {
               ))}
             </div>
 
-            {/* Add new topic tag input */}
-            <div className="flex items-center gap-2 max-w-lg">
-              <input
-                type="text"
-                value={newTopicInput}
-                onChange={(e) => setNewTopicInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTopic(); } }}
-                placeholder="[Enter new topic, e.g. વડોદરા ]"
-                className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-extrabold text-zinc-900 focus:border-[#B3121B] focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
-              />
+            {/* Add new topic tag input & Dedicated Save Button */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2 max-w-lg flex-1">
+                <input
+                  type="text"
+                  value={newTopicInput}
+                  onChange={(e) => setNewTopicInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTopic(); } }}
+                  placeholder={trendingTopics.length >= 8 ? '[ Limit 8 reached — remove a topic to add new ]' : '[ Enter new topic, e.g. વડોદરા ]'}
+                  disabled={trendingTopics.length >= 8}
+                  className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-xs font-extrabold text-zinc-900 focus:border-[#B3121B] focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddTopic}
+                  disabled={trendingTopics.length >= 8}
+                  className="rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+                >
+                  + Add Topic
+                </button>
+              </div>
+
+              {/* Dedicated Save Trending Topics Button */}
               <button
                 type="button"
-                onClick={handleAddTopic}
-                className="rounded-xl bg-zinc-900 px-4 py-2.5 text-xs font-extrabold text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 cursor-pointer"
+                onClick={handleSaveTrendingTopics}
+                disabled={savingTopics}
+                className="flex items-center gap-2 rounded-xl bg-[#B3121B] hover:bg-[#B3121B]/90 px-5 py-2.5 text-xs font-black text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               >
-                + Add Topic
+                {savingTopics ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                <span>Save Trending Topics</span>
               </button>
             </div>
           </div>
