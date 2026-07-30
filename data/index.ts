@@ -118,6 +118,46 @@ export const getArticleContent = (article: Article, language: Language) =>
 export const getCategoryLabel = (article: Article, language: Language) =>
   getLocalized(language, { en: article?.category || '', gu: article?.categoryGu || '', hi: article?.categoryHi || '' });
 
+export const getLocationLabel = (article: Article, language: Language) => {
+  if (!article?.location) return '';
+  const loc = article.location;
+  if (language === 'gu') {
+    const locMap: Record<string, string> = {
+      'Gujarat': 'ગુજરાત',
+      'Ahmedabad': 'અમદાવાદ',
+      'Gandhinagar': 'ગાંધીનગર',
+      'Rajkot': 'રાજકોટ',
+      'Surat': 'સુરત',
+      'Vadodara': 'વડોદરા',
+      'Bhavnagar': 'ભાવનગર',
+      'Jamnagar': 'જામનગર',
+      'Junagadh': 'જૂનાગઢ',
+      'Kutch': 'કચ્છ',
+      'National': 'દેશ',
+      'International': 'વિદેશ',
+    };
+    return locMap[loc] || loc;
+  }
+  if (language === 'hi') {
+    const locMap: Record<string, string> = {
+      'Gujarat': 'गुजरात',
+      'Ahmedabad': 'अहमदाबाद',
+      'Gandhinagar': 'गांधीनगर',
+      'Rajkot': 'राजकोट',
+      'Surat': 'सूरत',
+      'Vadodara': 'वडोदरा',
+      'Bhavnagar': 'भावनगर',
+      'Jamnagar': 'जामनगर',
+      'Junagadh': 'जूनागढ़',
+      'Kutch': 'कच्छ',
+      'National': 'देश',
+      'International': 'विदेश',
+    };
+    return locMap[loc] || loc;
+  }
+  return loc;
+};
+
 export const getRelativeTime = (dateString?: string | Date | null, language: Language = 'gu'): string => {
   if (!dateString) {
     if (language === 'gu') return 'હમણાં જ';

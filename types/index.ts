@@ -29,6 +29,7 @@ export interface Article {
   category: string;
   categoryGu: string;
   categoryHi: string;
+  location?: string;
   tags: string[];
   tagsGu: string[];
   tagsHi: string[];
