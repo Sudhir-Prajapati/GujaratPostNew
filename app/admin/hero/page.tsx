@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Search, RefreshCw, Eye, CheckCircle2, XCircle,
   LayoutTemplate, ArrowUpRight, Trash2, Save,
-  Calendar, User, Tag, X, ImageIcon,
+  Calendar, User, Tag, X, ImageIcon, GripVertical, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -460,6 +460,42 @@ export default function HeroManagerPage() {
     setTrendingNewsArticles((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    setTrendingNewsArticles((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+    setDraggedIndex(targetIndex);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const moveTrendingArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= trendingNewsArticles.length) return;
+    setTrendingNewsArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
   const handleSaveTrendingNews = async () => {
     setSavingTrendingNews(true);
     try {
@@ -727,39 +763,89 @@ export default function HeroManagerPage() {
                 No articles assigned. Default top trending articles will be displayed automatically.
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-                {trendingNewsArticles.map((art, idx) => (
-                  <div
-                    key={art.id}
-                    className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50/50 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40 hover:border-[#B3121B]/40 transition-colors group"
-                  >
-                    <div>
-                      {/* Thumbnail & Rank Badge */}
-                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
-                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
-                        <span className="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#B3121B] text-white text-[10px] font-black shadow-sm">
-                          {idx + 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTrendingNewsArticle(art.id)}
-                          className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer"
-                          title="Remove from Trending News"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+              <>
+                <div className="mb-3 flex items-center justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <GripVertical className="h-3.5 w-3.5 text-[#B3121B]" />
+                    <span><strong>Drag & Drop</strong> cards to change order (e.g. #10 to #1), or use <strong>&lt; / &gt; arrows</strong> below cards.</span>
+                  </span>
+                  <span className="text-[10px] text-zinc-400 font-medium">Order 1 to {trendingNewsArticles.length}</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                  {trendingNewsArticles.map((art, idx) => (
+                    <div
+                      key={art.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={(e) => handleDragOver(e, idx)}
+                      onDragEnd={handleDragEnd}
+                      className={`relative flex flex-col justify-between overflow-hidden rounded-xl border p-2.5 transition-all duration-150 cursor-grab active:cursor-grabbing group ${
+                        draggedIndex === idx
+                          ? 'border-[#B3121B] bg-[#B3121B]/10 shadow-xl scale-105 z-20 ring-2 ring-[#B3121B]/40'
+                          : 'border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-800/40 hover:border-[#B3121B]/50 hover:shadow-md'
+                      }`}
+                    >
+                      <div>
+                        {/* Thumbnail, Rank Badge & Drag Handle */}
+                        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
+                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
+
+                          {/* Rank Badge */}
+                          <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B3121B] text-white text-[11px] font-black shadow-md z-10 select-none">
+                            {idx + 1}
+                          </span>
+
+                          {/* Drag Handle Icon Indicator */}
+                          <div className="absolute top-1.5 left-8 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-xs opacity-70 group-hover:opacity-100 transition z-10" title="Click & Drag to reorder">
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </div>
+
+                          {/* Remove Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveTrendingNewsArticle(art.id); }}
+                            className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer z-10"
+                            title="Remove from Trending News"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug select-none">
+                          {getTitle(art)}
+                        </p>
                       </div>
-                      <p className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug">
-                        {getTitle(art)}
-                      </p>
+
+                      {/* Bottom Footer with Article Info & Left/Right Reorder Arrows */}
+                      <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-zinc-400 pt-1.5 border-t border-zinc-100 dark:border-zinc-800">
+                        <span className="truncate max-w-[60px]">{art.articleNumber ? `#${art.articleNumber}` : catName(art.category)}</span>
+
+                        {/* Reorder Buttons (Move Left & Right) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveTrendingArticle(idx, -1); }}
+                            disabled={idx === 0}
+                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
+                            title="Move left/up"
+                          >
+                            <ChevronLeft className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); moveTrendingArticle(idx, 1); }}
+                            disabled={idx === trendingNewsArticles.length - 1}
+                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
+                            title="Move right/down"
+                          >
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-zinc-400 pt-1.5 border-t border-zinc-100 dark:border-zinc-800">
-                      <span>{art.articleNumber ? `#${art.articleNumber}` : ''}</span>
-                      <span className="text-[#B3121B]">{catName(art.category)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
