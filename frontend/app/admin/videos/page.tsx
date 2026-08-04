@@ -62,6 +62,27 @@ export default function VideosPage() {
   const [channel, setChannel] = useState('Gujarat Post News');
   // Single language: Gujarati only
 
+  // Extract YouTube video ID from any URL format
+  const extractYouTubeId = (input: string): string => {
+    const trimmed = input.trim();
+    // Already a bare 11-char ID
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    // Match various YouTube URL patterns
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /[?&]v=([a-zA-Z0-9_-]{11})/,
+    ];
+    for (const pattern of patterns) {
+      const m = trimmed.match(pattern);
+      if (m) return m[1];
+    }
+    return trimmed; // fallback: return as-is
+  };
+
+  const handleYoutubeInputChange = (raw: string) => {
+    setYoutubeId(extractYouTubeId(raw));
+  };
+
   // Fetch videos
   useEffect(() => {
     async function loadVideos() {
@@ -365,16 +386,33 @@ export default function VideosPage() {
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  YouTube Video ID
+                  YouTube URL અથવા Video ID
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. A_5vL-ngK4M (extract from YouTube URL)"
+                  placeholder="YouTube link paste કરો (youtu.be/... અથવા youtube.com/watch?v=...)"
                   value={youtubeId}
-                  onChange={(e) => setYoutubeId(e.target.value)}
+                  onChange={(e) => handleYoutubeInputChange(e.target.value)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    handleYoutubeInputChange(e.clipboardData.getData('text'));
+                  }}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   required
                 />
+                {youtubeId && /^[a-zA-Z0-9_-]{11}$/.test(youtubeId) && (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 dark:border-green-800 dark:bg-green-950/20">
+                    <img
+                      src={`https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg`}
+                      alt="thumbnail"
+                      className="h-10 w-16 rounded-lg object-cover flex-shrink-0"
+                    />
+                    <div>
+                      <p className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">✓ Video ID મળ્યો</p>
+                      <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300">{youtubeId}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Gujarati title only */}
@@ -490,15 +528,34 @@ export default function VideosPage() {
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  YouTube Video ID
+                  YouTube URL અથવા Video ID
                 </label>
                 <input
                   type="text"
+                  placeholder="YouTube link paste કરો (youtu.be/... અથવા youtube.com/watch?v=...)"
                   value={youtubeId}
-                  onChange={(e) => setYoutubeId(e.target.value)}
+                  onChange={(e) => handleYoutubeInputChange(e.target.value)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    handleYoutubeInputChange(e.clipboardData.getData('text'));
+                  }}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   required
                 />
+                {youtubeId && /^[a-zA-Z0-9_-]{11}$/.test(youtubeId) && (
+                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 dark:border-green-800 dark:bg-green-950/20">
+                    <img
+                      src={`https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg`}
+                      alt="thumbnail"
+                      className="h-10 w-16 rounded-lg object-cover flex-shrink-0"
+                    />
+                    <div>
+                      <p className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">✓ Video ID મળ્યો</p>
+                      <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300">{youtubeId}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
               </div>
 
               {/* Gujarati title only */}
