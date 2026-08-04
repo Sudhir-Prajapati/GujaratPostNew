@@ -29,6 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.2.0",
     "multer-storage-cloudinary": "^4.0.0",
+    "mysql2": "^3.23.2",
     "prisma": "^5.10.2",
     "redis": "^4.6.13",
     "resend": "^3.2.0",
