@@ -118,42 +118,93 @@ export const getArticleContent = (article: Article, language: Language) =>
 export const getCategoryLabel = (article: Article, language: Language) =>
   getLocalized(language, { en: article?.category || '', gu: article?.categoryGu || '', hi: article?.categoryHi || '' });
 
-export const getLocationLabel = (article: Article, language: Language) => {
-  if (!article?.location) return '';
-  const loc = article.location;
+export const getLocationLabel = (article: Article | { location?: string }, language: Language) => {
+  const loc = article?.location?.trim();
+  if (!loc) return '';
+  const locLower = loc.toLowerCase();
+
+  const guMap: Record<string, string> = {
+    'national': 'રાષ્ટ્રીય',
+    'india': 'રાષ્ટ્રીય',
+    'desh': 'દેશ',
+    'international': 'વિદેશ',
+    'world': 'વિશ્વ',
+    'gujarat': 'ગુજરાત',
+    'ahmedabad': 'અમદાવાદ',
+    'gandhinagar': 'ગાંધીનગર',
+    'rajkot': 'રાજકોટ',
+    'surat': 'સુરત',
+    'vadodara': 'વડોદરા',
+    'bhavnagar': 'ભાવનગર',
+    'jamnagar': 'જામનગર',
+    'junagadh': 'જૂનાગઢ',
+    'kutch': 'કચ્છ',
+    'bhuj': 'ભુજ',
+    'anand': 'આણંદ',
+    'mehsana': 'મહેસાણા',
+    'morbi': 'મોરબી',
+    'amreli': 'અમરેલી',
+    'bharuch': 'ભરૂચ',
+    'aravalli': 'અરવલ્લી',
+    'banaskantha': 'બનાસકાંઠા',
+    'botad': 'બોટાદ',
+    'chhota udepur': 'છોટા ઉદેપુર',
+    'dahod': 'દાહોદ',
+    'dang': 'ડાંગ',
+    'devbhumi dwarka': 'દેવભૂમિ દ્વારકા',
+    'gir somnath': 'ગીર સોમનાથ',
+    'kheda': 'ખેડા',
+    'mahisagar': 'મહીસાગર',
+    'narmada': 'નર્મદા',
+    'navsari': 'નવસારી',
+    'panchmahal': 'પંચમહાલ',
+    'patan': 'પાટણ',
+    'porbandar': 'પોરબંદર',
+    'sabarkantha': 'સાબરકાંઠા',
+    'surendranagar': 'સુરેન્દ્રનગર',
+    'tapi': 'તાપી',
+    'valsad': 'વલસાડ',
+    'daman and diu': 'દમણ અને દીવ',
+    'vav-tharad': 'વાવ-થરાદ',
+    'delhi': 'દિલ્હી',
+    'mumbai': 'મુંબઈ',
+    'kolkata': 'કોલકાતા',
+    'chennai': 'ચેન્નઈ',
+    'bangalore': 'બેંગ્લોર',
+    'hyderabad': 'હૈદ્રાબાદ',
+    'pune': 'પૂણે',
+    'jaipur': 'જયપુર',
+  };
+
+  const hiMap: Record<string, string> = {
+    'national': 'राष्ट्रीय',
+    'india': 'राष्ट्रीय',
+    'international': 'विदेश',
+    'world': 'विश्व',
+    'gujarat': 'गुजरात',
+    'ahmedabad': 'अहमदाबाद',
+    'gandhinagar': 'गांधीनगर',
+    'rajkot': 'राजकोट',
+    'surat': 'सूरत',
+    'vadodara': 'वडोदरा',
+    'bhavnagar': 'भावनगर',
+    'jamnagar': 'जामनगर',
+    'junagadh': 'जूनागढ़',
+    'kutch': 'कच्छ',
+    'anand': 'आणंद',
+    'mehsana': 'महेसाणा',
+    'morbi': 'मोरबी',
+    'amreli': 'अमरेली',
+    'bharuch': 'भरूच',
+    'delhi': 'दिल्ली',
+    'mumbai': 'मुंबई',
+  };
+
   if (language === 'gu') {
-    const locMap: Record<string, string> = {
-      'Gujarat': 'ગુજરાત',
-      'Ahmedabad': 'અમદાવાદ',
-      'Gandhinagar': 'ગાંધીનગર',
-      'Rajkot': 'રાજકોટ',
-      'Surat': 'સુરત',
-      'Vadodara': 'વડોદરા',
-      'Bhavnagar': 'ભાવનગર',
-      'Jamnagar': 'જામનગર',
-      'Junagadh': 'જૂનાગઢ',
-      'Kutch': 'કચ્છ',
-      'National': 'દેશ',
-      'International': 'વિદેશ',
-    };
-    return locMap[loc] || loc;
+    return guMap[locLower] || loc;
   }
   if (language === 'hi') {
-    const locMap: Record<string, string> = {
-      'Gujarat': 'गुजरात',
-      'Ahmedabad': 'अहमदाबाद',
-      'Gandhinagar': 'गांधीनगर',
-      'Rajkot': 'राजकोट',
-      'Surat': 'सूरत',
-      'Vadodara': 'वडोदरा',
-      'Bhavnagar': 'भावनगर',
-      'Jamnagar': 'जामनगर',
-      'Junagadh': 'जूनागढ़',
-      'Kutch': 'कच्छ',
-      'National': 'देश',
-      'International': 'विदेश',
-    };
-    return locMap[loc] || loc;
+    return hiMap[locLower] || loc;
   }
   return loc;
 };
