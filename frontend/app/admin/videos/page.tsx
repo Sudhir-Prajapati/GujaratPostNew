@@ -54,7 +54,7 @@ export default function VideosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('');
+  const [selectedType, setSelectedType] = useState('video');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -114,10 +114,14 @@ export default function VideosPage() {
     async function loadVideos() {
       setLoading(true);
       try {
-        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`));
+        const typeFilter = selectedType || 'video';
+        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${typeFilter}`));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
-        setVideos(json.data.videos || []);
+        const loadedVideos: VideoData[] = json.data.videos || [];
+        // Strict filter: only include regular YouTube videos
+        const regularVideosOnly = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
+        setVideos(regularVideosOnly);
         setTotalPages(json.data.totalPages || 1);
       } catch (err: any) {
         setError(err.message);
@@ -390,13 +394,9 @@ export default function VideosPage() {
                   setSelectedType(e.target.value);
                   setPage(1);
                 }}
-                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
               >
-                <option value="">All Types</option>
-                <option value="video">Standard Video</option>
-                <option value="short">YouTube Short</option>
-                <option value="podcast">Podcast</option>
-                <option value="interview">Interview</option>
+                <option value="video">YouTube Videos Only</option>
               </select>
             </div>
           </div>
