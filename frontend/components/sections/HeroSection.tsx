@@ -6744,26 +6744,117 @@ export function LiveCenterSection({ language }: { language: Language }) {
 }
 
 /* --- Weather Dashboard Section --------------------------------------------- */
+const CITY_COORDS: Record<string, { lat: number; lon: number }> = {
+  Ahmedabad: { lat: 23.0225, lon: 72.5714 },
+  Vadodara: { lat: 22.3072, lon: 73.1812 },
+  Surat: { lat: 21.1702, lon: 72.8311 },
+  Rajkot: { lat: 22.3039, lon: 70.8022 },
+};
+
+function parseWmoCode(code: number) {
+  if (code === 0) return { desc: 'Sunny', descGu: 'તડકો', icon: 'sun' };
+  if (code >= 1 && code <= 3) return { desc: 'Partly Cloudy', descGu: 'વાદળછાઈ', icon: 'cloud' };
+  if (code === 45 || code === 48) return { desc: 'Mist', descGu: 'ધુમ્મસ', icon: 'cloud' };
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { desc: 'Rain', descGu: 'વરસાદ', icon: 'rain' };
+  if (code >= 95) return { desc: 'Thunderstorm', descGu: 'ગાજવીજ', icon: 'rain' };
+  return { desc: 'Clear', descGu: 'સ્વચ્છ', icon: 'sun' };
+}
+
+function parseAqi(val: number) {
+  if (val <= 50) return { label: 'Good', labelGu: 'સારું' };
+  if (val <= 100) return { label: 'Satisfactory', labelGu: 'સંતોષકારક' };
+  if (val <= 200) return { label: 'Moderate', labelGu: 'સાધારણ' };
+  if (val <= 300) return { label: 'Poor', labelGu: 'ખરાબ' };
+  return { label: 'Very Poor', labelGu: 'અતિ ખરાબ' };
+}
+
 function WeatherDashboardSection({ language }: { language: Language }) {
   const [activeTab, setActiveTab] = useState<'weather' | 'aqi'>('weather');
   const [selectedCity, setSelectedCity] = useState('Ahmedabad');
+  const [lastUpdateStr, setLastUpdateStr] = useState('');
 
   const isGu = language === 'gu';
 
-  // Weather data maps
-  const weatherData: Record<string, { temp: string; desc: string; descGu: string; icon: string; humidity: string; wind: string }> = {
+  // Weather data state with default fallbacks
+  const [weatherData, setWeatherData] = useState<Record<string, { temp: string; desc: string; descGu: string; icon: string; humidity: string; wind: string }>>({
     Ahmedabad: { temp: '29', desc: 'Mist', descGu: 'ધુમ્મસ', icon: 'cloud', humidity: '68%', wind: '19 km/h' },
     Vadodara: { temp: '31.7', desc: 'Partly Cloudy', descGu: 'વાદળછાઈ', icon: 'cloud', humidity: '52%', wind: '12 km/h' },
     Surat: { temp: '29.8', desc: 'Heavy Rain', descGu: 'ભારે વરસાદ', icon: 'rain', humidity: '68%', wind: '15 km/h' },
     Rajkot: { temp: '31.9', desc: 'Sunny', descGu: 'તડકો', icon: 'sun', humidity: '52%', wind: '10 km/h' }
-  };
+  });
 
-  const aqiData: Record<string, { value: number; label: string; labelGu: string }> = {
-    Ahmedabad: { value: 72, label: 'Satisfactory', labelGu: 'સંતોષકારક' },
-    Vadodara: { value: 65, label: 'Satisfactory', labelGu: 'સંતોષકારક' },
-    Surat: { value: 85, label: 'Moderate', labelGu: 'સાધારણ' },
-    Rajkot: { value: 58, label: 'Good', labelGu: 'સારું' }
-  };
+  const [aqiData, setAqiData] = useState<Record<string, { value: number; label: string; labelGu: string; pm25: number; pm10: number }>>({
+    Ahmedabad: { value: 72, label: 'Satisfactory', labelGu: 'સંતોષકારક', pm25: 22, pm10: 45 },
+    Vadodara: { value: 65, label: 'Satisfactory', labelGu: 'સંતોષકારક', pm25: 19, pm10: 40 },
+    Surat: { value: 85, label: 'Moderate', labelGu: 'સાધારણ', pm25: 28, pm10: 55 },
+    Rajkot: { value: 58, label: 'Good', labelGu: 'સારું', pm25: 15, pm10: 35 }
+  });
+
+  useEffect(() => {
+    const fetchLiveData = async () => {
+      const cities = ['Ahmedabad', 'Vadodara', 'Surat', 'Rajkot'];
+      const updatedW = { ...weatherData };
+      const updatedA = { ...aqiData };
+
+      await Promise.all(
+        cities.map(async (city) => {
+          const coords = CITY_COORDS[city];
+          if (!coords) return;
+
+          try {
+            const wRes = await fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m`
+            );
+            if (wRes.ok) {
+              const wJson = await wRes.json();
+              if (wJson?.current) {
+                const c = wJson.current;
+                const parsed = parseWmoCode(c.weather_code);
+                updatedW[city] = {
+                  temp: String(Math.round(c.temperature_2m * 10) / 10),
+                  desc: parsed.desc,
+                  descGu: parsed.descGu,
+                  icon: parsed.icon,
+                  humidity: `${c.relative_humidity_2m}%`,
+                  wind: `${Math.round(c.wind_speed_10m)} km/h`,
+                };
+              }
+            }
+          } catch {}
+
+          try {
+            const aRes = await fetch(
+              `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${coords.lat}&longitude=${coords.lon}&current=us_aqi,pm10,pm2_5`
+            );
+            if (aRes.ok) {
+              const aJson = await aRes.json();
+              if (aJson?.current) {
+                const c = aJson.current;
+                const val = Math.round(c.us_aqi || 65);
+                const parsedAqi = parseAqi(val);
+                updatedA[city] = {
+                  value: val,
+                  label: parsedAqi.label,
+                  labelGu: parsedAqi.labelGu,
+                  pm25: Math.round(c.pm2_5 || 22),
+                  pm10: Math.round(c.pm10 || 45),
+                };
+              }
+            }
+          } catch {}
+        })
+      );
+
+      setWeatherData(updatedW);
+      setAqiData(updatedA);
+
+      const now = new Date();
+      const formatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setLastUpdateStr(formatted);
+    };
+
+    fetchLiveData();
+  }, []);
 
   const mainWeather = weatherData[selectedCity] || weatherData.Ahmedabad;
   const otherCities = ['Ahmedabad', 'Vadodara', 'Surat', 'Rajkot'].filter(c => c !== selectedCity);
@@ -6887,7 +6978,7 @@ function WeatherDashboardSection({ language }: { language: Language }) {
 
               {/* Bottom update timestamp */}
               <div className="text-[10px] text-slate-500 font-semibold text-right select-none mt-2">
-                Last Update: 2026-07-16 18:31 (local time)
+                Last Update: {lastUpdateStr || '2026-07-16 18:31'} (local time)
               </div>
             </div>
           </div>
@@ -6911,7 +7002,7 @@ function WeatherDashboardSection({ language }: { language: Language }) {
                       {isGu ? aqiData[selectedCity]?.labelGu : aqiData[selectedCity]?.label}
                     </span>
                     <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mt-0.5">
-                      PM2.5: 22 µg/m³ · PM10: 45 µg/m³
+                      PM2.5: {aqiData[selectedCity]?.pm25 || 22} µg/m³ · PM10: {aqiData[selectedCity]?.pm10 || 45} µg/m³
                     </span>
                   </div>
                 </div>
@@ -6959,7 +7050,7 @@ function WeatherDashboardSection({ language }: { language: Language }) {
                 })}
               </div>
               <div className="text-[10px] text-slate-500 font-semibold text-right select-none mt-2">
-                Last Update: 2026-07-16 18:31 (local time)
+                Last Update: {lastUpdateStr || '2026-07-16 18:31'} (local time)
               </div>
             </div>
           </div>
