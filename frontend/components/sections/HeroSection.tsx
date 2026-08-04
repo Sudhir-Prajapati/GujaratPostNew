@@ -2050,13 +2050,15 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
               </span>
             </div>
 
-            {/* Title */}
-            <h3 key={`title-${featuredIndex}`} className="font-extrabold text-[16px] md:text-[19px] leading-snug text-white group-hover:underline transition-all line-clamp-2 animate-in fade-in duration-500">
-              {getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu || featuredVideo.title, hi: featuredVideo.titleHi || featuredVideo.title })}
-            </h3>
+            {/* Title container with fixed height to prevent layout shift */}
+            <div className="h-[48px] md:h-[54px] overflow-hidden flex items-start">
+              <h3 key={`title-${featuredIndex}`} className="font-extrabold text-[16px] md:text-[19px] leading-snug text-white group-hover:underline transition-all line-clamp-2 animate-in fade-in duration-500">
+                {getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu || featuredVideo.title, hi: featuredVideo.titleHi || featuredVideo.title })}
+              </h3>
+            </div>
 
             {/* Meta */}
-            <div key={`meta-${featuredIndex}`} className="flex items-center gap-1.5 mt-2.5 text-[11.5px] text-white/70 font-semibold select-none animate-in fade-in duration-500">
+            <div key={`meta-${featuredIndex}`} className="flex items-center gap-1.5 mt-2 text-[11.5px] text-white/70 font-semibold select-none animate-in fade-in duration-500">
               <Eye className="h-3.5 w-3.5" />
               <span>
                 {formatViews(featuredVideo.views)} {language === 'gu' ? 'વ્યુઝ' : 'views'}
