@@ -557,7 +557,6 @@ export default function VideosPage() {
                   </div>
                 )}
               </div>
-              </div>
 
               {/* Gujarati title only */}
               <div>
