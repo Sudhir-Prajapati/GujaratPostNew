@@ -34,12 +34,21 @@ export function formatViews(value: number): string {
   return String(value);
 }
 
-/**
- * Formats ISO date string into readable short date (e.g. "13 Jul 2026").
- */
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string, language: string = "gu"): string {
   try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr || '';
+
+    if (language === 'gu') {
+      const monthGu = ['જાન્યુઆરી', 'ફેબ્રુઆરી', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઓગસ્ટ', 'સપ્ટેમ્બર', 'ઓક્ટોબર', 'નવેમ્બર', 'ડિસેમ્બર'][d.getMonth()];
+      return `${d.getDate()} ${monthGu}, ${d.getFullYear()}`;
+    }
+    if (language === 'hi') {
+      const monthHi = ['जनवरी', 'फरवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'][d.getMonth()];
+      return `${d.getDate()} ${monthHi}, ${d.getFullYear()}`;
+    }
+
+    return d.toLocaleDateString("en-US", {
       day: "numeric",
       month: "short",
       year: "numeric",

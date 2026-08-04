@@ -746,7 +746,7 @@ export default function HeroSection({
                     />
                   </div>
                   <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
-                    {art.category || (language === 'gu' ? 'સમાચાર' : 'News')}
+                    {getCategoryLabel(art, language)}
                   </span>
                   <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
                     {getArticleTitle(art, language)}
@@ -754,15 +754,21 @@ export default function HeroSection({
                   <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
                     <span>
                       {language === 'gu'
-                        ? (art.relativeTimeGu || formatDate(art.publishedAt))
+                        ? (art.relativeTimeGu || formatDate(art.publishedAt, 'gu'))
                         : language === 'hi'
-                          ? (art.relativeTimeHi || formatDate(art.publishedAt))
-                          : (art.relativeTime || formatDate(art.publishedAt))}
+                          ? (art.relativeTimeHi || formatDate(art.publishedAt, 'hi'))
+                          : (art.relativeTime || formatDate(art.publishedAt, 'en'))}
                     </span>
                     <span>•</span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                      <span>{art.readingTime ? `${art.readingTime} min read` : '02:30 PM'}</span>
+                      <span>
+                        {language === 'gu'
+                          ? (art.readingTime ? `${art.readingTime} મિનિટ વાંચન` : '૪ મિનિટ વાંચન')
+                          : language === 'hi'
+                            ? (art.readingTime ? `${art.readingTime} मिनट पठन` : '4 मिनट पठन')
+                            : (art.readingTime ? `${art.readingTime} min read` : '4 min read')}
+                      </span>
                     </span>
                   </div>
                 </Link>
