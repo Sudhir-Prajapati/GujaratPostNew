@@ -3,6 +3,27 @@ import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
 import { BadRequestError } from '../utils/errors.js';
 
+/**
+ * Extract a clean 11-char YouTube video ID from any URL format.
+ * Supports: watch?v=, youtu.be/, /shorts/, /embed/, bare ID
+ */
+function extractYouTubeId(input: string): string {
+  const trimmed = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const patterns = [
+    /[?&]v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const pattern of patterns) {
+    const m = trimmed.match(pattern);
+    if (m?.[1]) return m[1];
+  }
+  return trimmed;
+}
+
 export class VideoController {
   /**
    * Fetch all videos with pagination, search query, and type filters.
@@ -75,15 +96,17 @@ export class VideoController {
         throw new BadRequestError('Title and YouTube Video ID are required.');
       }
 
-      const embedUrl = `https://www.youtube.com/embed/${youtubeId.trim()}`;
-      const thumbnail = `https://img.youtube.com/vi/${youtubeId.trim()}/maxresdefault.jpg`;
+      // Normalize: extract bare ID from any YouTube URL format
+      const cleanId = extractYouTubeId(youtubeId);
+      const embedUrl = `https://www.youtube.com/embed/${cleanId}`;
+      const thumbnail = `https://img.youtube.com/vi/${cleanId}/maxresdefault.jpg`;
 
       const video = await prisma.video.create({
         data: {
           title: title.trim(),
           titleGu: (titleGu || title).trim(),
           titleHi: (titleHi || title).trim(),
-          youtubeId: youtubeId.trim(),
+          youtubeId: cleanId,
           embedUrl,
           thumbnail,
           type: type || 'video',
@@ -134,10 +157,13 @@ export class VideoController {
       if (isFeatured !== undefined) updateData.isFeatured = !!isFeatured;
       if (channel !== undefined) updateData.channel = channel.trim();
 
-      if (youtubeId !== undefined && youtubeId.trim() !== existing.youtubeId) {
-        updateData.youtubeId = youtubeId.trim();
-        updateData.embedUrl = `https://www.youtube.com/embed/${youtubeId.trim()}`;
-        updateData.thumbnail = `https://img.youtube.com/vi/${youtubeId.trim()}/maxresdefault.jpg`;
+      if (youtubeId !== undefined) {
+        const cleanId = extractYouTubeId(youtubeId);
+        if (cleanId !== existing.youtubeId) {
+          updateData.youtubeId = cleanId;
+          updateData.embedUrl = `https://www.youtube.com/embed/${cleanId}`;
+          updateData.thumbnail = `https://img.youtube.com/vi/${cleanId}/maxresdefault.jpg`;
+        }
       }
 
       const updated = await prisma.video.update({
