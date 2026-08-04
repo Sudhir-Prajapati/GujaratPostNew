@@ -1650,12 +1650,17 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
 
   if (!videos.length) return null;
 
+  // Restrict VideoDesk to ONLY featured videos if featured videos exist in database/admin
+  const featuredOnly = videos.filter(v => (v as any).isFeatured);
+  const sourcePool = featuredOnly.length > 0 ? featuredOnly : videos;
+
   // Hard filter: exclude Shorts when showShorts=false (extra safety layer)
   const displayVideos = !showShorts
-    ? videos.filter(v => v.type === 'video' || !v.type)
+    ? sourcePool.filter(v => v.type === 'video' || !v.type)
     : onlyShorts
-    ? videos.filter(v => v.type === 'short')
-    : videos;
+    ? sourcePool.filter(v => v.type === 'short')
+    : sourcePool;
+
 
   if (!displayVideos.length) return null;
 
