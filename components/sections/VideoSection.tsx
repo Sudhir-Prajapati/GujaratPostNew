@@ -2,66 +2,33 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Clock, Eye, Mic, Play, UserRound, Video } from 'lucide-react';
+import { Clock, Eye, Play, Video } from 'lucide-react';
 import { formatViews, getLocalized } from '@/data';
 import { getPublicVideos } from '@/lib/api';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { useApp } from '@/components/AppProvider';
 
-type TabType = 'video' | 'short' | 'podcast' | 'interview';
-
-const tabs = [
-  { key: 'video', label: 'Videos', gu: 'વીડિયો', hi: 'वीडियो', icon: Video },
-  { key: 'short', label: 'Shorts', gu: 'શોર્ટ્સ', hi: 'શોર્ટ્સ', icon: Play },
-  { key: 'podcast', label: 'Podcasts', gu: 'પોડકાસ્ટ', hi: 'પોડકાસ્ટ', icon: Mic },
-  { key: 'interview', label: 'Interviews', gu: 'ઇન્ટરવ્યૂ', hi: 'ઇન્ટરવ્યૂ', icon: UserRound },
-] as const;
+// VideoSection shows only regular YouTube videos (no Shorts)
 
 export default function VideoSection() {
   const { language } = useApp();
-  const [activeTab, setActiveTab] = useState<TabType>('video');
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    getPublicVideos().then((res) => {
+    // Pass 'video' type — excludes Shorts from YouTube RSS feed
+    getPublicVideos('video').then((res) => {
       setVideos(res || []);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-
-  const filtered = videos.filter((item) => item.type === activeTab);
-
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    setPlayingVideoId(null);
-  };
-
   return (
     <section className="bg-muted py-3">
       <div className="mx-auto max-w-screen-xl px-4">
-        <SectionHeader title="Videos & Multimedia" titleGu="વીડિયો અને મલ્ટીમીડિયા" titleHi="वीडियो और मल्टीमीडिया" language={language} href="/videos" />
-
-        <div className="mb-2.5 flex flex-wrap gap-1.5">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => handleTabChange(tab.key)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-black transition ${active ? 'border-accent bg-accent text-white' : 'border-border bg-card text-foreground hover:border-accent'}`}
-              >
-                <Icon className="h-4 w-4" />
-                {getLocalized(language, { en: tab.label, gu: tab.gu, hi: tab.hi })}
-              </button>
-            );
-          })}
-        </div>
+        <SectionHeader title="Videos" titleGu="વીડિયો" titleHi="वीडियो" language={language} href="/videos" />
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -76,20 +43,20 @@ export default function VideoSection() {
                 </div>
               </div>
             ))
-          ) : filtered.length === 0 ? (
+          ) : videos.length === 0 ? (
             // Empty state
             <div className="col-span-4 flex flex-col items-center justify-center py-10 text-center text-muted-foreground gap-2">
               <Video className="h-10 w-10 opacity-30" />
               <p className="text-sm font-semibold">
                 {getLocalized(language, {
-                  en: 'No videos found in this category yet.',
-                  gu: 'આ કેટેગરીમાં હજી કોઈ વીડિયો મળ્યો નથી.',
-                  hi: 'इस श्रेणी में अभी कोई वीडियो नहीं मिला।',
+                  en: 'No videos found yet.',
+                  gu: 'હજી કોઈ વીડિયો મળ્યો નથી.',
+                  hi: 'अभी कोई वीडियो नहीं मिला।',
                 })}
               </p>
             </div>
           ) : (
-            filtered.map((item) => (
+            videos.map((item) => (
               <article key={item.id} className="news-card overflow-hidden rounded-xl border border-border bg-card">
                 <div className="relative aspect-video">
                   {playingVideoId === item.id ? (
@@ -129,4 +96,3 @@ export default function VideoSection() {
     </section>
   );
 }
-
