@@ -376,7 +376,7 @@ export default function HeroSection({
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
-      getPublicVideos(),
+      getPublicVideos('video'),
     ]).then(([mainRes, heroRes, videoRes]: any[]) => {
       if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
         setDynamicTrendingTopics(heroRes.trendingTopics);
@@ -1643,9 +1643,18 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
 
   if (!videos.length) return null;
 
-  const featuredVideo = videos[featuredIndex % videos.length];
+  // Hard filter: exclude Shorts when showShorts=false (extra safety layer)
+  const displayVideos = !showShorts
+    ? videos.filter(v => v.type === 'video' || (!v.type && !v.videoUrl?.includes('/shorts/')))
+    : onlyShorts
+    ? videos.filter(v => v.type === 'short' || v.videoUrl?.includes('/shorts/'))
+    : videos;
+
+  if (!displayVideos.length) return null;
+
+  const featuredVideo = displayVideos[featuredIndex % displayVideos.length];
   // Filter out current featured video from sidebar list to avoid duplication
-  const sidebarVideos = videos.filter((_, idx) => idx !== (featuredIndex % videos.length)).slice(0, 8);
+  const sidebarVideos = displayVideos.filter((_, idx) => idx !== (featuredIndex % displayVideos.length)).slice(0, 8);
 
   const handleSidebarClick = (youtubeId: string, id: string) => {
     setPlayId(youtubeId);
