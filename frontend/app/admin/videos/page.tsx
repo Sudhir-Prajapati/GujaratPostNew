@@ -193,29 +193,55 @@ export default function VideosPage() {
     }
   };
 
-  // Toggle featured for a channel video that is already in DB
+  // Toggle featured for a channel video (auto-saves to DB if not yet saved)
   const toggleFeatured = async (cv: any) => {
     const cleanId = safeYouTubeId(cv.youtubeId);
     setChannelFeaturing(cleanId);
     try {
-      // Find the DB record
-      const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=200&query=${encodeURIComponent(cv.title)}`));
+      // 1. Fetch saved videos from DB to find exact record by YouTube ID
+      const res = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
       const json = await res.json();
-      const dbVideo = (json.data?.videos || []).find((v: VideoData) => safeYouTubeId(v.youtubeId) === cleanId);
-      if (!dbVideo) { alert('Save this video to DB first using the Import button.'); return; }
-      const newFeatured = !dbVideo.isFeatured;
-      const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${dbVideo.id}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isFeatured: newFeatured }),
-      });
-      if (!upRes.ok) throw new Error('Failed to update');
-      setFeaturedIds(prev => {
-        const next = new Map(prev);
-        if (newFeatured) next.set(cleanId, dbVideo.id);
-        else next.delete(cleanId);
-        return next;
-      });
+      const allDbVideos: VideoData[] = json.data?.videos || [];
+      const dbVideo = allDbVideos.find((v: VideoData) => safeYouTubeId(v.youtubeId) === cleanId);
+
+      if (dbVideo) {
+        // Toggle feature status on existing DB record
+        const newFeatured = !dbVideo.isFeatured;
+        const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${dbVideo.id}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isFeatured: newFeatured }),
+        });
+        if (!upRes.ok) throw new Error('Failed to update feature status');
+        setFeaturedIds(prev => {
+          const next = new Map(prev);
+          if (newFeatured) next.set(cleanId, dbVideo.id);
+          else next.delete(cleanId);
+          return next;
+        });
+      } else {
+        // Auto-create in DB with isFeatured: true seamlessly
+        const createRes = await authFetch(getBackendApiUrl('/api/admin/videos'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: cv.title,
+            titleGu: cv.title,
+            titleHi: cv.title,
+            youtubeId: cleanId,
+            type: 'video',
+            description: '',
+            duration: cv.duration || '0:00',
+            isFeatured: true,
+            channel: 'Gujarat Post News',
+          }),
+        });
+        const createJson = await createRes.json();
+        if (!createRes.ok) throw new Error(createJson.error || 'Failed to feature video');
+        const createdDbVideo = createJson.data;
+        setSavedIds(prev => new Set([...prev, cleanId]));
+        setFeaturedIds(prev => new Map(prev).set(cleanId, createdDbVideo.id));
+      }
     } catch (err: any) {
       alert(err.message);
     } finally {
