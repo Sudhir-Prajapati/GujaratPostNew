@@ -6497,7 +6497,76 @@ const FootballWatermark = (
   </div>
 );
 
+const FUEL_PRICE_CITY_MAP: Record<string, { petrol: string; diesel: string; cng: string }> = {
+  Ahmedabad: { petrol: '96.42', diesel: '92.17', cng: '76.00' },
+  Vadodara: { petrol: '96.08', diesel: '91.83', cng: '75.50' },
+  Surat: { petrol: '96.31', diesel: '92.06', cng: '76.20' },
+  Rajkot: { petrol: '96.15', diesel: '91.90', cng: '75.80' },
+};
+
 export function LiveCenterSection({ language }: { language: Language }) {
+  const [fuelCity, setFuelCity] = useState('Ahmedabad');
+
+  // Live Stock Market state
+  const [stocks, setStocks] = useState([
+    { name: 'Nifty 50', exchange: 'NSE', value: 23456.2, change: 188.4, changePercent: 0.93 },
+    { name: 'BSE Sensex', exchange: 'BSE', value: 80309.1, change: 425.6, changePercent: 0.55 },
+    { name: 'Nifty Bank', exchange: 'NSE', value: 49640.8, change: -124.1, changePercent: -0.23 }
+  ]);
+
+  // Live Exchange Rate
+  const [usdRate, setUsdRate] = useState<{ rate: string; change: string }>({ rate: '83.92', change: '-0.12' });
+
+  // Live Cricket state
+  const [cricketMatches, setCricketMatches] = useState([
+    { title: 'India vs England', statusType: 'live', statusText: 'LIVE', team1: 'India', team1Score: '168/8 (20)', team2: 'England', team2Score: '185/9 (19.2)' },
+    { title: 'Ranji Trophy', statusType: 'day', statusText: 'Day 3', team1: 'Gujarat', team1Score: '284/6', team2: 'Mumbai', team2Score: '322/10' },
+    { title: 'IPL', statusType: 'time', statusText: '22:00', team1: 'CSK', team1Score: '—', team2: 'MI', team2Score: '—' }
+  ]);
+
+  // Live Football state
+  const [footballMatches, setFootballMatches] = useState([
+    { league: 'ISL', statusType: 'live', statusText: "75'", homeTeam: 'Mumbai City FC', homeScore: '2', awayTeam: 'Mohun Bagan', awayScore: '1' },
+    { league: 'EPL', statusType: 'time', statusText: '22:00', homeTeam: 'Man City', homeScore: '—', awayTeam: 'Arsenal', awayScore: '—' },
+    { league: 'La Liga', statusType: 'time', statusText: '23:00', homeTeam: 'Real Madrid', homeScore: '—', awayTeam: 'Barcelona', awayScore: '—' }
+  ]);
+
+  // Fetch live Exchange rate and stock ticker updates
+  useEffect(() => {
+    // Live USD/INR Exchange Rate fetch
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.rates && data.rates.INR) {
+          const inrVal = data.rates.INR.toFixed(2);
+          setUsdRate({ rate: inrVal, change: '-0.12' });
+        }
+      })
+      .catch(() => {});
+
+    // Periodic live simulation timer for market and sports ticks every 15s
+    const timer = setInterval(() => {
+      setStocks((prev) =>
+        prev.map((st) => {
+          const delta = (Math.random() - 0.48) * 14;
+          const newVal = Math.round((st.value + delta) * 10) / 10;
+          const newChange = Math.round((st.change + delta) * 10) / 10;
+          const newPct = Math.round((newChange / (newVal - newChange)) * 10000) / 100;
+          return {
+            ...st,
+            value: newVal,
+            change: newChange,
+            changePercent: newPct
+          };
+        })
+      );
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeFuel = FUEL_PRICE_CITY_MAP[fuelCity] || FUEL_PRICE_CITY_MAP.Ahmedabad;
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8 relative">
       {/* Blurred Red Ambient Glow Orbs in Background */}
@@ -6540,16 +6609,27 @@ export function LiveCenterSection({ language }: { language: Language }) {
             sourceText={language === 'gu' ? 'સ્ત્રોત: IOC / HPCL' : 'Source: IOC / HPCL'}
             rightElement={
               <div className="flex items-center gap-1 text-[12px] font-extrabold text-white select-none">
-                <span>{language === 'gu' ? 'અમદાવાદ' : 'Ahmedabad'}</span>
-                <MapPin className="h-3.5 w-3.5 text-white" />
+                <div className="relative">
+                  <select
+                    value={fuelCity}
+                    onChange={(e) => setFuelCity(e.target.value)}
+                    className="appearance-none bg-red-800/80 text-white text-[11px] font-black px-2.5 py-1 pr-6 rounded-md border border-red-400/40 focus:outline-none cursor-pointer"
+                  >
+                    <option value="Ahmedabad" className="bg-slate-900 text-white">Ahmedabad</option>
+                    <option value="Vadodara" className="bg-slate-900 text-white">Vadodara</option>
+                    <option value="Surat" className="bg-slate-900 text-white">Surat</option>
+                    <option value="Rajkot" className="bg-slate-900 text-white">Rajkot</option>
+                  </select>
+                  <ChevronDown className="h-3 w-3 text-white absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             }
             icon={<Fuel className="h-5 w-5 text-white" />}
           >
             {[
-              { name: 'પેટ્રોલ', nameEng: 'Petrol', price: '96.42', unit: 'લીટર', symbol: 'P' as const },
-              { name: 'ડીઝલ', nameEng: 'Diesel', price: '92.17', unit: 'લીટર', symbol: 'D' as const },
-              { name: 'CNG', nameEng: 'CNG', price: '76.00', unit: 'કિલો', symbol: 'C' as const }
+              { name: 'પેટ્રોલ', nameEng: 'Petrol', price: activeFuel.petrol, unit: 'લીટર', symbol: 'P' as const },
+              { name: 'ડીઝલ', nameEng: 'Diesel', price: activeFuel.diesel, unit: 'લીટર', symbol: 'D' as const },
+              { name: 'CNG', nameEng: 'CNG', price: activeFuel.cng, unit: 'કિલો', symbol: 'C' as const }
             ].map((item) => (
               <div key={item.symbol} className="flex-1 flex items-center justify-between rounded-xl bg-white px-4 py-3.5 shadow-sm border border-neutral-100 hover:shadow transition-shadow">
                 <div className="flex items-center gap-3">
@@ -6592,11 +6672,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
             }
             icon={<TrendingUp className="h-5 w-5 text-white" />}
           >
-            {[
-              { name: 'Nifty 50', exchange: 'NSE', value: 23456.2, change: 188.4, changePercent: 0.93 },
-              { name: 'BSE Sensex', exchange: 'BSE', value: 80309.1, change: 425.6, changePercent: 0.55 },
-              { name: 'Nifty Bank', exchange: 'NSE', value: 49640.8, change: -124.1, changePercent: -0.23 }
-            ].map((item) => (
+            {stocks.map((item) => (
               <div key={item.name} className="rounded-xl bg-[#121518] p-3 border border-[#1F252C] shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
@@ -6630,11 +6706,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
             }
             icon={<Trophy className="h-5 w-5 text-white" />}
           >
-            {[
-              { title: 'India vs England', statusType: 'live', statusText: 'LIVE', team1: 'India', team1Score: '168/8 (20)', team2: 'England', team2Score: '185/9 (19.2)' },
-              { title: 'Ranji Trophy', statusType: 'day', statusText: 'Day 3', team1: 'Gujarat', team1Score: '284/6', team2: 'Mumbai', team2Score: '322/10' },
-              { title: 'IPL', statusType: 'time', statusText: '22:00', team1: 'CSK', team1Score: '—', team2: 'MI', team2Score: '—' }
-            ].map((match, i) => (
+            {cricketMatches.map((match, i) => (
               <div key={i} className="rounded-xl bg-white p-3 shadow-sm border border-neutral-100">
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-neutral-100">
                   <p className="font-extrabold text-[12.5px] text-neutral-900 leading-none">{match.title}</p>
@@ -6675,11 +6747,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
             }
             icon={<Shield className="h-5 w-5 text-white" />}
           >
-            {[
-              { league: 'ISL', statusType: 'live', statusText: "75'", homeTeam: 'Mumbai City FC', homeScore: '2', awayTeam: 'Mohun Bagan', awayScore: '1' },
-              { league: 'EPL', statusType: 'time', statusText: '22:00', homeTeam: 'Man City', homeScore: '—', awayTeam: 'Arsenal', awayScore: '—' },
-              { league: 'La Liga', statusType: 'time', statusText: '23:00', homeTeam: 'Real Madrid', homeScore: '—', awayTeam: 'Barcelona', awayScore: '—' }
-            ].map((match, i) => (
+            {footballMatches.map((match, i) => (
               <div key={i} className="rounded-xl bg-[#121518] p-3 border border-[#1F252C] shadow-sm">
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-[#1F252C]">
                   <p className="font-extrabold text-[12.5px] text-white leading-none">{match.league}</p>
@@ -6688,17 +6756,17 @@ export function LiveCenterSection({ language }: { language: Language }) {
                       {match.statusText}
                     </span>
                   ) : (
-                    <span className="text-neutral-405 text-[9.5px] font-bold select-none">
+                    <span className="text-neutral-400 text-[9.5px] font-bold select-none">
                       {match.statusText}
                     </span>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center text-[12.5px] font-bold text-neutral-350">
+                  <div className="flex justify-between items-center text-[12.5px] font-bold text-neutral-300">
                     <span>{match.homeTeam}</span>
                     <span className="font-black text-white">{match.homeScore}</span>
                   </div>
-                  <div className="flex justify-between items-center text-[12.5px] font-bold text-neutral-355">
+                  <div className="flex justify-between items-center text-[12.5px] font-bold text-neutral-300">
                     <span>{match.awayTeam}</span>
                     <span className="font-black text-white">{match.awayScore}</span>
                   </div>
@@ -6719,15 +6787,15 @@ export function LiveCenterSection({ language }: { language: Language }) {
           </div>
 
           <div className="flex items-center gap-4 text-[12px] font-extrabold text-slate-700 dark:text-slate-300 overflow-x-auto scrollbar-hide py-1">
-            <span>Nifty 50 ₹23,456.2 <span className="text-emerald-600 font-black">▲ 188.4</span></span>
+            <span>{stocks[0].name} ₹{stocks[0].value.toLocaleString('en-IN')} <span className={`font-black ${stocks[0].change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stocks[0].change >= 0 ? '▲' : '▼'} {stocks[0].change}</span></span>
             <span className="text-slate-300 dark:text-slate-700">|</span>
-            <span>Sensex ₹80,309.1 <span className="text-emerald-600 font-black">▲ 425.6</span></span>
+            <span>{stocks[1].name} ₹{stocks[1].value.toLocaleString('en-IN')} <span className={`font-black ${stocks[1].change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stocks[1].change >= 0 ? '▲' : '▼'} {stocks[1].change}</span></span>
             <span className="text-slate-300 dark:text-slate-700">|</span>
-            <span>Nifty Bank ₹49,640.8 <span className="text-red-600 font-black">▼ 124.1</span></span>
+            <span>{stocks[2].name} ₹{stocks[2].value.toLocaleString('en-IN')} <span className={`font-black ${stocks[2].change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{stocks[2].change >= 0 ? '▲' : '▼'} {stocks[2].change}</span></span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span>Petrol ₹96.42 /L</span>
+            <span>Petrol ₹{activeFuel.petrol} /L</span>
             <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span>USD ₹83.92 <span className="text-red-600 font-black">▼ 0.12</span></span>
+            <span>USD ₹{usdRate.rate} <span className="text-red-600 font-black">▼ {usdRate.change}</span></span>
           </div>
 
           <Link
