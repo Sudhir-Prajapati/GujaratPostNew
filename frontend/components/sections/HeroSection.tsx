@@ -1590,6 +1590,12 @@ export function NativeAdsSection({ language }: { language: Language }) {
 }
 
 /* --- Video Desk Section ---------------------------------------------------- */
+function cleanVideoTitle(str: string): string {
+  if (!str) return '';
+  // Strip trailing hashtags like #teacher #news #gujaratpost #protest
+  return str.replace(/(?:\s*#[a-zA-Z0-9_\u0A80-\u0AFF]+)+$/gi, '').trim();
+}
+
 function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: { videos: typeof VIDEOS; language: Language; showShorts?: boolean; onlyShorts?: boolean }) {
   const [playId, setPlayId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -2050,10 +2056,10 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
               </span>
             </div>
 
-            {/* Title container with fixed height to prevent layout shift */}
-            <div className="h-[48px] md:h-[54px] overflow-hidden flex items-start">
-              <h3 key={`title-${featuredIndex}`} className="font-extrabold text-[16px] md:text-[19px] leading-snug text-white group-hover:underline transition-all line-clamp-2 animate-in fade-in duration-500">
-                {getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu || featuredVideo.title, hi: featuredVideo.titleHi || featuredVideo.title })}
+            {/* Title container with fixed exact height & clean titles */}
+            <div className="h-[46px] md:h-[50px] overflow-hidden flex items-start mt-1">
+              <h3 key={`title-${featuredIndex}`} className="font-extrabold text-[15px] md:text-[18px] leading-[1.35] text-white group-hover:underline transition-all line-clamp-2 animate-in fade-in duration-500">
+                {cleanVideoTitle(getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu || featuredVideo.title, hi: featuredVideo.titleHi || featuredVideo.title }))}
               </h3>
             </div>
 
@@ -2104,10 +2110,12 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
 
                   {/* Content */}
                   <div className="flex flex-col justify-center min-w-0 flex-1">
-                    <h4 className="text-[13px] font-extrabold leading-snug text-white group-hover:underline transition-all line-clamp-2">
-                      {getLocalized(language, { en: v.title, gu: v.titleGu || v.title, hi: v.titleHi || v.title })}
-                    </h4>
-                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-white/65 font-semibold">
+                    <div className="h-[36px] overflow-hidden flex items-start">
+                      <h4 className="text-[13px] font-extrabold leading-[1.3] text-white group-hover:underline transition-all line-clamp-2">
+                        {cleanVideoTitle(getLocalized(language, { en: v.title, gu: v.titleGu || v.title, hi: v.titleHi || v.title }))}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-1 text-[11px] text-white/65 font-semibold">
                       <span>{formatViews(v.views)}</span>
                       <span>·</span>
                       <span>{v.duration}</span>
@@ -2117,6 +2125,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
               ))}
             </div>
           </div>
+
         </div>
       </div>
 
