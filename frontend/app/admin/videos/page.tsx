@@ -554,7 +554,13 @@ export default function VideosPage() {
                 const isFeat = featuredIds.has(cleanId);
                 const isImporting = channelImporting === cv.youtubeId;
                 const isFeaturing = channelFeaturing === cleanId;
-                const publishedDate = cv.publishedAt ? new Date(cv.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+                const publishedDate = cv.publishedAt
+                  ? (cv.publishedAt.includes('ago') || cv.publishedAt.includes('day') || cv.publishedAt.includes('month') || cv.publishedAt.includes('year') || cv.publishedAt.includes('hour'))
+                    ? cv.publishedAt
+                    : !isNaN(Date.parse(cv.publishedAt))
+                    ? new Date(cv.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : cv.publishedAt
+                  : '';
                 return (
                   <div key={cv.youtubeId} className={`group relative flex flex-col rounded-2xl border bg-white overflow-hidden shadow-sm transition-all hover:shadow-md dark:bg-zinc-900 ${isFeat ? 'border-yellow-400 dark:border-yellow-500' : 'border-zinc-200 dark:border-zinc-800'}`}>
                     {/* Featured badge */}
