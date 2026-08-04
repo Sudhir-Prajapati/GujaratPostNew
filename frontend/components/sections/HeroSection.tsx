@@ -3269,18 +3269,11 @@ function CrimeSection({
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
   const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
-  const [dbAllArticles, setDbAllArticles] = useState<Article[]>([]);
 
   useEffect(() => {
-    Promise.all([
-      getPublicArticles({ categorySlug: 'crime', limit: 12 }),
-      getPublicArticles({ limit: 20 }),
-    ]).then(([crimeRes, allRes]) => {
+    getPublicArticles({ categorySlug: 'crime', limit: 25 }).then((crimeRes) => {
       if (crimeRes && crimeRes.articles && crimeRes.articles.length > 0) {
         setDbCrimeArticles(crimeRes.articles);
-      }
-      if (allRes && allRes.articles && allRes.articles.length > 0) {
-        setDbAllArticles(allRes.articles);
       }
     });
   }, []);
@@ -3601,11 +3594,12 @@ function CrimeSection({
   }, [dbCrimeArticles, language]);
 
   const popularColumns = useMemo(() => {
-    const list = dbAllArticles.length > 0 ? dbAllArticles : dbCrimeArticles;
+    const remainingCrime = dbCrimeArticles.length > 8 ? dbCrimeArticles.slice(8) : dbCrimeArticles;
+    const list = remainingCrime;
     if (list.length > 0) {
       const cols = [];
       for (let c = 0; c < 3; c++) {
-        const featArt = list[c] || list[0];
+        const featArt = list[c] || list[c % list.length];
         const subs = [];
         for (let s = 0; s < 3; s++) {
           const subIdx = 3 + c * 3 + s;
@@ -3650,7 +3644,7 @@ function CrimeSection({
         time: getMockRelativeTime(sub.relativeTimeGu, language),
       })),
     }));
-  }, [dbAllArticles, dbCrimeArticles, language]);
+  }, [dbCrimeArticles, language]);
 
   const currentSlide = slides[slideIdx % slides.length];
 
