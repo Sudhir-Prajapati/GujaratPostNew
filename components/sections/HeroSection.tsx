@@ -5574,6 +5574,52 @@ const mockFactCheckList = [
 
 /* --- Fact Check Section ("ફેક્ટ ચેક" Zone) ----------------------------- */
 export function FactCheckSection({ language }: { language: Language }) {
+  const [factCheckArticles, setFactCheckArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    getPublicArticles({ categorySlug: 'fact-check', limit: 9 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
+        setFactCheckArticles(res.articles);
+      } else {
+        getPublicArticles({ categorySlug: 'factcheck', limit: 9 }).then((res2) => {
+          if (res2 && res2.articles && res2.articles.length > 0) {
+            setFactCheckArticles(res2.articles);
+          }
+        });
+      }
+    });
+  }, []);
+
+  const getStatusInfo = (art: any) => {
+    const tagStr = (art.tagsGu?.[0] || art.tags?.[0] || art.titleGu || art.title || '').toLowerCase();
+    if (tagStr.includes('સાચું') || tagStr.includes('true') || tagStr.includes('સત્ય')) {
+      return { labelGu: 'સાચું', labelEn: 'TRUE', color: 'text-green-600' };
+    }
+    if (tagStr.includes('ભ્રામક') || tagStr.includes('misleading') || tagStr.includes('અધૂરું')) {
+      return { labelGu: 'ભ્રામક', labelEn: 'MISLEADING', color: 'text-yellow-600' };
+    }
+    return { labelGu: 'ખોટો દાવો', labelEn: 'FAKE CLAIM', color: 'text-red-600' };
+  };
+
+  const hasDb = factCheckArticles.length > 0;
+  const featArt = hasDb ? factCheckArticles[0] : null;
+  const gridDbList = hasDb ? factCheckArticles.slice(1, 9) : [];
+
+  const featStatus = featArt ? getStatusInfo(featArt) : { labelGu: 'ખોટો દાવો', labelEn: 'FAKE CLAIM', color: 'text-red-600' };
+  const featTitle = featArt ? getLocalized(language, { en: featArt.title, gu: featArt.titleGu || featArt.title, hi: (featArt as any).titleHi || featArt.title }) : (
+    language === 'gu'
+      ? 'શું સરકારે ખરેખર બધા વિદ્યાર્થીઓને મફત લેપટોપ આપવાની જાહેરાત કરી? જાણો સત્ય'
+      : 'Did government really announce free laptops for all students? Know truth'
+  );
+  const featExcerpt = featArt ? getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt }) : (
+    language === 'gu'
+      ? 'ગુજરાત પોસ્ટની તપાસમાં જાણવા મળ્યું કે વાયરલ પરિપત્ર બનાવટી છે – શિક્ષણ વિભાગે આવી કોઈ જાહેરાત કરી નથી.'
+      : 'Gujarat Post investigation revealed that the viral circular is fake – the education department has made no such announcement.'
+  );
+  const featSlug = featArt ? featArt.slug : 'fake-news-alert-free-laptop-scheme-circular-busted-520';
+  const featImage = featArt?.image || '/assets/demo/5.jpg';
+  const featTime = featArt ? formatTime(featArt.publishedAt) : (language === 'gu' ? '1 કલાક પહેલાં' : '1 hour ago');
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-10">
       {/* Section Header */}
@@ -5595,78 +5641,113 @@ export function FactCheckSection({ language }: { language: Language }) {
         {/* Left Column: Big Featured Fact Check Card (Spans 1 column on desktop) */}
         <div className="lg:col-span-1 flex flex-col min-w-0">
           <Link
-            href="/news/fake-news-alert-free-laptop-scheme-circular-busted-520"
+            href={`/news/${featSlug}`}
             className="group flex flex-col"
           >
             <div className="relative aspect-[16/9] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-3.5">
               <Image
-                src="/assets/demo/5.jpg"
+                src={featImage}
                 alt="Fact Check Featured"
                 fill
                 sizes="(max-width: 1024px) 100vw, 35vw"
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
               />
             </div>
-            <span className="flex items-center gap-1 text-red-600 font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase tracking-wide">
+            <span className={`flex items-center gap-1 font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase tracking-wide ${featStatus.color}`}>
               <span className="text-[10px]">●</span>
-              {language === 'gu' ? 'ખોટો દાવો' : 'FAKE CLAIM'}
+              {language === 'gu' ? featStatus.labelGu : featStatus.labelEn}
             </span>
             <h3 className="text-[15px] md:text-[16px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-3">
-              {language === 'gu'
-                ? 'શું સરકારે ખરેખર બધા વિદ્યાર્થીઓને મફત લેપટોપ આપવાની જાહેરાત કરી? જાણો સત્ય'
-                : 'Did government really announce free laptops for all students? Know truth'}
+              {featTitle}
             </h3>
             <p className="text-muted-foreground text-[12.5px] leading-relaxed mt-2.5 line-clamp-3 select-none">
-              {language === 'gu'
-                ? 'ગુજરાત પોસ્ટની તપાસમાં જાણવા મળ્યું કે વાયરલ પરિપત્ર બનાવટી છે – શિક્ષણ વિભાગે આવી કોઈ જાહેરાત કરી નથી.'
-                : 'Gujarat Post investigation revealed that the viral circular is fake – the education department has made no such announcement.'}
+              {featExcerpt}
             </p>
           </Link>
           <div className="flex items-center gap-1.5 mt-3 text-[11px] text-muted-foreground font-semibold">
             <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-            <span>{language === 'gu' ? '1 કલાક પહેલાં' : '1 hour ago'}</span>
+            <span>{featTime}</span>
           </div>
         </div>
 
         {/* Right Column: Grid of 8 Fact Check items (Spans 2 columns on desktop) */}
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 pt-4 lg:pt-0">
-          {mockFactCheckList.map((item) => (
-            <Link
-              key={item.id}
-              href={`/news/${item.slug}`}
-              className="group flex gap-4 hover:bg-muted/10 transition-colors p-1"
-            >
-              {/* Image Left */}
-              <div className="relative h-[68px] w-[100px] shrink-0 overflow-hidden rounded-sm border border-border/10 bg-muted">
-                <Image
-                  src={item.image}
-                  alt={item.titleGu}
-                  fill
-                  sizes="100px"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+          {hasDb && gridDbList.length > 0 ? (
+            gridDbList.map((item) => {
+              const st = getStatusInfo(item);
+              const title = getLocalized(language, { en: item.title, gu: item.titleGu || item.title, hi: (item as any).titleHi || item.title });
+              return (
+                <Link
+                  key={item.id}
+                  href={`/news/${item.slug}`}
+                  className="group flex gap-4 hover:bg-muted/10 transition-colors p-1"
+                >
+                  {/* Image Left */}
+                  <div className="relative h-[68px] w-[100px] shrink-0 overflow-hidden rounded-sm border border-border/10 bg-muted">
+                    <Image
+                      src={item.image || '/assets/demo/2.jpg'}
+                      alt={title}
+                      fill
+                      sizes="100px"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
 
-              {/* Content Right */}
-              <div className="flex flex-col justify-center min-w-0 flex-1">
-                {/* Status Dot + Category Label */}
-                <div className="flex mb-1">
-                  <span className={`flex items-center gap-1 text-[11px] font-black select-none leading-none uppercase ${item.status === 'true'
-                    ? 'text-green-600'
-                    : item.status === 'fake'
-                      ? 'text-red-600'
-                      : 'text-yellow-600'
-                    }`}>
-                    <span className="text-[10px]">●</span>
-                    {language === 'gu' ? item.statusLabelGu : item.status.toUpperCase()}
-                  </span>
+                  {/* Content Right */}
+                  <div className="flex flex-col justify-center min-w-0 flex-1">
+                    {/* Status Dot + Category Label */}
+                    <div className="flex mb-1">
+                      <span className={`flex items-center gap-1 text-[11px] font-black select-none leading-none uppercase ${st.color}`}>
+                        <span className="text-[10px]">●</span>
+                        {language === 'gu' ? st.labelGu : st.labelEn}
+                      </span>
+                    </div>
+                    <h4 className="text-[12.5px] md:text-[13px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
+                      {title}
+                    </h4>
+                  </div>
+                </Link>
+              );
+            })
+          ) : (
+            mockFactCheckList.map((item) => (
+              <Link
+                key={item.id}
+                href={`/news/${item.slug}`}
+                className="group flex gap-4 hover:bg-muted/10 transition-colors p-1"
+              >
+                {/* Image Left */}
+                <div className="relative h-[68px] w-[100px] shrink-0 overflow-hidden rounded-sm border border-border/10 bg-muted">
+                  <Image
+                    src={item.image}
+                    alt={item.titleGu}
+                    fill
+                    sizes="100px"
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
                 </div>
-                <h4 className="text-[12.5px] md:text-[13px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
-                  {getMockTitle(item, language)}
-                </h4>
-              </div>
-            </Link>
-          ))}
+
+                {/* Content Right */}
+                <div className="flex flex-col justify-center min-w-0 flex-1">
+                  {/* Status Dot + Category Label */}
+                  <div className="flex mb-1">
+                    <span className={`flex items-center gap-1 text-[11px] font-black select-none leading-none uppercase ${item.status === 'true'
+                      ? 'text-green-600'
+                      : item.status === 'fake'
+                        ? 'text-red-600'
+                        : 'text-yellow-600'
+                      }`}>
+                      <span className="text-[10px]">●</span>
+                      {language === 'gu' ? item.statusLabelGu : item.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <h4 className="text-[12.5px] md:text-[13px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
+                    {getMockTitle(item, language)}
+                  </h4>
+                </div>
+              </Link>
+            ))
+          )}
         </div>
 
       </div>
