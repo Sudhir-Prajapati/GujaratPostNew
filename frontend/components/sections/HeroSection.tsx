@@ -20,6 +20,7 @@ import {
   PHOTOS,
 } from '@/data';
 import { getCategoryColor } from '@/lib/utils';
+import { safeYouTubeId } from '@/lib/youtube';
 import { getPublicArticles, getPublicVideos, getHeroSettings } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
@@ -823,7 +824,7 @@ export default function HeroSection({
               style={{ aspectRatio: '16/9' }}
             >
               <iframe
-                src={`https://www.youtube.com/embed/${currentSidebarVideo.youtubeId}?autoplay=0&mute=1&rel=0&modestbranding=1&controls=1`}
+                src={`https://www.youtube.com/embed/${safeYouTubeId(currentSidebarVideo.youtubeId)}?autoplay=0&mute=1&rel=0&modestbranding=1&controls=1`}
                 title="Gujarat Post Video"
                 className="absolute inset-0 h-full w-full border-0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1986,7 +1987,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
               </div>
               <div className="relative aspect-video bg-black">
                 <iframe
-                  src={`https://www.youtube.com/embed/${playId}?autoplay=1&rel=0`}
+                  src={`https://www.youtube.com/embed/${safeYouTubeId(playId)}?autoplay=1&rel=0`}
                   className="absolute inset-0 h-full w-full"
                   allow="autoplay; encrypted-media"
                   allowFullScreen
@@ -2138,7 +2139,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
             </div>
             <div className="relative aspect-video bg-black">
               <iframe
-                src={`https://www.youtube.com/embed/${playId}?autoplay=1&rel=0`}
+                src={`https://www.youtube.com/embed/${safeYouTubeId(playId)}?autoplay=1&rel=0`}
                 className="absolute inset-0 h-full w-full"
                 allow="autoplay; encrypted-media"
                 allowFullScreen
@@ -4855,7 +4856,7 @@ function VideoStrip({ videos, language }: { videos: typeof VIDEOS; language: Lan
             <div className="aspect-video bg-black">
               <iframe
                 className="absolute inset-0 h-full w-full"
-                src={`https://www.youtube.com/embed/${activeVideo.youtubeId}?autoplay=1&rel=0`}
+                src={`https://www.youtube.com/embed/${safeYouTubeId(activeVideo.youtubeId)}?autoplay=1&rel=0`}
                 title={getLocalized(language, { en: activeVideo.title, gu: activeVideo.titleGu, hi: activeVideo.titleHi })}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -4886,7 +4887,7 @@ function VideoStrip({ videos, language }: { videos: typeof VIDEOS; language: Lan
               {playId === v.id ? (
                 <iframe
                   className="absolute inset-0 h-full w-full"
-                  src={`https://www.youtube.com/embed/${v.youtubeId}?autoplay=1&rel=0`}
+                  src={`https://www.youtube.com/embed/${safeYouTubeId(v.youtubeId)}?autoplay=1&rel=0`}
                   title={getLocalized(language, { en: v.title, gu: v.titleGu, hi: v.titleHi })}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
