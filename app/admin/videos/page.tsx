@@ -630,35 +630,35 @@ export default function VideosPage() {
                       </div>
                       {/* Action buttons */}
                       <div className="mt-auto flex items-center gap-2 pt-1">
-                        {isSaved ? (
-                          <button
-                            onClick={() => toggleFeatured(cv)}
-                            disabled={isFeaturing}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-1.5 text-xs font-bold transition-all ${
-                              isFeat
-                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300'
-                                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
-                            }`}
-                          >
-                            {isFeaturing ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : isFeat ? (
-                              <><StarOff className="h-3 w-3" /> Unfeature</>
-                            ) : (
-                              <><Star className="h-3 w-3" /> Feature</>
-                            )}
-                          </button>
-                        ) : (
+                        <button
+                          onClick={() => toggleFeatured(cv)}
+                          disabled={isFeaturing || isImporting}
+                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
+                            isFeat
+                              ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                              : 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-sm'
+                          }`}
+                        >
+                          {isFeaturing ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : isFeat ? (
+                            <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
+                          ) : (
+                            <><Star className="h-3.5 w-3.5 fill-current text-yellow-400" /> Feature</>
+                          )}
+                        </button>
+                        {!isSaved && (
                           <button
                             onClick={() => importFromChannel(cv)}
                             disabled={isImporting}
-                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 py-1.5 text-xs font-bold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition-all"
+                            title="Import video to database without featuring"
+                            className="flex items-center justify-center rounded-xl bg-zinc-100 p-2 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-all"
                           >
-                            {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
-                            {isImporting ? 'Importing...' : 'Import'}
+                            {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                           </button>
                         )}
                       </div>
+
                     </div>
                   </div>
                 );
