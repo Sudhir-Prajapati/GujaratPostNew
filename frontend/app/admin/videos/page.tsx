@@ -60,7 +60,7 @@ export default function VideosPage() {
   const [duration, setDuration] = useState('0:00');
   const [isFeatured, setIsFeatured] = useState(false);
   const [channel, setChannel] = useState('Gujarat Post News');
-  const [formLang, setFormLang] = useState<'en' | 'gu' | 'hi'>('en');
+  // Single language: Gujarati only
 
   // Fetch videos
   useEffect(() => {
@@ -85,14 +85,17 @@ export default function VideosPage() {
   // Submit Add video
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !youtubeId) return alert('Title and YouTube Video ID are required');
+    if (!titleGu || !youtubeId) return alert('Title (Gujarati) and YouTube Video ID are required');
+    // Use Gujarati title for all three title fields
+    setTitle(titleGu);
+    setTitleHi(titleGu);
     setSaving(true);
     try {
       const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, titleGu, titleHi, youtubeId, type, description, duration, isFeatured, channel
+          title: titleGu, titleGu, titleHi: titleGu, youtubeId, type, description, duration, isFeatured, channel
         }),
       });
       const json = await res.json();
@@ -132,7 +135,7 @@ export default function VideosPage() {
     setDuration(video.duration);
     setIsFeatured(video.isFeatured);
     setChannel(video.channel || 'Gujarat Post News');
-    setFormLang('en');
+    // Gujarati only
     setEditModalOpen(true);
   };
 
@@ -146,7 +149,7 @@ export default function VideosPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title, titleGu, titleHi, youtubeId, type, description, duration, isFeatured, channel
+          title: titleGu, titleGu, titleHi: titleGu, youtubeId, type, description, duration, isFeatured, channel
         }),
       });
       const json = await res.json();
@@ -186,8 +189,7 @@ export default function VideosPage() {
         </div>
         <button
           onClick={() => {
-            setFormLang('en');
-            setAddModalOpen(true);
+              setAddModalOpen(true);
           }}
           className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shrink-0"
         >
@@ -375,66 +377,20 @@ export default function VideosPage() {
                 />
               </div>
 
-              {/* Language switcher tabs */}
-              <div className="flex border-b border-zinc-150 dark:border-zinc-800 mb-2">
-                {(['en', 'gu', 'hi'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => setFormLang(lang)}
-                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all ${
-                      formLang === lang 
-                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white' 
-                        : 'border-transparent text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300'
-                    }`}
-                  >
-                    {lang === 'en' ? 'English' : lang === 'gu' ? 'ગુજરાતી' : 'हिन्दी'}
-                  </button>
-                ))}
+              {/* Gujarati title only */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  શીર્ષક (ગુજરાતી)
+                </label>
+                <input
+                  type="text"
+                  value={titleGu}
+                  onChange={(e) => setTitleGu(e.target.value)}
+                  placeholder="ગુજરાતીમાં શીર્ષક લખો..."
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  required
+                />
               </div>
-
-              {formLang === 'en' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (EN)
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                    required
-                  />
-                </div>
-              )}
-
-              {formLang === 'gu' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (GU)
-                  </label>
-                  <input
-                    type="text"
-                    value={titleGu}
-                    onChange={(e) => setTitleGu(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'hi' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (HI)
-                  </label>
-                  <input
-                    type="text"
-                    value={titleHi}
-                    onChange={(e) => setTitleHi(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
 
               {/* Video metadata settings */}
               <div className="grid grid-cols-2 gap-4">
@@ -545,66 +501,20 @@ export default function VideosPage() {
                 />
               </div>
 
-              {/* Language switcher tabs */}
-              <div className="flex border-b border-zinc-150 dark:border-zinc-800 mb-2">
-                {(['en', 'gu', 'hi'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => setFormLang(lang)}
-                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all ${
-                      formLang === lang 
-                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white' 
-                        : 'border-transparent text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300'
-                    }`}
-                  >
-                    {lang === 'en' ? 'English' : lang === 'gu' ? 'ગુજરાતી' : 'हिन्दी'}
-                  </button>
-                ))}
+              {/* Gujarati title only */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  શીર્ષક (ગુજરાતી)
+                </label>
+                <input
+                  type="text"
+                  value={titleGu}
+                  onChange={(e) => setTitleGu(e.target.value)}
+                  placeholder="ગુજરાતીમાં શીર્ષક લખો..."
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  required
+                />
               </div>
-
-              {formLang === 'en' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (EN)
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                    required
-                  />
-                </div>
-              )}
-
-              {formLang === 'gu' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (GU)
-                  </label>
-                  <input
-                    type="text"
-                    value={titleGu}
-                    onChange={(e) => setTitleGu(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'hi' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Title (HI)
-                  </label>
-                  <input
-                    type="text"
-                    value={titleHi}
-                    onChange={(e) => setTitleHi(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
 
               {/* Video metadata settings */}
               <div className="grid grid-cols-2 gap-4">
