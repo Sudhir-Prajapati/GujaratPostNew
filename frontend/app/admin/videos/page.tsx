@@ -165,7 +165,8 @@ export default function VideosPage() {
 
   // Import a channel video into DB
   const importFromChannel = async (cv: any) => {
-    setChannelImporting(cv.youtubeId);
+    const cleanId = safeYouTubeId(cv.youtubeId);
+    setChannelImporting(cleanId);
     try {
       const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
         method: 'POST',
@@ -174,7 +175,7 @@ export default function VideosPage() {
           title: cv.title,
           titleGu: cv.title,
           titleHi: cv.title,
-          youtubeId: cv.youtubeId,
+          youtubeId: cleanId,
           type: 'video',
           description: '',
           duration: cv.duration || '0:00',
@@ -184,14 +185,14 @@ export default function VideosPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Import failed');
-      setSavedIds(prev => new Set([...prev, cv.youtubeId]));
-      alert('Video imported successfully!');
+      setSavedIds(prev => new Set([...prev, cleanId]));
     } catch (err: any) {
       alert(err.message);
     } finally {
       setChannelImporting(null);
     }
   };
+
 
   // Toggle featured for a channel video (auto-saves to DB if not yet saved)
   const toggleFeatured = async (cv: any) => {
@@ -630,34 +631,40 @@ export default function VideosPage() {
                       </div>
                       {/* Action buttons */}
                       <div className="mt-auto flex items-center gap-2 pt-1">
-                        <button
-                          onClick={() => toggleFeatured(cv)}
-                          disabled={isFeaturing || isImporting}
-                          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                            isFeat
-                              ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
-                              : 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-sm'
-                          }`}
-                        >
-                          {isFeaturing ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : isFeat ? (
-                            <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
-                          ) : (
-                            <><Star className="h-3.5 w-3.5 fill-current text-yellow-400" /> Feature</>
-                          )}
-                        </button>
-                        {!isSaved && (
+                        {isSaved ? (
+                          <button
+                            onClick={() => toggleFeatured(cv)}
+                            disabled={isFeaturing}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
+                              isFeat
+                                ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                                : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
+                            }`}
+                          >
+                            {isFeaturing ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : isFeat ? (
+                              <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
+                            ) : (
+                              <><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> Feature</>
+                            )}
+                          </button>
+                        ) : (
                           <button
                             onClick={() => importFromChannel(cv)}
-                            disabled={isImporting}
-                            title="Import video to database without featuring"
-                            className="flex items-center justify-center rounded-xl bg-zinc-100 p-2 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 transition-all"
+                            disabled={isImporting || channelImporting === safeYouTubeId(cv.youtubeId)}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 py-2 text-xs font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-sm transition-all"
                           >
-                            {isImporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                            {isImporting || channelImporting === safeYouTubeId(cv.youtubeId) ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            {isImporting || channelImporting === safeYouTubeId(cv.youtubeId) ? 'Importing...' : 'Import'}
                           </button>
                         )}
                       </div>
+
 
                     </div>
                   </div>
