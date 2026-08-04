@@ -1645,9 +1645,9 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
 
   // Hard filter: exclude Shorts when showShorts=false (extra safety layer)
   const displayVideos = !showShorts
-    ? videos.filter(v => v.type === 'video' || (!v.type && !v.videoUrl?.includes('/shorts/')))
+    ? videos.filter(v => v.type === 'video' || !v.type)
     : onlyShorts
-    ? videos.filter(v => v.type === 'short' || v.videoUrl?.includes('/shorts/'))
+    ? videos.filter(v => v.type === 'short')
     : videos;
 
   if (!displayVideos.length) return null;
