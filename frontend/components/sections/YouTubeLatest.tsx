@@ -91,6 +91,8 @@ const FALLBACK_VIDEOS: VideoItem[] = [
   }
 ];
 
+import { getPublicVideos } from '@/lib/api';
+
 export default function YouTubeLatest() {
   const { language } = useApp();
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -107,13 +109,27 @@ export default function YouTubeLatest() {
     if (isManual) setRefreshing(true);
     else setLoading(true);
 
-    if (isManual) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const liveRes = await getPublicVideos('video');
+      if (liveRes && liveRes.length > 0) {
+        const mapped: VideoItem[] = liveRes.map((v) => ({
+          id: v.youtubeId || v.id,
+          title: v.titleGu || v.title,
+          publishedAt: v.publishedAt || new Date().toISOString(),
+          thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
+          videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
+        }));
+        setVideos(mapped);
+      } else {
+        setVideos(FALLBACK_VIDEOS);
+      }
+    } catch {
+      setVideos(FALLBACK_VIDEOS);
+    } finally {
+      setError(null);
+      setLoading(false);
+      setRefreshing(false);
     }
-    setVideos(FALLBACK_VIDEOS);
-    setError(null);
-    setLoading(false);
-    setRefreshing(false);
   }, []);
 
   const updateArrows = useCallback(() => {

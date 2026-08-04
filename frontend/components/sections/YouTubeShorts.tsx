@@ -5,6 +5,8 @@ import { Play, ExternalLink, RefreshCw, X, ChevronLeft, ChevronRight } from 'luc
 import { useApp } from '@/components/AppProvider';
 import { getLocalized } from '@/data';
 
+import { getPublicVideos } from '@/lib/api';
+
 interface ShortItem {
   id: string;
   title: string;
@@ -22,69 +24,6 @@ const DUMMY_SHORTS: ShortItem[] = [
     thumbnail: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=500&auto=format&fit=crop&q=80',
     videoUrl: 'https://www.youtube.com/watch?v=qDOdT087s4A',
   },
-  {
-    id: 'dIt8BX7JGdY',
-    title: 'પિતા- પુત્રનું કારસ્તાન, રૂ. 128 કરોડનું GST નું કૌભાંડ કરી નાખ્યું, માત્ર કાગળ પર જ 22 કંપનીઓ #gst',
-    publishedAt: new Date(Date.now() - 3600000 * 8).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=dIt8BX7JGdY',
-  },
-  {
-    id: 'Gc5UltSO74s',
-    title: 'ACB નો સપાટો, આણંદના તત્કાલિન નિવાસી અધિક કલેક્ટર કેતકી વ્યાસ નીકળ્યાં ભ્રષ્ટાચારી #anand #acb',
-    publishedAt: new Date(Date.now() - 3600000 * 20).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=Gc5UltSO74s',
-  },
-  {
-    id: 'qiR0hj9NqRw',
-    title: 'કઠલાલના ભાજપ નેતાના ભવાડા, મમતા સોનીએ કેમ વીડિયો બનાવ્યો ? #kathlal #mamtasoni #gujaratpost',
-    publishedAt: new Date(Date.now() - 3600000 * 30).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=qiR0hj9NqRw',
-  },
-  {
-    id: 'wHNNZ5KmOPk',
-    title: 'કપડવંજ- કઠલાલઃ જીગ્નેશ ડાભીનો આત્મહત્યાનો પ્રયાસ, MLA રાજેશ ઝાલા પર આરોપ #kapadwanj #mla',
-    publishedAt: new Date(Date.now() - 3600000 * 45).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1453733190148-c44698c265f8?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=wHNNZ5KmOPk',
-  },
-  {
-    id: '3LylK_UvfYU',
-    title: 'ACB ની કાર્યવાહી, DILR કચેરીના સર્વેયરને જોઇતી હતી 1.90 લાખ રૂપિયાની લાંચ અને પછી #acb',
-    publishedAt: new Date(Date.now() - 3600000 * 50).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1589758438368-0ad531db3366?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=3LylK_UvfYU',
-  },
-  {
-    id: 'DYe1ifqWr7M',
-    title: 'વેનેઝુએલામાં મહાવિનાશ, ભૂકંપના LIVE દ્રશ્યો જોઇને તમે હચમચી જશો #venezuela #gujaratpost',
-    publishedAt: new Date(Date.now() - 3600000 * 60).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=DYe1ifqWr7M',
-  },
-  {
-    id: 'G5nb3H8bUxE',
-    title: 'જ્યાં નજર પડે ત્યાં ભયાનક તબાહી જ તબાહી, વેનેઝુએલામાં ભૂકંપથી વિનાશ #earthquake #venezuela',
-    publishedAt: new Date(Date.now() - 3600000 * 70).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=G5nb3H8bUxE',
-  },
-  {
-    id: 'WTBxJBS-1I8',
-    title: 'ડરાવી દે તેવા દ્રશ્યો, વેનેઝુએલામાં 7.2 અને 7.5 ની તીવ્રતાના બે શક્તિશાળી ભૂકંપમાં અનેકના મોત',
-    publishedAt: new Date(Date.now() - 3600000 * 80).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=WTBxJBS-1I8',
-  },
-  {
-    id: 'ekyJi03t6tg',
-    title: 'આખરે ગુજરાત સરકારના મંત્રી રમેશ કટારાએ શિક્ષકોની માફી માંગવી પડી #teachers #gujaratpost',
-    publishedAt: new Date(Date.now() - 3600000 * 90).toISOString(),
-    thumbnail: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=500&auto=format&fit=crop&q=80',
-    videoUrl: 'https://www.youtube.com/watch?v=ekyJi03t6tg',
-  }
 ];
 
 export default function YouTubeShorts() {
@@ -98,19 +37,35 @@ export default function YouTubeShorts() {
   const [showRightArrow, setShowRightArrow] = useState(true);
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
 
-  const loadShortsData = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
+  const loadShortsData = useCallback(async (isManual = false) => {
+    if (isManual) setRefreshing(true);
+    else setLoading(true);
+
+    try {
+      const liveRes = await getPublicVideos('short');
+      if (liveRes && liveRes.length > 0) {
+        const mapped: ShortItem[] = liveRes.map((v) => ({
+          id: v.youtubeId || v.id,
+          title: v.titleGu || v.title,
+          publishedAt: v.publishedAt || new Date().toISOString(),
+          thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
+          videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
+        }));
+        setShorts(mapped);
+      } else {
+        setShorts(DUMMY_SHORTS);
+      }
+    } catch {
       setShorts(DUMMY_SHORTS);
+    } finally {
       setLoading(false);
       setRefreshing(false);
-    }, 400);
+    }
   }, []);
 
   useEffect(() => {
-    setShorts(DUMMY_SHORTS);
-    setLoading(false);
-  }, []);
+    loadShortsData();
+  }, [loadShortsData]);
 
   const updateArrows = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -158,7 +113,7 @@ export default function YouTubeShorts() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={loadShortsData}
+              onClick={() => void loadShortsData(true)}
               disabled={refreshing || loading}
               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card text-foreground transition hover:bg-muted disabled:opacity-50"
               title="Refresh"

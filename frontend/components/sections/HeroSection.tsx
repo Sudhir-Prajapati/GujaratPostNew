@@ -890,7 +890,7 @@ export default function HeroSection({
 
 
 
-      <VideoDesk videos={videos.slice(0, 7)} language={language} showShorts={false} />
+      <VideoDesk videos={videosList.length > 0 ? videosList : videos.slice(0, 7)} language={language} showShorts={false} />
 
       <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
 
@@ -1085,7 +1085,7 @@ export default function HeroSection({
 
       {/* YouTube Video Section Before Footer */}
       <div className="mx-auto max-w-screen-xl px-2 my-6">
-        <VideoDesk videos={videos} language={language} />
+        <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
       {/* Native Sponsored Ads Section */}
@@ -2042,7 +2042,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
 
             {/* Title */}
             <h3 key={`title-${featuredIndex}`} className="font-extrabold text-[16px] md:text-[19px] leading-snug text-white group-hover:underline transition-all line-clamp-2 animate-in fade-in duration-500">
-              {getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu, hi: featuredVideo.titleHi })}
+              {getLocalized(language, { en: featuredVideo.title, gu: featuredVideo.titleGu || featuredVideo.title, hi: featuredVideo.titleHi || featuredVideo.title })}
             </h3>
 
             {/* Meta */}
@@ -2075,7 +2075,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
                   <div className="relative h-[68px] w-[108px] shrink-0 overflow-hidden rounded-sm bg-black/30 border border-white/10">
                     <Image
                       src={v.thumbnail}
-                      alt={v.titleGu}
+                      alt={v.titleGu || v.title}
                       fill
                       sizes="108px"
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -2093,7 +2093,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
                   {/* Content */}
                   <div className="flex flex-col justify-center min-w-0 flex-1">
                     <h4 className="text-[13px] font-extrabold leading-snug text-white group-hover:underline transition-all line-clamp-2">
-                      {getLocalized(language, { en: v.title, gu: v.titleGu, hi: v.titleHi })}
+                      {getLocalized(language, { en: v.title, gu: v.titleGu || v.title, hi: v.titleHi || v.title })}
                     </h4>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-white/65 font-semibold">
                       <span>{formatViews(v.views)}</span>
