@@ -6889,39 +6889,79 @@ function WeatherDashboardSection({ language }: { language: Language }) {
 }
 
 /* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
+/* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
 export function EntertainTechLifeSection({ language }: { language: Language }) {
+  const [healthArticles, setHealthArticles] = useState<Article[]>([]);
+  const [entArticles, setEntArticles] = useState<Article[]>([]);
+  const [techArticles, setTechArticles] = useState<Article[]>([]);
 
-  type ArticleItem = { img: string; title: string; titleGu: string; age: string };
+  useEffect(() => {
+    Promise.all([
+      getPublicArticles({ categorySlug: 'health', limit: 5 }),
+      getPublicArticles({ categorySlug: 'entertainment', limit: 5 }),
+      getPublicArticles({ categorySlug: 'technology', limit: 5 }),
+    ]).then(([healthRes, entRes, techRes]) => {
+      if (healthRes && healthRes.articles && healthRes.articles.length > 0) {
+        setHealthArticles(healthRes.articles);
+      }
+      if (entRes && entRes.articles && entRes.articles.length > 0) {
+        setEntArticles(entRes.articles);
+      }
+      if (techRes && techRes.articles && techRes.articles.length > 0) {
+        setTechArticles(techRes.articles);
+      }
+    });
+  }, []);
 
-  const health: ArticleItem[] = [
-    { img: '/assets/demo/2.jpg', titleGu: 'પોસ્ટમોર્ટમમાં ખતરાના ચરણના આધુનિક સ્ટોરનો શુભારંભ', title: 'Modern store launched at Post Mortem danger step', age: '2' },
-    { img: '/assets/demo/6.jpg', titleGu: 'મેઘરાજા સક્રિય : અનેક સ્થળોવરસાદ, હવામાન વિભાગની આગાહી', title: 'Rain active: Rainfall in many places, weather department forecast', age: '4' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ડુંગળીના ભાવમાં નોંધપાત્ર વધારો, ખરીદદારોએ ચિંતા વધારી', title: 'Onion prices rise significantly, buyers worry', age: '5' },
-    { img: '/assets/demo/3.jpg', titleGu: 'વધુશે ઉકળો માટે સરકારની નવી સહાય યોજના અને મોટો નિર્ણય', title: 'New government aid scheme and big decision for startups', age: '7' },
-    { img: '/assets/demo/1.jpg', titleGu: 'આ મહિને OTP પર મળશે રિફંડ, જાણો RBIના નવા નિયમો', title: 'Get refund on OTP this month, know new RBI rules', age: '8' },
+  type DisplayItem = { id?: string; slug?: string; img: string; title: string; titleGu: string; age: string };
+
+  const mockHealth: DisplayItem[] = [
+    { img: '/assets/demo/2.jpg', titleGu: 'પોસ્ટમોર્ટમમાં ખતરાના ચરણના આધુનિક સ્ટોરનો શુભારંભ', title: 'Modern store launched at Post Mortem danger step', age: '2 કલાક પહેલાં' },
+    { img: '/assets/demo/6.jpg', titleGu: 'મેઘરાજા સક્રિય : અનેક સ્થળોવરસાદ, હવામાન વિભાગની આગાહી', title: 'Rain active: Rainfall in many places, weather department forecast', age: '4 કલાક પહેલાં' },
+    { img: '/assets/demo/8.jpg', titleGu: 'ડુંગળીના ભાવમાં નોંધપાત્ર વધારો, ખરીદદારોએ ચિંતા વધારી', title: 'Onion prices rise significantly, buyers worry', age: '5 કલાક પહેલાં' },
+    { img: '/assets/demo/3.jpg', titleGu: 'વધુશે ઉકળો માટે સરકારની નવી સહાય યોજના અને મોટો નિર્ણય', title: 'New government aid scheme and big decision for startups', age: '7 કલાક પહેલાં' },
+    { img: '/assets/demo/1.jpg', titleGu: 'આ મહિને OTP પર મળશે રિફંડ, જાણો RBIના નવા નિયમો', title: 'Get refund on OTP this month, know new RBI rules', age: '8 કલાક પહેલાં' },
   ];
 
-  const manoranjan: ArticleItem[] = [
-    { img: '/assets/demo/6.jpg', titleGu: 'નવી ગુજરાતી ફિલ્મ \'લીસ્ચ\' ઓફિસ પર રેકોર્ડ તોડશે જૂનો કલાત્મક આંકડો', title: 'New Gujarati film to break box office records', age: '1' },
-    { img: '/assets/demo/4.jpg', titleGu: 'લોકપ્રિય ગાયકપ્રિન્ટનો નવો સિંગલ કૂક આગામી, ચાહકોમાં ઉત્સાહ', title: 'Popular singer new single release soon, excitement among fans', age: '2' },
-    { img: '/assets/demo/1.jpg', titleGu: 'જાણીતા ગાયકનો નવો આલ્બમ રિલીઝ! ચાહકોમાં જબરદસ્ત ઉત્સાહ', title: 'Famous singer releases new album! Huge excitement among fans', age: '4' },
-    { img: '/assets/demo/5.jpg', titleGu: 'આ વીકેન્ડ OTT પર ધમાકો: રિલીઝ થશે આ પાંચ મોસ્ટ ફિલ્મો અને શો', title: 'Weekend OTT blast: These five top movies and shows to release', age: '6' },
-    { img: '/assets/demo/7.jpg', titleGu: 'બોક્સ ઓફિસ પર \'સ્ટાર ફિલ્મ\'ની ધમાકેદાર કમાણી, તોડ્યા રેકોર્ડ', title: 'Star movie hits box office with record earnings', age: '7' },
+  const mockManoranjan: DisplayItem[] = [
+    { img: '/assets/demo/6.jpg', titleGu: 'નવી ગુજરાતી ફિલ્મ \'લીસ્ચ\' ઓફિસ પર રેકોર્ડ તોડશે જૂનો કલાત્મક આંકડો', title: 'New Gujarati film to break box office records', age: '1 કલાક પહેલાં' },
+    { img: '/assets/demo/4.jpg', titleGu: 'લોકપ્રિય ગાયકપ્રિન્ટનો નવો સિંગલ કૂક આગામી, ચાહકોમાં ઉત્સાહ', title: 'Popular singer new single release soon, excitement among fans', age: '2 કલાક પહેલાં' },
+    { img: '/assets/demo/1.jpg', titleGu: 'જાણીતા ગાયકનો નવો આલ્બમ રિલીઝ! ચાહકોમાં જબરદસ્ત ઉત્સાહ', title: 'Famous singer releases new album! Huge excitement among fans', age: '4 કલાક પહેલાં' },
+    { img: '/assets/demo/5.jpg', titleGu: 'આ વીકેન્ડ OTT પર ધમાકો: રિલીઝ થશે આ પાંચ મોસ્ટ ફિલ્મો અને શો', title: 'Weekend OTT blast: These five top movies and shows to release', age: '6 કલાક પહેલાં' },
+    { img: '/assets/demo/7.jpg', titleGu: 'બોક્સ ઓફિસ પર \'સ્ટાર ફિલ્મ\'ની ધમાકેદાર કમાણી, તોડ્યા રેકોર્ડ', title: 'Star movie hits box office with record earnings', age: '7 કલાક પહેલાં' },
   ];
 
-  const technology: ArticleItem[] = [
-    { img: '/assets/demo/3.jpg', titleGu: 'નવી સ્માર્ટસિટી સાર્ગરની યોજના, શહેરો બનશે વધુ સ્માર્ટ', title: 'New smart city plan, cities to become smarter', age: '2' },
-    { img: '/assets/demo/7.jpg', titleGu: 'ગુજરાતમાં ટેકનોલોજી આધારિત વિકાસના નવા પ્રોજેક્ટને મંજુરી', title: 'Approval for tech-based development projects in Gujarat', age: '3' },
-    { img: '/assets/demo/5.jpg', titleGu: 'ભારતમાં 5G ટેકનોલોજીનો વ્યાપ ઝડપથી વધી રહ્યો છે', title: '5G technology footprint growing rapidly in India', age: '5' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ટેકનોલોજીની ખાતામાં બદલાવ, ખેડૂતની આવકમાં વધારો', title: 'Technology change in agriculture boosts farmer income', age: '7' },
-    { img: '/assets/demo/2.jpg', titleGu: 'AI ટૂલ્સ હવે રોજિંદા જીવનમાં જરૂરી, જાણો લાભ અને ઉપયોગ', title: 'AI tools essential in daily life, know benefits & usage', age: '8' },
+  const mockTechnology: DisplayItem[] = [
+    { img: '/assets/demo/3.jpg', titleGu: 'નવી સ્માર્ટસિટી સાર્ગરની યોજના, શહેરો બનશે વધુ સ્માર્ટ', title: 'New smart city plan, cities to become smarter', age: '2 કલાક પહેલાં' },
+    { img: '/assets/demo/7.jpg', titleGu: 'ગુજરાતમાં ટેકનોલોજી આધારિત વિકાસના નવા પ્રોજેક્ટને મંજુરી', title: 'Approval for tech-based development projects in Gujarat', age: '3 કલાક પહેલાં' },
+    { img: '/assets/demo/5.jpg', titleGu: 'ભારતમાં 5G ટેકનોલોજીનો વ્યાપ ઝડપથી વધી રહ્યો છે', title: '5G technology footprint growing rapidly in India', age: '5 કલાક પહેલાં' },
+    { img: '/assets/demo/8.jpg', titleGu: 'ટેકનોલોજીની ખાતામાં બદલાવ, ખેડૂતની આવકમાં વધારો', title: 'Technology change in agriculture boosts farmer income', age: '7 કલાક પહેલાં' },
+    { img: '/assets/demo/2.jpg', titleGu: 'AI ટૂલ્સ હવે રોજિંદા જીવનમાં જરૂરી, જાણો લાભ અને ઉપયોગ', title: 'AI tools essential in daily life, know benefits & usage', age: '8 કલાક પહેલાં' },
   ];
+
+  const mapToDisplayItems = (dbArticles: Article[], mockItems: DisplayItem[]): DisplayItem[] => {
+    if (dbArticles.length > 0) {
+      return dbArticles.slice(0, 5).map((art) => ({
+        id: art.id,
+        slug: art.slug,
+        img: art.image || '/assets/demo/2.jpg',
+        title: art.title,
+        titleGu: art.titleGu || art.title,
+        age: formatTime(art.publishedAt),
+      }));
+    }
+    return mockItems;
+  };
+
+  const health = mapToDisplayItems(healthArticles, mockHealth);
+  const manoranjan = mapToDisplayItems(entArticles, mockManoranjan);
+  const technology = mapToDisplayItems(techArticles, mockTechnology);
 
   const col = (
     titleGu: string,
     titleEn: string,
     href: string,
-    items: ArticleItem[],
+    items: DisplayItem[],
     btnTextGu: string,
     btnTextEn: string,
     icon: React.ReactNode
@@ -6947,8 +6987,8 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
         <div className="flex flex-col divide-y divide-border/40">
           {items.map((a, i) => (
             <Link
-              key={i}
-              href={href}
+              key={a.id || i}
+              href={a.slug ? `/news/${a.slug}` : href}
               className="group flex gap-3 py-3 hover:bg-muted/10 transition-colors"
             >
               {/* Thumbnail */}
@@ -6968,7 +7008,7 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground font-semibold select-none">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>{a.age} કલાક પહેલાં</span>
+                  <span>{a.age}</span>
                 </div>
               </div>
             </Link>
