@@ -204,22 +204,31 @@ export default function VideosPage() {
       const json = await res.json();
       const allDbVideos: VideoData[] = json.data?.videos || [];
       const dbVideo = allDbVideos.find((v: VideoData) => safeYouTubeId(v.youtubeId) === cleanId);
+      const currentFeaturedCount = allDbVideos.filter(v => v.isFeatured).length;
 
       if (dbVideo) {
-        // Toggle feature status on existing DB record
         const newFeatured = !dbVideo.isFeatured;
+
+        // VALIDATION: Minimum 3 featured videos required for homepage layout
+        if (!newFeatured && currentFeaturedCount <= 3) {
+          alert('Minimum 3 featured videos are required for the homepage layout! Please feature another video before unfeaturing this one.');
+          return;
+        }
+
         const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${dbVideo.id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isFeatured: newFeatured }),
         });
         if (!upRes.ok) throw new Error('Failed to update feature status');
+
         setFeaturedIds(prev => {
           const next = new Map(prev);
           if (newFeatured) next.set(cleanId, dbVideo.id);
           else next.delete(cleanId);
           return next;
         });
+        setVideos(prev => prev.map(v => (safeYouTubeId(v.youtubeId) === cleanId ? { ...v, isFeatured: newFeatured } : v)));
       } else {
         // Auto-create in DB with isFeatured: true seamlessly
         const createRes = await authFetch(getBackendApiUrl('/api/admin/videos'), {
@@ -242,6 +251,7 @@ export default function VideosPage() {
         const createdDbVideo = createJson.data;
         setSavedIds(prev => new Set([...prev, cleanId]));
         setFeaturedIds(prev => new Map(prev).set(cleanId, createdDbVideo.id));
+        setVideos(prev => [createdDbVideo, ...prev]);
       }
     } catch (err: any) {
       alert(err.message);
@@ -249,6 +259,7 @@ export default function VideosPage() {
       setChannelFeaturing(null);
     }
   };
+
 
   // Submit Add video
   // Submit Add video
@@ -312,6 +323,17 @@ export default function VideosPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVideo) return;
+
+    if (selectedVideo.isFeatured && !isFeatured) {
+      const resCount = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
+      const jsonCount = await resCount.json();
+      const featCount = (jsonCount.data?.videos || []).filter((v: any) => v.isFeatured).length;
+      if (featCount <= 3) {
+        alert('Minimum 3 featured videos are required for the homepage layout! Please feature another video before unfeaturing this one.');
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       const res = await authFetch(getBackendApiUrl(`/api/admin/videos/${selectedVideo.id}`), {
@@ -325,6 +347,13 @@ export default function VideosPage() {
       if (!res.ok) throw new Error(json.error || 'Failed to update video');
 
       setVideos(prev => prev.map(v => v.id === selectedVideo.id ? json.data : v));
+      setFeaturedIds(prev => {
+        const next = new Map(prev);
+        const cleanId = safeYouTubeId(youtubeId);
+        if (isFeatured) next.set(cleanId, selectedVideo.id);
+        else next.delete(cleanId);
+        return next;
+      });
       setEditModalOpen(false);
       setSelectedVideo(null);
     } catch (err: any) {
@@ -336,15 +365,34 @@ export default function VideosPage() {
 
   // Delete Video
   const handleDelete = async (id: string) => {
+    const target = videos.find(v => v.id === id);
+    if (target?.isFeatured) {
+      const resCount = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
+      const jsonCount = await resCount.json();
+      const featCount = (jsonCount.data?.videos || []).filter((v: any) => v.isFeatured).length;
+      if (featCount <= 3) {
+        alert('Minimum 3 featured videos are required for the homepage layout! You cannot delete this video while only 3 featured videos exist.');
+        return;
+      }
+    }
+
     if (!confirm('Are you sure you want to delete this video?')) return;
     try {
       const res = await authFetch(getBackendApiUrl(`/api/admin/videos/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete video');
       setVideos(prev => prev.filter(v => v.id !== id));
+      if (target) {
+        setFeaturedIds(prev => {
+          const next = new Map(prev);
+          next.delete(safeYouTubeId(target.youtubeId));
+          return next;
+        });
+      }
     } catch (err: any) {
       alert(err.message);
     }
   };
+
 
   return (
     <div className="space-y-6">
