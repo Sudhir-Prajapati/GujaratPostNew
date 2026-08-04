@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { safeYouTubeId } from '@/lib/youtube';
 import { 
   Search, 
   Plus, 
@@ -660,7 +661,7 @@ export default function VideosPage() {
               <X className="h-5 w-5" />
             </button>
             <iframe
-              src={`${previewVideo.embedUrl}?autoplay=1`}
+              src={`https://www.youtube.com/embed/${safeYouTubeId(previewVideo.youtubeId)}?autoplay=1`}
               title={previewVideo.title}
               className="w-full h-full border-none"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

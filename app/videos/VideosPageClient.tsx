@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Clock, Eye, Play, Bell, Radio } from 'lucide-react';
 import { formatViews, getLocalized } from '@/data';
 import { getPublicVideos } from '@/lib/api';
+import { safeYouTubeId } from '@/lib/youtube';
 import { useApp } from '@/components/AppProvider';
 import { toGu } from '@/lib/utils';
 
@@ -211,7 +212,7 @@ export default function VideosPageClient() {
                   {playingVideoId === featuredVideo.id ? (
                     <iframe
                       className="absolute inset-0 h-full w-full"
-                      src={`https://www.youtube.com/embed/${featuredVideo.youtubeId}?autoplay=1&controls=1&mute=0&rel=0`}
+                      src={`https://www.youtube.com/embed/${safeYouTubeId(featuredVideo.youtubeId)}?autoplay=1&controls=1&mute=0&rel=0`}
                       title={featuredVideo.titleGu}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
@@ -268,7 +269,7 @@ export default function VideosPageClient() {
                       {playingVideoId === item.id ? (
                         <iframe
                           className="absolute inset-0 h-full w-full"
-                          src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&controls=1&mute=0&rel=0`}
+                          src={`https://www.youtube.com/embed/${safeYouTubeId(item.youtubeId)}?autoplay=1&controls=1&mute=0&rel=0`}
                           title={getLocalized(language, { en: item.title, gu: item.titleGu, hi: item.titleHi })}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
@@ -434,7 +435,7 @@ export default function VideosPageClient() {
                     {playingVideoId === item.id ? (
                       <iframe
                         className="absolute inset-0 h-full w-full"
-                        src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&controls=1&mute=0&rel=0`}
+                        src={`https://www.youtube.com/embed/${safeYouTubeId(item.youtubeId)}?autoplay=1&controls=1&mute=0&rel=0`}
                         title={getLocalized(language, { en: item.title, gu: item.titleGu, hi: item.titleHi })}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
@@ -491,7 +492,7 @@ export default function VideosPageClient() {
                     {playingVideoId === item.id ? (
                       <iframe
                         className="absolute inset-0 h-full w-full"
-                        src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&controls=1&mute=0&rel=0`}
+                        src={`https://www.youtube.com/embed/${safeYouTubeId(item.youtubeId)}?autoplay=1&controls=1&mute=0&rel=0`}
                         title={item.titleGu}
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen

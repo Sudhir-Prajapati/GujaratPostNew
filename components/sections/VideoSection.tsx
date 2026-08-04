@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Clock, Eye, Play, Video } from 'lucide-react';
 import { formatViews, getLocalized } from '@/data';
 import { getPublicVideos } from '@/lib/api';
+import { safeYouTubeId } from '@/lib/youtube';
 import SectionHeader from '@/components/ui/SectionHeader';
 import { useApp } from '@/components/AppProvider';
 
@@ -62,7 +63,7 @@ export default function VideoSection() {
                   {playingVideoId === item.id ? (
                     <iframe
                       className="absolute inset-0 h-full w-full"
-                      src={`https://www.youtube.com/embed/${item.youtubeId}?autoplay=1&controls=1&mute=0&rel=0`}
+                      src={`https://www.youtube.com/embed/${safeYouTubeId(item.youtubeId)}?autoplay=1&controls=1&mute=0&rel=0`}
                       title={getLocalized(language, { en: item.title, gu: item.titleGu, hi: item.titleHi })}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
