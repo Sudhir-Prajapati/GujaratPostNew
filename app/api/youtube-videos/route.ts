@@ -18,7 +18,7 @@ function parseNumericViews(viewsText: string): number {
   return match ? parseInt(match[1]) : 500;
 }
 
-// Scrape YouTube channel page tab directly for 30+ real items with accurate metadata
+// Scrape YouTube channel page tab directly (including continuation batches for ALL 50+ videos)
 async function fetchChannelTab(tab: 'videos' | 'shorts'): Promise<any[]> {
   try {
     const url = `https://www.youtube.com/${CHANNEL_HANDLE}/${tab}`;
@@ -34,13 +34,14 @@ async function fetchChannelTab(tab: 'videos' | 'shorts'): Promise<any[]> {
 
     const html = await res.text();
     const match = html.match(/ytInitialData\s*=\s*({[\s\S]*?});/);
+    const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/);
     if (!match) return [];
 
     const data = JSON.parse(match[1]);
     const items: any[] = [];
     const seen = new Set<string>();
 
-    function walk(node: any) {
+    function parseNode(node: any) {
       if (!node || typeof node !== 'object') return;
 
       // 1. Modern YouTube lockupViewModel structure
@@ -128,11 +129,59 @@ async function fetchChannelTab(tab: 'videos' | 'shorts'): Promise<any[]> {
       }
 
       for (const k of Object.keys(node)) {
-        walk(node[k]);
+        parseNode(node[k]);
       }
     }
 
-    walk(data);
+    // Parse initial Batch 1
+    parseNode(data);
+
+    // Find continuation token for Batch 2 (older videos)
+    let continuationToken = '';
+    function findToken(node: any) {
+      if (!node || typeof node !== 'object') return;
+      if (node.continuationCommand?.token) {
+        continuationToken = node.continuationCommand.token;
+        return;
+      }
+      for (const k of Object.keys(node)) {
+        if (continuationToken) return;
+        findToken(node[k]);
+      }
+    }
+    findToken(data);
+
+    // Fetch Batch 2 if continuation token & API key exist
+    if (continuationToken && apiKeyMatch?.[1]) {
+      try {
+        const contRes = await fetch(`https://www.youtube.com/youtubei/v1/browse?key=${apiKeyMatch[1]}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+          body: JSON.stringify({
+            context: {
+              client: {
+                clientName: 'WEB',
+                clientVersion: '2.20260801.00.00',
+                hl: 'en',
+                gl: 'US'
+              }
+            },
+            continuation: continuationToken
+          }),
+          next: { revalidate: 300 },
+        });
+        if (contRes.ok) {
+          const contData = await contRes.json();
+          parseNode(contData);
+        }
+      } catch (e) {
+        console.error('Continuation fetch error:', e);
+      }
+    }
+
     return items;
   } catch (err) {
     console.error(`Error scraping channel tab ${tab}:`, err);
