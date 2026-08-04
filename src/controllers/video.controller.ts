@@ -55,9 +55,10 @@ export class VideoController {
       const [videos, total] = await Promise.all([
         prisma.video.findMany({
           where,
-          orderBy: {
-            publishedAt: 'desc',
-          },
+          orderBy: [
+            { isFeatured: 'desc' },
+            { createdAt: 'desc' },
+          ],
           skip,
           take: limit,
         }),
