@@ -14,8 +14,22 @@ import {
   Play, 
   Clock, 
   Bookmark, 
-  Radio 
+  Radio,
+  Star,
+  StarOff,
+  Download,
+  Eye,
+  RefreshCw
 } from 'lucide-react';
+
+function YoutubeIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M22.5 7.1a2.8 2.8 0 0 0-2-2C18.7 4.6 12 4.6 12 4.6s-6.7 0-8.5.5a2.8 2.8 0 0 0-2 2A29.5 29.5 0 0 0 1 12a29.5 29.5 0 0 0 .5 4.9 2.8 2.8 0 0 0 2 2c1.8.5 8.5.5 8.5.5s6.7 0 8.5-.5a2.8 2.8 0 0 0 2-2A29.5 29.5 0 0 0 23 12a29.5 29.5 0 0 0-.5-4.9Z" />
+      <path fill="white" d="m9.8 15.2 5.6-3.2-5.6-3.2v6.4Z" />
+    </svg>
+  );
+}
 
 interface VideoData {
   id: string;
@@ -49,6 +63,17 @@ export default function VideosPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [previewVideo, setPreviewVideo] = useState<VideoData | null>(null);
+
+  // Tab state: 'saved' = DB videos, 'channel' = live YouTube channel
+  const [activeTab, setActiveTab] = useState<'saved' | 'channel'>('saved');
+
+  // Channel videos state
+  const [channelVideos, setChannelVideos] = useState<any[]>([]);
+  const [channelLoading, setChannelLoading] = useState(false);
+  const [channelImporting, setChannelImporting] = useState<string | null>(null);
+  const [channelFeaturing, setChannelFeaturing] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [featuredIds, setFeaturedIds] = useState<Map<string, string>>(new Map()); // youtubeId -> DB id
 
   // Form states
   const [saving, setSaving] = useState(false);
@@ -102,6 +127,97 @@ export default function VideosPage() {
     }
     loadVideos();
   }, [page, query, selectedType]);
+
+  // Load channel videos from YouTube RSS
+  const loadChannelVideos = async () => {
+    setChannelLoading(true);
+    try {
+      const res = await fetch('/api/youtube-videos?type=video');
+      const json = await res.json();
+      setChannelVideos(json.data || []);
+    } catch {}
+    finally { setChannelLoading(false); }
+  };
+
+  // Build a set of saved YouTube IDs from DB when channel tab opens
+  useEffect(() => {
+    if (activeTab !== 'channel') return;
+    loadChannelVideos();
+    // Also load all DB video IDs for cross-referencing
+    authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'))
+      .then(r => r.json())
+      .then(json => {
+        const saved = new Set<string>();
+        const featured = new Map<string, string>();
+        (json.data?.videos || []).forEach((v: VideoData) => {
+          saved.add(safeYouTubeId(v.youtubeId));
+          if (v.isFeatured) featured.set(safeYouTubeId(v.youtubeId), v.id);
+        });
+        setSavedIds(saved);
+        setFeaturedIds(featured);
+      })
+      .catch(() => {});
+  }, [activeTab]);
+
+  // Import a channel video into DB
+  const importFromChannel = async (cv: any) => {
+    setChannelImporting(cv.youtubeId);
+    try {
+      const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: cv.title,
+          titleGu: cv.title,
+          titleHi: cv.title,
+          youtubeId: cv.youtubeId,
+          type: 'video',
+          description: '',
+          duration: cv.duration || '0:00',
+          isFeatured: false,
+          channel: 'Gujarat Post News',
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Import failed');
+      setSavedIds(prev => new Set([...prev, cv.youtubeId]));
+      alert('Video imported successfully!');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setChannelImporting(null);
+    }
+  };
+
+  // Toggle featured for a channel video that is already in DB
+  const toggleFeatured = async (cv: any) => {
+    const cleanId = safeYouTubeId(cv.youtubeId);
+    setChannelFeaturing(cleanId);
+    try {
+      // Find the DB record
+      const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=200&query=${encodeURIComponent(cv.title)}`));
+      const json = await res.json();
+      const dbVideo = (json.data?.videos || []).find((v: VideoData) => safeYouTubeId(v.youtubeId) === cleanId);
+      if (!dbVideo) { alert('Save this video to DB first using the Import button.'); return; }
+      const newFeatured = !dbVideo.isFeatured;
+      const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${dbVideo.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFeatured: newFeatured }),
+      });
+      if (!upRes.ok) throw new Error('Failed to update');
+      setFeaturedIds(prev => {
+        const next = new Map(prev);
+        if (newFeatured) next.set(cleanId, dbVideo.id);
+        else next.delete(cleanId);
+        return next;
+      });
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setChannelFeaturing(null);
+    }
+  };
 
   // Submit Add video
   // Submit Add video
@@ -220,43 +336,72 @@ export default function VideosPage() {
         </button>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
-          <div className="relative flex-1 max-w-md">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-400">
-              <Search className="h-4 w-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search title or description..."
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(1);
-              }}
-              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
-            />
-          </div>
-
-          <select
-            value={selectedType}
-            onChange={(e) => {
-              setSelectedType(e.target.value);
-              setPage(1);
-            }}
-            className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
-          >
-            <option value="">All Types</option>
-            <option value="video">Standard Video</option>
-            <option value="short">YouTube Short</option>
-            <option value="podcast">Podcast</option>
-            <option value="interview">Interview</option>
-          </select>
-        </div>
+      {/* Tab switcher */}
+      <div className="flex gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900 w-fit">
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+            activeTab === 'saved'
+              ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+          }`}
+        >
+          <VideoIcon className="h-4 w-4" />
+          Saved Videos
+        </button>
+        <button
+          onClick={() => setActiveTab('channel')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+            activeTab === 'channel'
+              ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+          }`}
+        >
+          <YoutubeIcon className="h-4 w-4 text-red-500" />
+          Channel Videos
+        </button>
       </div>
 
-      {/* Videos Grid */}
+      {/* ─── SAVED VIDEOS TAB ─── */}
+      {activeTab === 'saved' && (
+        <>
+          {/* Toolbar */}
+          <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-400">
+                  <Search className="h-4 w-4" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search title or description..."
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+                />
+              </div>
+
+              <select
+                value={selectedType}
+                onChange={(e) => {
+                  setSelectedType(e.target.value);
+                  setPage(1);
+                }}
+                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+              >
+                <option value="">All Types</option>
+                <option value="video">Standard Video</option>
+                <option value="short">YouTube Short</option>
+                <option value="podcast">Podcast</option>
+                <option value="interview">Interview</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Videos Grid */}
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
           <Loader2 className="h-10 w-10 animate-spin text-zinc-400" />
@@ -364,6 +509,130 @@ export default function VideosPage() {
               Next
             </button>
           </div>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* ─── CHANNEL VIDEOS TAB ─── */}
+      {activeTab === 'channel' && (
+        <div className="space-y-4">
+          {/* Channel header */}
+          <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
+                <YoutubeIcon className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-zinc-900 dark:text-white">Gujarat Post — Live YouTube Channel</p>
+                <p className="text-xs text-zinc-500">Showing latest videos (no Shorts) — use ⭐ to feature or 📥 to import</p>
+              </div>
+            </div>
+            <button
+              onClick={loadChannelVideos}
+              disabled={channelLoading}
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${channelLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          {/* Channel videos grid */}
+          {channelLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+              <Loader2 className="h-10 w-10 animate-spin text-red-400" />
+              <span className="mt-2 text-sm">Fetching from YouTube channel...</span>
+            </div>
+          ) : channelVideos.length === 0 ? (
+            <div className="text-center py-20 text-zinc-400">No videos found from channel.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {channelVideos.map((cv: any) => {
+                const cleanId = safeYouTubeId(cv.youtubeId);
+                const isSaved = savedIds.has(cleanId);
+                const isFeat = featuredIds.has(cleanId);
+                const isImporting = channelImporting === cv.youtubeId;
+                const isFeaturing = channelFeaturing === cleanId;
+                const publishedDate = cv.publishedAt ? new Date(cv.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
+                return (
+                  <div key={cv.youtubeId} className={`group relative flex flex-col rounded-2xl border bg-white overflow-hidden shadow-sm transition-all hover:shadow-md dark:bg-zinc-900 ${isFeat ? 'border-yellow-400 dark:border-yellow-500' : 'border-zinc-200 dark:border-zinc-800'}`}>
+                    {/* Featured badge */}
+                    {isFeat && (
+                      <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-black text-yellow-900">
+                        <Star className="h-2.5 w-2.5 fill-current" /> FEATURED
+                      </div>
+                    )}
+                    {/* Saved badge */}
+                    {isSaved && !isFeat && (
+                      <div className="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-black text-white">
+                        ✓ SAVED
+                      </div>
+                    )}
+                    {/* Thumbnail */}
+                    <div className="relative aspect-video bg-zinc-100 dark:bg-zinc-800">
+                      <img
+                        src={cv.thumbnail || `https://i.ytimg.com/vi/${cleanId}/hqdefault.jpg`}
+                        alt={cv.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                        onError={(e: any) => { e.target.src = `https://i.ytimg.com/vi/${cleanId}/hqdefault.jpg`; }}
+                      />
+                      <a
+                        href={`https://www.youtube.com/watch?v=${cleanId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-0 flex items-center justify-center bg-black/0 hover:bg-black/30 transition-all"
+                      >
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600/90 text-white opacity-0 group-hover:opacity-100 transition-all">
+                          <Play className="h-4 w-4 fill-current" />
+                        </span>
+                      </a>
+                    </div>
+                    {/* Info */}
+                    <div className="flex flex-col gap-2 p-3 flex-1">
+                      <p className="line-clamp-2 text-xs font-bold leading-snug text-zinc-900 dark:text-white">{cv.title}</p>
+                      <div className="flex items-center gap-3 text-[10px] text-zinc-500">
+                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{cv.duration}</span>
+                        <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{cv.views?.toLocaleString()}</span>
+                        <span>{publishedDate}</span>
+                      </div>
+                      {/* Action buttons */}
+                      <div className="mt-auto flex items-center gap-2 pt-1">
+                        {isSaved ? (
+                          <button
+                            onClick={() => toggleFeatured(cv)}
+                            disabled={isFeaturing}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-1.5 text-xs font-bold transition-all ${
+                              isFeat
+                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'
+                            }`}
+                          >
+                            {isFeaturing ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : isFeat ? (
+                              <><StarOff className="h-3 w-3" /> Unfeature</>
+                            ) : (
+                              <><Star className="h-3 w-3" /> Feature</>
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => importFromChannel(cv)}
+                            disabled={isImporting}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 py-1.5 text-xs font-bold text-white hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition-all"
+                          >
+                            {isImporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                            {isImporting ? 'Importing...' : 'Import'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

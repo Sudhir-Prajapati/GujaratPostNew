@@ -76,6 +76,17 @@ export async function GET(request: NextRequest) {
         title.toLowerCase().includes('#short') ||
         title.toLowerCase().includes('#shorts');
 
+      // Parse real view count from <media:statistics views="321"/>
+      const viewsMatch = entryXml.match(/<media:statistics[^>]*\sviews="(\d+)"/);
+      const realViews = viewsMatch ? parseInt(viewsMatch[1], 10) : 0;
+
+      // Parse real duration (seconds) from <media:content duration="976"/>
+      const durationSecMatch = entryXml.match(/<media:content[^>]*\sduration="(\d+)"/);
+      const durationSecs = durationSecMatch ? parseInt(durationSecMatch[1], 10) : 0;
+      const durationStr = durationSecs > 0
+        ? `${Math.floor(durationSecs / 60)}:${String(durationSecs % 60).padStart(2, '0')}`
+        : itemIsShort ? '0:58' : '12:00';
+
       const videoObj = {
         id: `yt-live-${videoId}`,
         youtubeId: videoId,
@@ -86,8 +97,8 @@ export async function GET(request: NextRequest) {
         thumbnail,
         publishedAt: published,
         type: itemIsShort ? 'short' : 'video',
-        views: Math.floor(1200 + Math.random() * 5000),
-        duration: itemIsShort ? '0:58' : '12:00',
+        views: realViews,
+        duration: durationStr,
         category: 'News',
         channelUrl: `https://www.youtube.com/@Gujaratpostnews`,
         videoUrl: link,
