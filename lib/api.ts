@@ -195,54 +195,16 @@ export const YOUTUBE_CHANNEL_HANDLE = '@Gujaratpostnews';
  */
 export async function fetchLiveYouTubeChannelVideos(): Promise<{ videos: Video[]; shorts: Video[] }> {
   try {
-    const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
-    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+    // Call our server-side Next.js API route (avoids CORS issues with direct RSS fetch)
+    const baseUrl = typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL || 'https://gujaratpost.vercel.app');
+    const apiUrl = `${baseUrl}/api/youtube-videos`;
 
-    const res = await fetchCachedJson<any>(apiUrl, 300); // 5-minute cache
-    if (res?.status === 'ok' && Array.isArray(res.items)) {
-      const videos: Video[] = [];
-      const shorts: Video[] = [];
-
-      res.items.forEach((item: any, idx: number) => {
-        let yId = '';
-        if (item.link) {
-          const m = item.link.match(/(?:watch\?v=|shorts\/|v\/)([a-zA-Z0-9_-]{11})/);
-          if (m) yId = m[1];
-        }
-        if (!yId && item.guid) {
-          const m2 = item.guid.match(/([a-zA-Z0-9_-]{11})$/);
-          if (m2) yId = m2[1];
-        }
-
-        if (!yId) return;
-
-        const isShort =
-          item.link?.includes('/shorts/') ||
-          item.title?.toLowerCase().includes('#short') ||
-          item.title?.toLowerCase().includes('#shorts');
-
-        const videoObj: Video = {
-          id: `yt-live-${yId}`,
-          youtubeId: yId,
-          title: item.title,
-          titleGu: item.title,
-          titleHi: item.title,
-          description: item.description || item.title,
-          thumbnail: item.thumbnail || `https://i.ytimg.com/vi/${yId}/hqdefault.jpg`,
-          publishedAt: item.pubDate || new Date().toISOString(),
-          type: isShort ? 'short' : 'video',
-          views: 1200 + (10 - idx) * 350,
-          duration: isShort ? '0:58' : '14:30',
-          category: 'News',
-        };
-
-        if (isShort) {
-          shorts.push(videoObj);
-        } else {
-          videos.push(videoObj);
-        }
-      });
-
+    const res = await fetchCachedJson<any>(apiUrl, 300000); // 5-minute cache
+    if (res?.success && Array.isArray(res.data)) {
+      const videos: Video[] = res.data.filter((v: any) => v.type === 'video');
+      const shorts: Video[] = res.data.filter((v: any) => v.type === 'short');
       return { videos, shorts };
     }
   } catch (err) {
@@ -251,6 +213,7 @@ export async function fetchLiveYouTubeChannelVideos(): Promise<{ videos: Video[]
 
   return { videos: [], shorts: [] };
 }
+
 
 /**
  * Fetch videos list dynamically combining live YouTube channel uploads + DB videos
