@@ -115,8 +115,88 @@ export const getArticleExcerpt = (article: Article, language: Language) =>
 export const getArticleContent = (article: Article, language: Language) =>
   getLocalized(language, { en: article?.content || '', gu: article?.contentGu || '', hi: article?.contentHi || '' });
 
-export const getCategoryLabel = (article: Article, language: Language) =>
-  getLocalized(language, { en: article?.category || '', gu: article?.categoryGu || '', hi: article?.categoryHi || '' });
+export const getCategoryLabel = (
+  input: any,
+  language: Language = 'gu'
+): string => {
+  if (!input) return language === 'gu' ? 'સમાચાર' : language === 'hi' ? 'समाचार' : 'News';
+
+  let rawCat = '';
+  let catGu = '';
+  let catHi = '';
+
+  if (typeof input === 'string') {
+    rawCat = input;
+  } else if (typeof input === 'object') {
+    rawCat = input.categorySlug || input.category || '';
+    catGu = input.categoryGu || '';
+    catHi = input.categoryHi || '';
+  }
+
+  if (language === 'gu' && catGu) return catGu;
+  if (language === 'hi' && catHi) return catHi;
+
+  const catLower = rawCat.trim().toLowerCase();
+
+  const guCategoryMap: Record<string, string> = {
+    'fact-check': 'ફેક્ટ ચેક',
+    'factcheck': 'ફેક્ટ ચેક',
+    'fact check': 'ફેક્ટ ચેક',
+    'state': 'રાજ્ય',
+    'state news': 'રાજ્યના સમાચાર',
+    'health': 'આરોગ્ય',
+    'crime': 'ક્રાઇમ',
+    'entertainment': 'મનોરંજન',
+    'technology': 'ટેકનોલોજી',
+    'tech': 'ટેકનોલોજી',
+    'national': 'રાષ્ટ્રીય',
+    'india': 'દેશ / રાષ્ટ્રીય',
+    'international': 'વિદેશ',
+    'world': 'વિશ્વ',
+    'business': 'બિઝનેસ',
+    'sports': 'રમતગમત',
+    'education': 'શિક્ષણ',
+    'politics': 'રાજકારણ',
+    'astrology': 'જ્યોતિષ',
+    'lifestyle': 'લાઇફસ્ટાઇલ',
+    'news': 'સમાચાર',
+    'general': 'સામાન્ય',
+  };
+
+  const hiCategoryMap: Record<string, string> = {
+    'fact-check': 'फैक्ट चेक',
+    'factcheck': 'फैक्ट चेक',
+    'fact check': 'फैक्ट चेक',
+    'state': 'राज्य',
+    'state news': 'राज्य समाचार',
+    'health': 'स्वास्थ्य',
+    'crime': 'क्राइम',
+    'entertainment': 'मनोरंजन',
+    'technology': 'टेक्नोलॉजी',
+    'tech': 'टेक्नोलॉजी',
+    'national': 'राष्ट्रीय',
+    'india': 'देश',
+    'international': 'विदेश',
+    'world': 'विश्व',
+    'business': 'बिजनेस',
+    'sports': 'खेल',
+    'education': 'शिक्षा',
+    'politics': 'राजनीति',
+    'astrology': 'ज्योतिष',
+    'lifestyle': 'लाइफस्टाइल',
+    'news': 'समाचार',
+    'general': 'सामान्य',
+  };
+
+  if (language === 'gu') {
+    return guCategoryMap[catLower] || catGu || rawCat || 'સમાચાર';
+  }
+  if (language === 'hi') {
+    return hiCategoryMap[catLower] || catHi || rawCat || 'समाचार';
+  }
+
+  return rawCat.toUpperCase() || 'NEWS';
+};
 
 export const getLocationLabel = (article: Article | { location?: string }, language: Language) => {
   const loc = article?.location?.trim();
