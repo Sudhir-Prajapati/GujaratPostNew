@@ -12,6 +12,7 @@ import {
   formatDate,
   formatViews,
   getCategoryLabel,
+  getLocationLabel,
   VIDEOS,
   getLocalized,
   ARTICLES,
@@ -3550,41 +3551,51 @@ function CrimeSection({
 
   const slides = useMemo(() => {
     if (dbCrimeArticles.length > 0) {
-      return dbCrimeArticles.slice(0, 3).map((art) => ({
-        id: art.id,
-        slug: art.slug,
-        image: art.image || DEMO_IMAGES[0],
-        category: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        categoryGu: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        categoryHi: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        title: art.title,
-        titleGu: art.titleGu || art.title,
-        titleHi: (art as any).titleHi || art.title,
-        relativeTime: formatTime(art.publishedAt),
-        relativeTimeGu: formatTime(art.publishedAt),
-        relativeTimeHi: formatTime(art.publishedAt),
-        clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:30 AM',
-      }));
+      return dbCrimeArticles.slice(0, 3).map((art) => {
+        const locEn = getLocationLabel(art, 'en') || art.location || art.category || 'Crime';
+        const locGu = getLocationLabel(art, 'gu') || (art as any).locationGu || art.categoryGu || art.category || 'કાઇમ';
+        const locHi = getLocationLabel(art, 'hi') || (art as any).locationHi || art.categoryHi || art.category || 'क्राइम';
+        return {
+          id: art.id,
+          slug: art.slug,
+          image: art.image || DEMO_IMAGES[0],
+          category: locEn,
+          categoryGu: locGu,
+          categoryHi: locHi,
+          title: art.title,
+          titleGu: art.titleGu || art.title,
+          titleHi: (art as any).titleHi || art.title,
+          relativeTime: formatTime(art.publishedAt),
+          relativeTimeGu: formatTime(art.publishedAt),
+          relativeTimeHi: formatTime(art.publishedAt),
+          clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:30 AM',
+        };
+      });
     }
     return mockSlides.map((s) => ({ ...s, clockTime: getMockTime(s.id) }));
   }, [dbCrimeArticles, language]);
 
   const rightList = useMemo(() => {
     if (dbCrimeArticles.length > 3) {
-      return dbCrimeArticles.slice(3, 8).map((art) => ({
-        id: art.id,
-        slug: art.slug,
-        category: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        categoryGu: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        categoryHi: (art as any).locationGu || art.location || art.categoryGu || art.category || 'કાઇમ',
-        title: art.title,
-        titleGu: art.titleGu || art.title,
-        titleHi: (art as any).titleHi || art.title,
-        relativeTime: formatTime(art.publishedAt),
-        relativeTimeGu: formatTime(art.publishedAt),
-        relativeTimeHi: formatTime(art.publishedAt),
-        clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:45 AM',
-      }));
+      return dbCrimeArticles.slice(3, 8).map((art) => {
+        const locEn = getLocationLabel(art, 'en') || art.location || art.category || 'Crime';
+        const locGu = getLocationLabel(art, 'gu') || (art as any).locationGu || art.categoryGu || art.category || 'કાઇમ';
+        const locHi = getLocationLabel(art, 'hi') || (art as any).locationHi || art.categoryHi || art.category || 'क्राइम';
+        return {
+          id: art.id,
+          slug: art.slug,
+          category: locEn,
+          categoryGu: locGu,
+          categoryHi: locHi,
+          title: art.title,
+          titleGu: art.titleGu || art.title,
+          titleHi: (art as any).titleHi || art.title,
+          relativeTime: formatTime(art.publishedAt),
+          relativeTimeGu: formatTime(art.publishedAt),
+          relativeTimeHi: formatTime(art.publishedAt),
+          clockTime: art.publishedAt ? new Date(art.publishedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '10:45 AM',
+        };
+      });
     }
     return mockList.map((item) => ({ ...item, clockTime: getMockTime(item.id) }));
   }, [dbCrimeArticles, language]);
