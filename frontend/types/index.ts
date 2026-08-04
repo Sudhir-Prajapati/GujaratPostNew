@@ -58,6 +58,8 @@ export interface Video {
   type: 'video' | 'short' | 'podcast' | 'interview';
   publishedAt: string;
   views: number;
+  description?: string;
+  category?: string;
 }
 
 export interface Photo {

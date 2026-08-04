@@ -47,10 +47,10 @@ export function clearApiCache(): void {
 /**
  * Fetch wrapper with caching & in-flight request deduplication
  */
-async function fetchCachedJson<T = any>(url: string): Promise<T | null> {
+async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_TTL_MS): Promise<T | null> {
   const now = Date.now();
   const cached = apiCache.get(url);
-  if (cached && now - cached.timestamp < CACHE_TTL_MS) {
+  if (cached && now - cached.timestamp < cacheTtlMs) {
     return cached.data as T;
   }
 
