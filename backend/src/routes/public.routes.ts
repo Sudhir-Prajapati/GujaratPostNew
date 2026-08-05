@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
 import { HeroController } from '../controllers/hero.controller.js';
+import { InstagramReelController } from '../controllers/instagramReel.controller.js';
+import { WebStoryController } from '../controllers/webStory.controller.js';
 
 const router = Router();
 
@@ -360,5 +362,16 @@ router.get('/astrology', async (req, res, next) => {
     next(error);
   }
 });
+/**
+ * GET /api/public/reels
+ * Fetch active Instagram reels
+ */
+router.get('/reels', InstagramReelController.getAllReels);
+
+/**
+ * GET /api/public/web-stories
+ * Fetch active Web Stories
+ */
+router.get('/web-stories', WebStoryController.getAll);
 
 export default router;

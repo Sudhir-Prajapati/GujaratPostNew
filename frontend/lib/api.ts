@@ -409,3 +409,19 @@ export async function updateHeroSettings(payload: {
   return res.json();
 }
 
+/**
+ * Fetch Instagram Reels (Admin/Public)
+ */
+export async function getPublicReels(): Promise<any[]> {
+  try {
+    const url = `${API_BASE_URL}/reels?isActive=true`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.reels) {
+      return json.data.reels;
+    }
+  } catch (error: any) {
+    console.warn('Backend API fetch error for reels:', error?.message || error);
+  }
+  return [];
+}
+

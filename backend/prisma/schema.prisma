@@ -225,15 +225,18 @@ model InstagramStorySlide {
 }
 
 model WebStory {
-  id          String   @id @default(uuid())
-  title       String
-  titleGu     String
-  titleHi     String
-  coverImage  String   @db.Text
-  slidesCount Int      @default(5)
-  category    String   @default("Gujarat")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  heading   String
+  headingGu String?
+  headingHi String?
+  image1    String   @db.Text
+  image2    String?  @db.Text
+  image3    String?  @db.Text
+  image4    String?  @db.Text
+  image5    String?  @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("web_stories")
 }
@@ -278,3 +281,17 @@ model HeroSetting {
   @@map("hero_settings")
 }
 
+model Reel {
+  id        String   @id @default(uuid())
+  type      String   @default("INSTAGRAM") // "VIDEO" or "INSTAGRAM"
+  heading   String   @db.Text
+  headingGu String   @db.Text
+  headingHi String   @db.Text
+  videoUrl  String?  @db.Text // Used if type is "VIDEO"
+  instaUrl  String?  @db.Text // Used if type is "INSTAGRAM"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reels")
+}
