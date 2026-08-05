@@ -19,7 +19,7 @@ import {
   getArticlesByCategory,
   PHOTOS,
 } from '@/data';
-import { getCategoryColor } from '@/lib/utils';
+import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
 import { getPublicArticles, getPublicVideos, getHeroSettings } from '@/lib/api';
 
@@ -3273,7 +3273,7 @@ function CityHyperlocalSection({
                   return (
                     <Link
                       key={tag}
-                      href={`/search?q=${encodeURIComponent(cleanTag)}`}
+                      href={getTrendingTopicHref(cleanTag)}
                       className="border border-neutral-300 dark:border-neutral-700 text-[11px] font-black px-2.5 py-2 rounded-full text-foreground hover:border-[#B3121B] hover:bg-[#B3121B]/5 hover:text-[#B3121B] transition-all bg-card shadow-sm cursor-pointer select-none"
                     >
                       <span className="text-[#B3121B] font-extrabold mr-0.5">#</span>
