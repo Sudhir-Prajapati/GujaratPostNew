@@ -437,22 +437,6 @@ export default function HeroSection({
     return () => clearTimeout(safetyTimer);
   }, []);
 
-  // Lock body scroll while the initial full-screen loading screen is active
-  useEffect(() => {
-    const isLoading = isInitialLoading || !topStories.length;
-    if (isLoading) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    };
-  }, [isInitialLoading, topStories.length]);
-
   // Sidebar auto-changing video state (cycles every 10s)
   const featuredSidebar = videosList.filter(v => v.isFeatured && (v.type === 'video' || !v.type));
   const sidebarVideos = featuredSidebar.length > 0
@@ -553,38 +537,7 @@ export default function HeroSection({
   }, [uniqueTopStories, articlesList, initialArticles]);
 
   if (isInitialLoading || !topStories.length) {
-    return (
-      <div className="relative min-h-[70vh] w-full">
-        {/* Branded loading overlay */}
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-md text-foreground transition-all duration-500">
-          <div className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-card/90 border border-border/50 shadow-2xl backdrop-blur-xl max-w-sm w-full mx-4 text-center">
-            {/* Branded Logo Emblem */}
-            <div className="relative flex items-center justify-center">
-              <div className="absolute h-20 w-20 rounded-full bg-[#B3121B]/20 animate-ping" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#B3121B] text-white font-black text-2xl shadow-lg shadow-[#B3121B]/40 border border-white/20">
-                GP
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-1">
-              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground">
-                {language === 'gu' ? 'ગુજરાત પોસ્ટ' : 'GUJARAT POST'}
-              </h2>
-              <p className="text-xs font-bold text-muted-foreground animate-pulse">
-                {language === 'gu' ? 'સમાચાર લોડ થઈ રહ્યા છે...' : 'Loading latest news...'}
-              </p>
-            </div>
-
-            {/* Spinner */}
-            <div className="flex items-center justify-center mt-1">
-              <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#B3121B] border-t-transparent" />
-            </div>
-          </div>
-        </div>
-
-        <HeroSectionSkeleton language={language} />
-      </div>
-    );
+    return <HeroSectionSkeleton language={language} />;
   }
   return (
     <div className="mx-auto max-w-screen-xl px-2 py-0.5 space-y-1">
