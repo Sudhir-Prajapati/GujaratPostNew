@@ -868,29 +868,35 @@ export default function VideosPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Description
-                </label>
-                <textarea
-                  placeholder="Brief summary of the video content..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
+              {/* Featured toggle box */}
+              <div
+                className={`flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer select-none ${
+                  isFeatured
+                    ? 'border-yellow-400 bg-yellow-50 dark:border-yellow-600/50 dark:bg-yellow-950/20'
+                    : 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/20'
+                }`}
+                onClick={() => setIsFeatured(!isFeatured)}
+              >
                 <input
                   type="checkbox"
                   id="isFeatured"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="rounded border-zinc-300 accent-primary"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4.5 w-4.5 rounded border-zinc-300 accent-yellow-500 cursor-pointer"
                 />
-                <label htmlFor="isFeatured" className="text-sm font-bold text-zinc-650 dark:text-zinc-350 cursor-pointer">
-                  Feature this video on homepage slider
+                <label htmlFor="isFeatured" className="flex items-center gap-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 cursor-pointer flex-1">
+                  {isFeatured ? (
+                    <Star className="h-4.5 w-4.5 text-yellow-500 fill-yellow-500 shrink-0" />
+                  ) : (
+                    <Star className="h-4.5 w-4.5 text-zinc-400 shrink-0" />
+                  )}
+                  <span>Feature this video on homepage slider</span>
+                  {isFeatured && (
+                    <span className="ml-auto flex items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-black text-yellow-950 uppercase tracking-wider shadow-sm">
+                      <Star className="h-3 w-3 fill-current" /> FEATURED
+                    </span>
+                  )}
                 </label>
               </div>
 
@@ -1009,28 +1015,35 @@ export default function VideosPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
+              {/* Featured toggle box */}
+              <div
+                className={`flex items-center gap-3 rounded-xl border p-3 transition-all cursor-pointer select-none ${
+                  isFeatured
+                    ? 'border-yellow-400 bg-yellow-50 dark:border-yellow-600/50 dark:bg-yellow-950/20'
+                    : 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/20'
+                }`}
+                onClick={() => setIsFeatured(!isFeatured)}
+              >
                 <input
                   type="checkbox"
                   id="editIsFeatured"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="rounded border-zinc-300 accent-primary"
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4.5 w-4.5 rounded border-zinc-300 accent-yellow-500 cursor-pointer"
                 />
-                <label htmlFor="editIsFeatured" className="text-sm font-bold text-zinc-650 dark:text-zinc-350 cursor-pointer">
-                  Feature this video on homepage slider
+                <label htmlFor="editIsFeatured" className="flex items-center gap-2 text-sm font-bold text-zinc-800 dark:text-zinc-200 cursor-pointer flex-1">
+                  {isFeatured ? (
+                    <Star className="h-4.5 w-4.5 text-yellow-500 fill-yellow-500 shrink-0" />
+                  ) : (
+                    <Star className="h-4.5 w-4.5 text-zinc-400 shrink-0" />
+                  )}
+                  <span>Feature this video on homepage slider</span>
+                  {isFeatured && (
+                    <span className="ml-auto flex items-center gap-1 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-black text-yellow-950 uppercase tracking-wider shadow-sm">
+                      <Star className="h-3 w-3 fill-current" /> FEATURED
+                    </span>
+                  )}
                 </label>
               </div>
 
