@@ -16,7 +16,7 @@ export class CategoryController {
           },
         },
         orderBy: {
-          name: 'asc',
+          displayOrder: 'asc',
         },
       });
       return sendSuccess(res, categories, 'Categories list retrieved successfully.');
@@ -30,7 +30,7 @@ export class CategoryController {
    */
   static async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, nameGu, nameHi, slug } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive } = req.body;
 
       if (!name || typeof name !== 'string' || name.trim() === '') {
         throw new BadRequestError('Category name is required.');
@@ -62,6 +62,10 @@ export class CategoryController {
           nameGu: nameGu ? nameGu.trim() : name.trim(),
           nameHi: nameHi ? nameHi.trim() : name.trim(),
           slug: categorySlug,
+          icon: icon || null,
+          color: color || null,
+          displayOrder: typeof displayOrder === 'number' ? displayOrder : (parseInt(displayOrder) || 0),
+          isActive: isActive !== undefined ? isActive : true,
         },
       });
 
@@ -77,7 +81,7 @@ export class CategoryController {
   static async updateCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { name, nameGu, nameHi, slug } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive } = req.body;
 
       const category = await prisma.category.findUnique({
         where: { id },
@@ -90,6 +94,12 @@ export class CategoryController {
       if (name && typeof name === 'string') updateData.name = name.trim();
       if (nameGu && typeof nameGu === 'string') updateData.nameGu = nameGu.trim();
       if (nameHi && typeof nameHi === 'string') updateData.nameHi = nameHi.trim();
+      if (icon !== undefined) updateData.icon = icon || null;
+      if (color !== undefined) updateData.color = color || null;
+      if (displayOrder !== undefined) {
+        updateData.displayOrder = typeof displayOrder === 'number' ? displayOrder : (parseInt(displayOrder) || 0);
+      }
+      if (isActive !== undefined) updateData.isActive = isActive;
 
       if (slug && typeof slug === 'string') {
         const checkSlug = slug.trim().toLowerCase();
