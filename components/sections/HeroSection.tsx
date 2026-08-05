@@ -21,7 +21,7 @@ import {
 } from '@/data';
 import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
@@ -374,16 +374,29 @@ export default function HeroSection({
     gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
     silver: { price: '₹84,200', change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
   });
+  const [weatherData, setWeatherData] = useState<any>({
+    city: 'અમદાવાદ',
+    cityEn: 'Ahmedabad',
+    temp: 32,
+    humidity: 68,
+    windSpeed: 14,
+    conditionGu: 'આંશિક વાદળછાયું',
+    conditionEn: 'Partly cloudy',
+  });
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch main articles pool, hero slots settings, videos, AND live market rates in parallel
+    // Fetch main articles pool, hero slots settings, videos, market rates, AND weather in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
       getPublicVideos('video'),
       getMarketRates(),
-    ]).then(([mainRes, heroRes, videoRes, marketRes]: any[]) => {
+      getPublicWeather('ahmedabad'),
+    ]).then(([mainRes, heroRes, videoRes, marketRes, weatherRes]: any[]) => {
+      if (weatherRes) {
+        setWeatherData(weatherRes);
+      }
       if (marketRes) {
         setMarketRates(marketRes);
       }
@@ -3293,11 +3306,25 @@ function CrimeSection({
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
   const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
+  const [weatherData, setWeatherData] = useState<any>({
+    city: 'અમદાવાદ',
+    cityEn: 'Ahmedabad',
+    temp: 32,
+    humidity: 68,
+    windSpeed: 14,
+    conditionGu: 'આંશિક વાદળછાયું',
+    conditionEn: 'Partly cloudy',
+  });
 
   useEffect(() => {
     getPublicArticles({ categorySlug: 'crime', limit: 25 }).then((crimeRes) => {
       if (crimeRes && crimeRes.articles && crimeRes.articles.length > 0) {
         setDbCrimeArticles(crimeRes.articles);
+      }
+    });
+    getPublicWeather('ahmedabad').then((wRes) => {
+      if (wRes) {
+        setWeatherData(wRes);
       }
     });
   }, []);
@@ -3845,17 +3872,17 @@ function CrimeSection({
         <div className="flex items-center gap-1.5 mb-4 select-none">
           <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
           <span className="text-[12px] md:text-[13px] font-black uppercase tracking-wider text-white/90">
-            {language === 'gu' ? 'હવામાન - અમદાવાદ' : 'Weather - Ahmedabad'}
+            {language === 'gu' ? `હવામાન - ${weatherData.city || 'અમદાવાદ'}` : `Weather - ${weatherData.cityEn || 'Ahmedabad'}`}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
           <div>
             <span className="text-4xl font-extrabold tracking-tight select-none">
-              {language === 'gu' ? toGuLocal('32') : '32'}°
+              {language === 'gu' ? toGuLocal(weatherData.temp ?? 32) : (weatherData.temp ?? 32)}°
             </span>
             <p className="text-[12px] text-white/70 font-bold mt-1.5 select-none">
-              {language === 'gu' ? 'આંશિક વાદળછાયું' : 'Partly cloudy'}
+              {language === 'gu' ? (weatherData.conditionGu || 'આંશિક વાદળછાયું') : (weatherData.conditionEn || 'Partly cloudy')}
             </p>
           </div>
 
@@ -3872,13 +3899,13 @@ function CrimeSection({
             <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 fill-none stroke-current stroke-2">
               <path d="M12 22a7 7 0 0 0 7-7c0-4.3-7-13-7-13S5 10.7 5 15a7 7 0 0 0 7 7z" />
             </svg>
-            {language === 'gu' ? `ભેજ 68%` : `Humidity 68%`}
+            {language === 'gu' ? `ભેજ ${toGuLocal(weatherData.humidity ?? 68)}%` : `Humidity ${weatherData.humidity ?? 68}%`}
           </span>
           <span className="flex items-center gap-1.5 select-none">
             <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 fill-none stroke-current stroke-2">
               <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.59-6.59A2 2 0 1 1 19 12H2" />
             </svg>
-            {language === 'gu' ? `પવન 14 કિમી` : `Wind 14 km/h`}
+            {language === 'gu' ? `પવન ${toGuLocal(weatherData.windSpeed ?? 14)} કિમી` : `Wind ${weatherData.windSpeed ?? 14} km/h`}
           </span>
         </div>
       </div>
