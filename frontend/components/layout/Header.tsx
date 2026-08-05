@@ -1,7 +1,7 @@
 'use client';
 
 /* eslint-disable @next/next/no-html-link-for-pages */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
@@ -21,6 +21,7 @@ import { SocialLinks } from '@/components/ui/SocialLinks';
 import Advertisement from '@/components/ads/Advertisement';
 import DistrictBar from './DistrictBar';
 import gpLogo from '../../public/Gujarat Post Logo.gif';
+import { getPublicCategories } from '@/lib/api';
 
 const languageLabels = {
   gu: 'ગુજરાતી',
@@ -222,15 +223,57 @@ export default function Header() {
     router.push(`/search?q=${encodeURIComponent(query)}`);
   };
 
+  const [dbCategories, setDbCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    getPublicCategories()
+      .then((cats) => {
+        if (cats && Array.isArray(cats) && cats.length > 0) {
+          setDbCategories(cats);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const { navLinks, otherLinks } = useMemo(() => {
+    if (!dbCategories || dbCategories.length === 0) {
+      return { navLinks: NAV_LINKS, otherLinks: OTHER_LINKS };
+    }
+
+    const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
+    const videosLink = { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' };
+    const photosLink = { label: 'Photos', labelGu: 'ફોટો ગેલેરી', labelHi: 'फोटो गैलरी', href: '/photos' };
+
+    // DB categories sorted by displayOrder asc from backend
+    const categoryLinks = dbCategories.map((c) => ({
+      label: c.name,
+      labelGu: c.nameGu || c.name,
+      labelHi: c.nameHi || c.name,
+      href: `/category/${c.slug}`,
+    }));
+
+    const specialOtherLinks = [
+      { label: 'Webstory', labelGu: 'વેબસ્ટોરી', labelHi: 'વેબ સ્ટોરીઝ', href: '/category/webstory' },
+      { label: 'Weather', labelGu: 'હવામાન', labelHi: 'मौसम', href: '/category/weather' },
+    ];
+
+    const allCombined = [homeLink, videosLink, ...categoryLinks, photosLink];
+    const mainNav = allCombined.slice(0, 14);
+    const overflow = allCombined.slice(14);
+    const otherNav = [...overflow, ...specialOtherLinks];
+
+    return { navLinks: mainNav, otherLinks: otherNav };
+  }, [dbCategories]);
+
   // Determine active link: exact match for home, startsWith for others
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
     return pathname === href || pathname.startsWith(href + '/') || pathname.startsWith(href + '?');
   };
 
-  const getNavLabel = (link: (typeof NAV_LINKS)[0]) => {
-    if (language === 'hi') return link.labelHi;
-    if (language === 'gu') return link.labelGu;
+  const getNavLabel = (link: { label: string; labelGu?: string; labelHi?: string }) => {
+    if (language === 'hi') return link.labelHi || link.label;
+    if (language === 'gu') return link.labelGu || link.label;
     return link.label;
   };
 
@@ -525,7 +568,7 @@ export default function Header() {
           </div>
         </div>
 
-        {/* ── Mobile Drawer ────────────────────────────────────────────────── */}
+        {/* -- Mobile Drawer -------------------------------------------------- */}
         {menuOpen && (
           <nav className="border-t border-border bg-card md:hidden" aria-label="Mobile navigation">
             <div className="px-4 py-3">
@@ -535,7 +578,7 @@ export default function Header() {
                 onClick={() => setMenuOpen(false)}
                 className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-accent py-2.5 text-sm font-black text-white shadow hover:bg-accent-hover transition"
               >
-                {language === 'gu' ? 'ઈ-પેપર' : language === 'hi' ? 'ई-पेपर' : 'E-Paper'}
+                {language === 'gu' ? 'ઈ-પેપર' : language === 'hi' ? 'ઈ-પેપર' : 'E-Paper'}
               </a>
 
               {/* App downloads CTA */}
@@ -565,7 +608,7 @@ export default function Header() {
 
               {/* Flat link grid */}
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                {[...NAV_LINKS, ...OTHER_LINKS].map((link) => {
+                {[...navLinks, ...otherLinks].map((link) => {
                   const active = isActive(link.href);
                   return (
                     <a
@@ -591,7 +634,7 @@ export default function Header() {
         )}
       </header>
 
-      {/* ── Sticky Nav Section (Category Bar + District Bar) ────────────────── */}
+      {/* -- Sticky Nav Section (Category Bar + District Bar) ------------------ */}
       <div className={`${hideStickyNav ? 'relative z-50' : 'sticky top-0 z-50'} bg-card/98 shadow-md transition-all duration-300`}>
         {/* Desktop Nav Bar */}
         <nav
@@ -602,7 +645,7 @@ export default function Header() {
             {/* Main scrollable navigation list */}
             <div className="flex-1 min-w-0 overflow-hidden">
               <ul className="flex items-center gap-0 overflow-x-auto scrollbar-none">
-                {NAV_LINKS.map((link) => {
+                {navLinks.map((link) => {
                   const active = isActive(link.href);
                   return (
                     <li key={link.href} className="shrink-0">
@@ -672,7 +715,7 @@ export default function Header() {
                 {/* shimmer sweep on hover */}
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500 group-hover:translate-x-full" aria-hidden="true" />
                 <BookOpen className="h-3.5 w-3.5 shrink-0" />
-                <span className="tracking-wide">{language === 'gu' ? 'ઈ-પેપર' : language === 'hi' ? 'ई-पेपर' : 'E-Paper'}</span>
+                <span className="tracking-wide">{language === 'gu' ? 'ઈ-પેપર' : language === 'hi' ? 'ઈ-પેપર' : 'E-Paper'}</span>
                 {/* live pulse dot */}
                 <span className="relative flex h-1.5 w-1.5 shrink-0">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
@@ -691,7 +734,7 @@ export default function Header() {
                 onMouseEnter={() => setOtherMenuOpen(true)}
                 onMouseLeave={() => setOtherMenuOpen(false)}
               >
-                {OTHER_LINKS.map((link) => {
+                {otherLinks.map((link) => {
                   const active = isActive(link.href);
                   return (
                     <a

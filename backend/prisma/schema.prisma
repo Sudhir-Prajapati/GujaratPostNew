@@ -88,6 +88,8 @@ model Category {
   descriptionHi String?  @db.Text
   icon          String?
   color         String?
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
   posts         Post[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -282,16 +284,17 @@ model HeroSetting {
 }
 
 model Reel {
-  id        String   @id @default(uuid())
-  type      String   @default("INSTAGRAM") // "VIDEO" or "INSTAGRAM"
-  heading   String   @db.Text
-  headingGu String   @db.Text
-  headingHi String   @db.Text
-  videoUrl  String?  @db.Text // Used if type is "VIDEO"
-  instaUrl  String?  @db.Text // Used if type is "INSTAGRAM"
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(uuid())
+  type        String    @default("INSTAGRAM") // "VIDEO" or "INSTAGRAM"
+  heading     String    @db.Text
+  headingGu   String    @db.Text
+  headingHi   String    @db.Text
+  videoUrl    String?   @db.Text // Used if type is "VIDEO"
+  instaUrl    String?   @db.Text // Used if type is "INSTAGRAM"
+  isActive    Boolean   @default(true)
+  scheduledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("reels")
 }
