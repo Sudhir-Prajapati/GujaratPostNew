@@ -21,7 +21,7 @@ import {
 } from '@/data';
 import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
@@ -370,15 +370,23 @@ export default function HeroSection({
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
   const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
+  const [marketRates, setMarketRates] = useState<any>({
+    gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
+    silver: { price: '₹84,200', change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
+  });
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch main articles pool AND hero slots settings in parallel
+    // Fetch main articles pool, hero slots settings, videos, AND live market rates in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
       getPublicVideos('video'),
-    ]).then(([mainRes, heroRes, videoRes]: any[]) => {
+      getMarketRates(),
+    ]).then(([mainRes, heroRes, videoRes, marketRes]: any[]) => {
+      if (marketRes) {
+        setMarketRates(marketRes);
+      }
       if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
         setDynamicTrendingTopics(heroRes.trendingTopics);
       } else if (heroRes?.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
@@ -936,10 +944,10 @@ export default function HeroSection({
                   </div>
                   <div className="text-right">
                     <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      ₹73,450
+                      {marketRates?.gold?.price || '₹74,850'}
                     </p>
                     <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
-                      ▲ ₹450
+                      {marketRates?.gold?.change || '▲ ₹450'}
                     </p>
                   </div>
                 </div>
@@ -964,10 +972,10 @@ export default function HeroSection({
                   </div>
                   <div className="text-right">
                     <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      ₹82,800
+                      {marketRates?.silver?.price || '₹84,200'}
                     </p>
                     <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
-                      — {language === 'gu' ? 'Stable' : 'Stable'}
+                      {marketRates?.silver?.change || '— Stable'}
                     </p>
                   </div>
                 </div>
