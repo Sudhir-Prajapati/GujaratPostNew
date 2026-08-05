@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-super-secret-key-at-least-32-characters-long';
+const rawSecret = process.env.JWT_SECRET || 'fallback-super-secret-key-at-least-32-characters-long';
+const JWT_SECRET = rawSecret.replace(/^["']|["']$/g, '');
 const JWT_ACCESS_EXPIRY = process.env.JWT_ACCESS_EXPIRY || '24h';
 const JWT_REFRESH_EXPIRY = process.env.JWT_REFRESH_EXPIRY || '30d';
 
