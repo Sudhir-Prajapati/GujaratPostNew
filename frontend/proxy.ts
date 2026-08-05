@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "fallback-super-secret-key-at-least-32-characters-long"
-);
+function getJwtSecret() {
+  const secret = process.env.JWT_SECRET || "fallback-super-secret-key-at-least-32-characters-long";
+  const cleanSecret = secret.replace(/^["']|["']$/g, "");
+  return new TextEncoder().encode(cleanSecret);
+}
 
 interface TokenPayload {
   userId: string;
@@ -15,7 +17,7 @@ interface TokenPayload {
 // Map roles to their permitted admin path prefixes
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPER_ADMIN: ["/admin"], // Super admin can access all admin routes
-  EDITOR: ["/admin/articles", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories", "/admin/stats"],
+  EDITOR: ["/admin/articles", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/stats"],
   REPORTER: ["/admin/articles"],
   SEO: ["/admin/seo"],
   ADVERTISEMENT: ["/admin/ads"],
@@ -24,13 +26,26 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get("access_token")?.value;
+  console.log("DEBUG - proxy JWT_SECRET:", process.env.JWT_SECRET ? "exists (len " + process.env.JWT_SECRET.length + ")" : "undefined");
+  console.log("DEBUG - proxy token:", token);
+  if (token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(payloadStr);
+        console.log("DEBUG - proxy token payload:", payload);
+      }
+    } catch (e: any) {
+      console.log("DEBUG - failed to decode payload:", e.message);
+    }
+  }
 
   // Only run middleware on /admin routes and /api/admin routes
   if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
     return NextResponse.next();
   }
-
-  const token = request.cookies.get("access_token")?.value;
 
   // If token is missing, redirect to login (or return 401 for API routes)
   if (!token) {
@@ -44,7 +59,7 @@ export async function proxy(request: NextRequest) {
 
   try {
     // Verify JWT
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     const userPayload = payload as unknown as TokenPayload;
 
     const userRole = userPayload.role;
