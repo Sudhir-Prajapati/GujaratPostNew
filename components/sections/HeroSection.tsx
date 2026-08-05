@@ -3098,28 +3098,40 @@ function CityHyperlocalSection({
               <div className="group relative flex flex-col min-w-0">
                 {/* Image container */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
-                  <Image
-                    src={currentSlide.image}
-                    alt={currentSlide.titleGu}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 40vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  />
+                  <Link href={`/news/${currentSlide.slug}`} className="block relative w-full h-full cursor-pointer">
+                    <Image
+                      src={currentSlide.image}
+                      alt={currentSlide.titleGu}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 40vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  </Link>
                   {/* Left / Right Arrows */}
                   <button
-                    onClick={() => setSlideIdx((prev) => (prev - 1 + mockSlides.length) % mockSlides.length)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSlideIdx((prev) => (prev - 1 + mockSlides.length) % mockSlides.length);
+                    }}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 text-[18px] font-bold select-none cursor-pointer"
                   >
                     ‹
                   </button>
                   <button
-                    onClick={() => setSlideIdx((prev) => (prev + 1) % mockSlides.length)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSlideIdx((prev) => (prev + 1) % mockSlides.length);
+                    }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 text-[18px] font-bold select-none cursor-pointer"
                   >
                     ›
                   </button>
                   {/* Counter Index */}
-                  <span className="absolute top-2.5 left-2.5 bg-black/70 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-sm z-10 select-none">
+                  <span className="absolute top-2.5 left-2.5 bg-black/70 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-sm z-10 select-none pointer-events-none">
                     {language === 'gu'
                       ? `${toGuLocal(slideIdx + 1)} / ${toGuLocal(mockSlides.length)}`
                       : `${slideIdx + 1} / ${mockSlides.length}`}
