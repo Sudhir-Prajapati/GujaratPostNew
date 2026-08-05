@@ -40,10 +40,18 @@ router.get('/articles', async (req, res, next) => {
       const numQuery = parseInt(cleanQuery, 10);
       where.AND.push({
         OR: [
-          { title: { contains: query } },
-          { titleGu: { contains: query } },
-          { titleHi: { contains: query } },
-          { content: { contains: query } },
+          { title: { contains: cleanQuery } },
+          { titleGu: { contains: cleanQuery } },
+          { titleHi: { contains: cleanQuery } },
+          { excerpt: { contains: cleanQuery } },
+          { excerptGu: { contains: cleanQuery } },
+          { excerptHi: { contains: cleanQuery } },
+          { content: { contains: cleanQuery } },
+          { contentGu: { contains: cleanQuery } },
+          { contentHi: { contains: cleanQuery } },
+          { location: { contains: cleanQuery } },
+          { tags: { some: { tag: { name: { contains: cleanQuery } } } } },
+          { tags: { some: { tag: { nameGu: { contains: cleanQuery } } } } },
           ...(!isNaN(numQuery) && numQuery > 0 ? [{ articleNumber: numQuery }] : []),
         ],
       });
@@ -76,7 +84,7 @@ router.get('/articles', async (req, res, next) => {
     if (isBreaking) where.isBreaking = true;
     if (isFeatured) where.isFeatured = true;
 
-    const [posts, total] = await Promise.all([
+    let [posts, total] = await Promise.all([
       prisma.post.findMany({
         where,
         include: {
@@ -84,9 +92,6 @@ router.get('/articles', async (req, res, next) => {
           author: true,
           tags: { include: { tag: true } },
         },
-        // When fetching featured articles, use stable createdAt asc so slot order
-        // doesn't shuffle every time isFeatured is toggled (which updates updatedAt).
-        // For normal listings, use latest-first (updatedAt desc).
         orderBy: isFeatured
           ? [{ createdAt: 'asc' }]
           : [
@@ -99,6 +104,28 @@ router.get('/articles', async (req, res, next) => {
       }),
       prisma.post.count({ where }),
     ]);
+
+    // Fallback: If searching a specific topic string returns 0 results, return recent published posts
+    if (posts.length === 0 && query) {
+      const fallbackWhere: any = { status: 'PUBLISHED' };
+      if (categorySlug) {
+        const slugLower = categorySlug.toLowerCase();
+        fallbackWhere.category = {
+          OR: [{ slug: slugLower }, { name: categorySlug }, { nameGu: categorySlug }],
+        };
+      }
+      posts = await prisma.post.findMany({
+        where: fallbackWhere,
+        include: {
+          category: true,
+          author: true,
+          tags: { include: { tag: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+        take: limit,
+      });
+      total = posts.length;
+    }
 
     const articles = posts.map((p) => ({
       id: p.id,
