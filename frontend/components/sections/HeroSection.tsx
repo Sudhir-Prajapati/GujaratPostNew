@@ -437,6 +437,22 @@ export default function HeroSection({
     return () => clearTimeout(safetyTimer);
   }, []);
 
+  // Lock body scroll while the initial full-screen loading screen is active
+  useEffect(() => {
+    const isLoading = isInitialLoading || !topStories.length;
+    if (isLoading) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [isInitialLoading, topStories.length]);
+
   // Sidebar auto-changing video state (cycles every 10s)
   const featuredSidebar = videosList.filter(v => v.isFeatured && (v.type === 'video' || !v.type));
   const sidebarVideos = featuredSidebar.length > 0
