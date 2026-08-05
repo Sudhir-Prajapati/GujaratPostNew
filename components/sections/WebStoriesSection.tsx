@@ -3,67 +3,45 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 
 interface StoryItem {
   id: string;
-  title: string;
-  titleGu: string;
-  avatar: string;
-  image: string;
-  description: string;
-  descriptionGu: string;
+  heading: string;
+  headingGu: string;
+  headingHi: string;
+  images: string[];
 }
 
 import { getPublicWebStories } from '@/lib/api';
 
 const AUTO_PLAY_DURATION = 5000;
 
-const FALLBACK_STORY_ITEMS: StoryItem[] = [
-  {
-    id: 'webstory1',
-    title: 'Future Tech',
-    titleGu: 'ભવિષ્ય ટેકનોલોજી',
-    avatar: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/7.jpg',
-    description: 'How AI and augmented reality are transforming modern architecture.',
-    descriptionGu: 'AI અને ઓગમેન્ટેડ રિયાલિટી કેવી રીતે આધુનિક આર્કિટેક્ચરને બદલી રહ્યા છે.',
-  },
-  {
-    id: 'webstory2',
-    title: 'Healthy Bites',
-    titleGu: 'ફૂડ ડાયરી',
-    avatar: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=150&h=150&fit=crop&q=80',
-    image: '/assets/demo/1.jpg',
-    description: 'Nutritionist-approved quick meals to boost your energy throughout the day.',
-    descriptionGu: 'આખો દિવસ તમારી એનર્જી વધારવા માટે ઝડપી પૌષ્ટિક આહાર રેસિપી.',
-  },
-];
-
 export default function WebStoriesSection() {
   const { language } = useApp();
-  const [stories, setStories] = useState<StoryItem[]>(FALLBACK_STORY_ITEMS);
+  const [stories, setStories] = useState<StoryItem[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number | null>(null);
+  const [activeSlideIndex, setActiveSlideIndex] = useState<number>(0);
 
   useEffect(() => {
     getPublicWebStories().then((res) => {
       if (res && res.length > 0) {
-        const formatted: StoryItem[] = res.map((ws: any) => ({
-          id: ws.id,
-          title: ws.title,
-          titleGu: ws.titleGu,
-          avatar: ws.coverImage,
-          image: ws.coverImage,
-          description: ws.title,
-          descriptionGu: ws.titleGu,
-        }));
+        const formatted: StoryItem[] = res.map((ws: any) => {
+          const images = [ws.image1, ws.image2, ws.image3, ws.image4, ws.image5].filter(Boolean);
+          return {
+            id: ws.id,
+            heading: ws.heading,
+            headingGu: ws.headingGu || ws.heading,
+            headingHi: ws.headingHi || ws.heading,
+            images,
+          };
+        });
         setStories(formatted);
       }
     });
   }, []);
 
-  const STORY_ITEMS = stories;
   const [progress, setProgress] = useState(0);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -109,23 +87,41 @@ export default function WebStoriesSection() {
 
   const handleNext = useCallback(() => {
     if (activeStoryIndex === null) return;
-    if (activeStoryIndex < STORY_ITEMS.length - 1) {
-      setActiveStoryIndex(activeStoryIndex + 1);
+    
+    const currentStory = stories[activeStoryIndex];
+    if (activeSlideIndex < currentStory.images.length - 1) {
+      // Next slide in current story
+      setActiveSlideIndex(prev => prev + 1);
+      setProgress(0);
+    } else if (activeStoryIndex < stories.length - 1) {
+      // Next story
+      setActiveStoryIndex(prev => (prev as number) + 1);
+      setActiveSlideIndex(0);
       setProgress(0);
     } else {
+      // Close modal
       setActiveStoryIndex(null);
+      setActiveSlideIndex(0);
     }
-  }, [activeStoryIndex]);
+  }, [activeStoryIndex, activeSlideIndex, stories]);
 
   const handlePrev = useCallback(() => {
     if (activeStoryIndex === null) return;
-    if (activeStoryIndex > 0) {
-      setActiveStoryIndex(activeStoryIndex - 1);
+    
+    if (activeSlideIndex > 0) {
+      // Prev slide in current story
+      setActiveSlideIndex(prev => prev - 1);
+      setProgress(0);
+    } else if (activeStoryIndex > 0) {
+      // Prev story
+      setActiveStoryIndex(prev => (prev as number) - 1);
+      setActiveSlideIndex(stories[activeStoryIndex - 1].images.length - 1);
       setProgress(0);
     } else {
+      // At the very beginning
       setProgress(0);
     }
-  }, [activeStoryIndex]);
+  }, [activeStoryIndex, activeSlideIndex, stories]);
 
   useEffect(() => {
     if (activeStoryIndex === null) {
@@ -154,7 +150,7 @@ export default function WebStoriesSection() {
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [activeStoryIndex, handleNext]);
+  }, [activeStoryIndex, activeSlideIndex, handleNext]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
@@ -177,6 +173,8 @@ export default function WebStoriesSection() {
       handleNext();
     }
   };
+
+  if (stories.length === 0) return null;
 
   return (
     <section className="mx-auto max-w-screen-xl px-4 mt-8 relative overflow-hidden select-none">
@@ -232,13 +230,14 @@ export default function WebStoriesSection() {
             ref={scrollContainerRef}
             className="scrollbar-none flex gap-4 overflow-x-auto pb-2"
           >
-            {STORY_ITEMS.map((story, index) => {
-              const displayTitle = language === 'gu' ? story.titleGu : story.title;
+            {stories.map((story, index) => {
+              const displayTitle = language === 'gu' ? story.headingGu : language === 'hi' ? story.headingHi : story.heading;
               return (
                 <div
                   key={story.id}
                   onClick={() => {
                     setActiveStoryIndex(index);
+                    setActiveSlideIndex(0);
                     setProgress(0);
                   }}
                   className="flex-none w-[130px] sm:w-[155px] cursor-pointer snap-start group"
@@ -252,7 +251,7 @@ export default function WebStoriesSection() {
 
                     {/* Image */}
                     <Image
-                      src={story.image}
+                      src={story.images[0]}
                       alt={displayTitle}
                       fill
                       sizes="(max-width: 640px) 130px, 155px"
@@ -266,12 +265,8 @@ export default function WebStoriesSection() {
                     <div className="absolute bottom-0 inset-x-0 p-3 flex flex-col gap-1.5">
                       {/* Avatar & Title Group */}
                       <div className="flex items-center gap-2">
-                        <div className="h-[22px] w-[22px] rounded-full border border-white/60 overflow-hidden shrink-0">
-                          <img
-                            src={story.avatar}
-                            alt="avatar"
-                            className="h-full w-full object-cover"
-                          />
+                        <div className="h-[22px] w-[22px] rounded-full bg-white flex items-center justify-center shrink-0">
+                          <BookOpen size={12} className="text-[#B3121B]" />
                         </div>
                         <span className="text-[10px] text-white/95 font-black truncate drop-shadow">
                           Gujarat Post
@@ -290,17 +285,18 @@ export default function WebStoriesSection() {
       </div>
 
       {/* Story View Modal */}
-      {activeStoryIndex !== null && (
+      {activeStoryIndex !== null && stories[activeStoryIndex] && (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center">
           <div className="relative w-full max-w-[420px] aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden shadow-2xl mx-4">
 
             {/* Background Layer with opacity blur */}
             <div className="absolute inset-0">
               <Image
-                src={STORY_ITEMS[activeStoryIndex].image}
+                src={stories[activeStoryIndex].images[activeSlideIndex]}
                 alt="Story background"
                 fill
-                className="object-cover opacity-75"
+                className="object-cover"
+                priority
               />
             </div>
 
@@ -310,10 +306,10 @@ export default function WebStoriesSection() {
             {/* Top Bar with Progress indicators */}
             <div className="absolute top-0 inset-x-0 p-3 bg-gradient-to-b from-black/80 to-transparent z-20 flex flex-col gap-3">
               <div className="flex gap-1">
-                {STORY_ITEMS.map((_, idx) => {
+                {stories[activeStoryIndex].images.map((_, idx) => {
                   let widthPercent = 0;
-                  if (idx < activeStoryIndex) widthPercent = 100;
-                  else if (idx === activeStoryIndex) widthPercent = progress;
+                  if (idx < activeSlideIndex) widthPercent = 100;
+                  else if (idx === activeSlideIndex) widthPercent = progress;
 
                   return (
                     <div key={idx} className="h-1 flex-1 bg-white/30 rounded-full overflow-hidden">
@@ -329,16 +325,12 @@ export default function WebStoriesSection() {
               {/* Author & Header Close bar */}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full border border-white/60 overflow-hidden">
-                    <img
-                      src={STORY_ITEMS[activeStoryIndex].avatar}
-                      alt="avatar"
-                      className="h-full w-full object-cover"
-                    />
+                  <div className="h-7 w-7 bg-white rounded-full flex items-center justify-center">
+                    <BookOpen size={14} className="text-[#B3121B]" />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-white text-xs font-black drop-shadow-md">
-                      {language === 'gu' ? STORY_ITEMS[activeStoryIndex].titleGu : STORY_ITEMS[activeStoryIndex].title}
+                      {language === 'gu' ? stories[activeStoryIndex].headingGu : language === 'hi' ? stories[activeStoryIndex].headingHi : stories[activeStoryIndex].heading}
                     </span>
                   </div>
                 </div>
@@ -356,12 +348,7 @@ export default function WebStoriesSection() {
                 </button>
               </div>
 
-              {/* Description box at the bottom */}
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent p-5 pt-10 z-20">
-                <p className="text-white text-xs sm:text-sm font-bold leading-normal text-center drop-shadow">
-                  {language === 'gu' ? STORY_ITEMS[activeStoryIndex].descriptionGu : STORY_ITEMS[activeStoryIndex].description}
-                </p>
-              </div>
+              {/* Removed description box as stories don't have descriptions in new schema */}
             </div>
           </div>
         </div>
