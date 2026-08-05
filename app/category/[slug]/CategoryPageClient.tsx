@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, Clock } from 'lucide-react';
@@ -232,6 +232,11 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
   const [visibleCount, setVisibleCount] = useState(9);
+
+  // Scroll page to top instantly whenever category page mounts or slug changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [slug]);
 
   const isGujarat = true; // Apply the premium mockup layout to all category pages
 

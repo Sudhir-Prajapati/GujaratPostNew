@@ -56,6 +56,7 @@ export default function SearchResultsClient({ initialQuery }: { initialQuery: st
   const [results, setResults] = useState<Article[]>([]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     getPublicArticles({ query: initialQuery || undefined, limit: 20 }).then((res) => {
       if (res && res.articles) {
         setResults(res.articles);
