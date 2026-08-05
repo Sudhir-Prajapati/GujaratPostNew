@@ -126,112 +126,60 @@ export function getTrendingTopicHref(tag: string): string {
   const clean = tag.replace(/^#/, '').trim();
   const lower = clean.toLowerCase();
 
+  // Standard Main Navbar Category & Page Mappings ONLY
   const categoryMap: Record<string, string> = {
-    // Election / ચૂંટણી
+    // Election / ચૂંટણી 2027
     'ચૂંટણી 2026': '/category/election-2027',
     'ચૂંટણી 2027': '/category/election-2027',
-    'ચૂંટણી': '/category/election-2027',
     'election-2027': '/category/election-2027',
     'election 2027': '/category/election-2027',
     'election 2026': '/category/election-2027',
-    'election': '/category/election-2027',
 
-    // Weather / Rain / હવામાન / વરસાદ
-    'વરસાદ': '/category/weather',
-    'હવામાન': '/category/weather',
-    'weather': '/category/weather',
-    'rain': '/category/weather',
-
-    // Gold-Silver / સોના-ચાંદી / સોનું-ચાંદી / ગોલ્ડ - સિલ્વર
-    'સોના-ચાંદી': '/category/gold-silver',
-    'સોના ચાંદી': '/category/gold-silver',
-    'સોનું-ચાંદી': '/category/gold-silver',
-    'ગોલ્ડ - સિલ્વર': '/category/gold-silver',
-    'ગોલ્ડ સિલ્વર': '/category/gold-silver',
-    'gold-silver': '/category/gold-silver',
-    'gold silver': '/category/gold-silver',
-
-    // Sports / Cricket / ક્રિકેટ / સ્પોર્ટ્સ / રમતગમત
-    'ક્રિકેટ': '/category/sports',
-    'cricket': '/category/sports',
-    'સ્પોર્ટ્સ': '/category/sports',
-    'sports': '/category/sports',
-    'રમતગમત': '/category/sports',
-
-    // Politics / રાજનીતિ / રાજકારણ
-    'રાજનીતિ': '/category/politics',
-    'રાજકારણ': '/category/politics',
-    'politics': '/category/politics',
-
-    // Crime / ક્રાઇમ / કાઇમ
-    'ક્રાઇમ': '/category/crime',
-    'કાઇમ': '/category/crime',
-    'crime': '/category/crime',
-
-    // Health / હેલ્થ / આરોગ્ય
-    'હેલ્થ': '/category/health',
-    'આરોગ્ય': '/category/health',
-    'health': '/category/health',
-
-    // Entertainment / મનોરંજન
-    'મનોરંજન': '/category/entertainment',
-    'entertainment': '/category/entertainment',
-
-    // Technology / ટેકનોલોજી
-    'ટેકનોલોજી': '/category/technology',
-    'technology': '/category/technology',
-
-    // Photo Gallery / ફોટો ગેલેરી
-    'ફોટો ગેલેરી': '/photos',
-    'ફોટો': '/photos',
-    'photos': '/photos',
-
-    // Fact Check / ફેક્ટ ચેક
-    'ફેક્ટ ચેક': '/category/fact-check',
-    'fact check': '/category/fact-check',
-    'fact-check': '/category/fact-check',
-
-    // Trending / ટ્રેન્ડિંગ
-    'ટ્રેન્ડિંગ': '/category/trending',
-    'trending': '/category/trending',
-
-    // Podcast / પોડકાસ્ટ
-    'પોડકાસ્ટ': '/videos?tab=podcast',
-    'podcast': '/videos?tab=podcast',
-
-    // Videos / વીડિયો
-    'વીડિયો': '/videos',
-    'videos': '/videos',
-
-    // Webstory / વેબસ્ટોરી
-    'વેબસ્ટોરી': '/web-stories',
-    'webstory': '/web-stories',
-    'webstories': '/web-stories',
-
-    // Instagram / ઇન્સ્ટાગ્રામ
-    'ઇન્સ્ટાગ્રામ': '/category/instagram',
-    'instagram': '/category/instagram',
-
-    // Gujarat / ગુજરાત
+    // Main Categories
     'ગુજરાત': '/category/gujarat',
     'gujarat': '/category/gujarat',
-
-    // India / national / ભારત
     'ભારત': '/category/national',
     'national': '/category/national',
     'india': '/category/national',
-
-    // World / વિશ્વ
     'વિશ્વ': '/category/world',
     'world': '/category/world',
-
-    // Business / બિઝનેસ / ડાયમંડ ઉદ્યોગ / સેમિકન્ડક્ટર
+    'રાજનીતિ': '/category/politics',
+    'રાજકારણ': '/category/politics',
+    'politics': '/category/politics',
+    'ક્રાઇમ': '/category/crime',
+    'કાઇમ': '/category/crime',
+    'crime': '/category/crime',
+    'હેલ્થ': '/category/health',
+    'આરોગ્ય': '/category/health',
+    'health': '/category/health',
+    'મનોરંજન': '/category/entertainment',
+    'entertainment': '/category/entertainment',
+    'ટેકનોલોજી': '/category/technology',
+    'technology': '/category/technology',
+    'સ્પોર્ટ્સ': '/category/sports',
+    'sports': '/category/sports',
+    'રમતગમત': '/category/sports',
     'બિઝનેસ': '/category/business',
     'business': '/category/business',
-    'ડાયમંડ ઉદ્યોગ': '/category/business',
-    'સેમિકન્ડક્ટર': '/category/business',
 
-    // Cities from City Bar
+    // Media & Special Pages
+    'ફોટો ગેલેરી': '/photos',
+    'photos': '/photos',
+    'ફેક્ટ ચેક': '/category/fact-check',
+    'fact-check': '/category/fact-check',
+    'ટ્રેન્ડિંગ': '/category/trending',
+    'trending': '/category/trending',
+    'પોડકાસ્ટ': '/videos?tab=podcast',
+    'podcast': '/videos?tab=podcast',
+    'વીડિયો': '/videos',
+    'videos': '/videos',
+    'વેબસ્ટોરી': '/web-stories',
+    'webstory': '/web-stories',
+    'webstories': '/web-stories',
+    'ઇન્સ્ટાગ્રામ': '/category/instagram',
+    'instagram': '/category/instagram',
+
+    // Cities
     'અમદાવાદ': '/category/gujarat?city=ahmedabad',
     'ahmedabad': '/category/gujarat?city=ahmedabad',
     'ગાંધીનગર': '/category/gujarat?city=gandhinagar',
@@ -244,18 +192,11 @@ export function getTrendingTopicHref(tag: string): string {
     'rajkot': '/category/rajkot',
   };
 
-  // Direct match lookup
+  // Direct exact match
   if (categoryMap[clean]) return categoryMap[clean];
   if (categoryMap[lower]) return categoryMap[lower];
 
-  // Partial match checks
-  for (const [key, route] of Object.entries(categoryMap)) {
-    if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) {
-      return route;
-    }
-  }
-
-  // Default fallback: Search page
+  // Default fallback for topics like 'વરસાદ' (Rain), 'સોના-ચાંદી', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', custom topics: Search Page!
   return `/search?q=${encodeURIComponent(clean)}`;
 }
 
