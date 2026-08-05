@@ -28,6 +28,7 @@ import type { Article, Language } from '@/types';
 import InstagramStories from '@/components/sections/InstagramStories';
 import WebStoriesSection from '@/components/sections/WebStoriesSection';
 import { ZODIAC_SIGNS, ZodiacSign } from '@/components/sections/AstrologySection';
+import { ZodiacIcon, GUJARAT_ZODIAC_LETTERS } from '@/components/ui/ZodiacIcon';
 import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
 import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
@@ -3934,36 +3935,41 @@ function CrimeSection({
             {language === 'gu' ? '• આજનું રાશિફળ' : language === 'hi' ? '• आज का राशिफल' : '• Today\'s Horoscope'}
           </span>
         </div>
-        <div className="border border-purple-500/20 dark:border-purple-500/30 rounded-xl bg-gradient-to-b from-card via-card to-purple-950/5 p-3 sm:p-3.5 shadow-md">
-          <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
-            {ZODIAC_SIGNS.map((sign, idx) => {
-              const symbol = getZodiacSymbol(sign.id);
+        <div className="border border-purple-500/20 dark:border-purple-500/30 rounded-xl bg-card p-2 sm:p-2.5 shadow-sm">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {ZODIAC_SIGNS.map((sign) => {
+              const isSelected = selectedZodiac?.id === sign.id;
+              const letters = GUJARAT_ZODIAC_LETTERS[sign.id] || `(${sign.name})`;
               const primaryName = language === 'gu' ? sign.nameGu : language === 'hi' ? sign.nameHi : sign.name;
-              const secondaryName = `(${sign.name})`;
+              const subName = language === 'gu' ? letters : language === 'hi' ? letters : `(${sign.name})`;
 
               return (
                 <div
                   key={sign.id}
                   onClick={() => setSelectedZodiac(sign)}
-                  style={{ animationDelay: `${idx * 40}ms` }}
-                  className="relative flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl border border-border/80 bg-background/80 hover:bg-gradient-to-b hover:from-purple-50/80 hover:to-indigo-50/50 dark:hover:from-purple-950/40 dark:hover:to-indigo-950/30 hover:border-purple-500/60 shadow-xs hover:shadow-xl hover:shadow-purple-500/15 transition-all duration-300 transform hover:-translate-y-1.5 hover:scale-[1.03] cursor-pointer select-none group text-center overflow-hidden animate-in fade-in zoom-in-95"
+                  className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg border transition-all duration-200 cursor-pointer select-none text-center overflow-hidden ${
+                    isSelected
+                      ? 'bg-[#FFF8F0] dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/60 shadow-xs'
+                      : 'bg-background hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-border/60 hover:border-amber-300/60'
+                  }`}
                 >
-                  {/* Shimmer sweep effect */}
-                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 dark:via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" aria-hidden="true" />
-
-                  {/* Glowing 3D Icon Box */}
-                  <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#4A329A] via-[#5A38C2] to-[#7342DC] text-white text-[14px] font-extrabold shadow-md shadow-purple-950/30 mb-1.5 transition-all duration-300 group-hover:scale-115 group-hover:rotate-[6deg] group-hover:shadow-purple-500/40 group-hover:ring-4 group-hover:ring-purple-500/25 select-none leading-none">
-                    {symbol}
+                  {/* SVG Illustration Icon */}
+                  <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center mb-1 select-none">
+                    <ZodiacIcon id={sign.id} className="h-7 w-7 sm:h-8 sm:w-8" />
                   </div>
 
-                  {/* Gujarati / Primary Name */}
-                  <span className="text-[11.5px] sm:text-[12px] font-black text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors select-none leading-tight">
+                  {/* Gujarati Name */}
+                  <span className={`text-[12px] sm:text-[12.5px] font-black leading-tight select-none ${
+                    isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
+                  }`}>
                     {primaryName}
                   </span>
 
-                  {/* Secondary English Name */}
-                  <span className="text-[9.5px] sm:text-[10px] font-bold text-muted-foreground/80 group-hover:text-purple-500/80 transition-colors select-none mt-0.5 leading-none">
-                    {secondaryName}
+                  {/* Gujarati Initial Letters (અ, લ, ઈ) */}
+                  <span className={`text-[9.5px] sm:text-[10px] font-semibold leading-tight select-none mt-0.5 ${
+                    isSelected ? 'text-amber-600 dark:text-amber-300 font-bold' : 'text-muted-foreground'
+                  }`}>
+                    {subName}
                   </span>
                 </div>
               );
@@ -3988,8 +3994,8 @@ function CrimeSection({
           <X className="h-4 w-4" />
         </button>
 
-        <div className="relative mx-auto mt-2 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#4A329A] via-[#5A38C2] to-[#7342DC] text-white text-3xl font-extrabold shadow-xl shadow-purple-900/40 ring-4 ring-purple-500/30 animate-pulse">
-          {getZodiacSymbol(selectedZodiac.id)}
+        <div className="relative mx-auto mt-2 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/60 shadow-md">
+          <ZodiacIcon id={selectedZodiac.id} className="h-14 w-14" />
         </div>
 
         <h3 className="mt-4 text-2xl font-black text-foreground">
