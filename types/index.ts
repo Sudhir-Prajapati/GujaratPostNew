@@ -60,6 +60,7 @@ export interface Video {
   views: number;
   description?: string;
   category?: string;
+  isFeatured?: boolean;
 }
 
 export interface Photo {

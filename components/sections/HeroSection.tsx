@@ -438,7 +438,10 @@ export default function HeroSection({
   }, []);
 
   // Sidebar auto-changing video state (cycles every 10s)
-  const sidebarVideos = videosList.filter(v => v.type === 'video').slice(0, 6);
+  const featuredSidebar = videosList.filter(v => v.isFeatured && (v.type === 'video' || !v.type));
+  const sidebarVideos = featuredSidebar.length > 0
+    ? featuredSidebar
+    : videosList.filter(v => v.type === 'video' || !v.type).slice(0, 6);
   const [activeSidebarVideoIndex, setActiveSidebarVideoIndex] = useState(0);
 
   useEffect(() => {
@@ -891,7 +894,7 @@ export default function HeroSection({
 
 
 
-      <VideoDesk videos={videosList.length > 0 ? videosList : videos.slice(0, 7)} language={language} showShorts={false} />
+      <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
 
       <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
 
