@@ -155,7 +155,16 @@ export class VideoController {
       if (type !== undefined) updateData.type = type;
       if (description !== undefined) updateData.description = description ? description.trim() : null;
       if (duration !== undefined) updateData.duration = duration;
-      if (isFeatured !== undefined) updateData.isFeatured = !!isFeatured;
+      if (isFeatured !== undefined) {
+        const newFeatured = !!isFeatured;
+        if (!newFeatured && existing.isFeatured) {
+          const featuredCount = await prisma.video.count({ where: { isFeatured: true } });
+          if (featuredCount <= 3) {
+            throw new BadRequestError('Minimum 3 featured videos are compulsory for the homepage layout! Please feature another video before unfeaturing this one.');
+          }
+        }
+        updateData.isFeatured = newFeatured;
+      }
       if (channel !== undefined) updateData.channel = channel.trim();
 
       if (youtubeId !== undefined) {
@@ -187,6 +196,13 @@ export class VideoController {
       const existing = await prisma.video.findUnique({ where: { id } });
       if (!existing) {
         throw new BadRequestError('Video not found.');
+      }
+
+      if (existing.isFeatured) {
+        const featuredCount = await prisma.video.count({ where: { isFeatured: true } });
+        if (featuredCount <= 3) {
+          throw new BadRequestError('Minimum 3 featured videos are compulsory for the homepage layout! You cannot delete a featured video when only 3 featured videos exist.');
+        }
       }
 
       await prisma.video.delete({

@@ -225,30 +225,61 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
   try {
     // 1. Fetch live YouTube channel uploads from @Gujaratpostnews RSS feed
     const liveYt = await fetchLiveYouTubeChannelVideos();
-    let liveList =
+    const liveList =
       type === 'short'
         ? liveYt.shorts
         : type === 'video'
           ? liveYt.videos
           : [...liveYt.videos, ...liveYt.shorts];
 
-    for (const v of liveList) {
-      if (v.youtubeId && !seenIds.has(v.youtubeId)) {
-        seenIds.add(v.youtubeId);
-        combined.push(v);
-      }
-    }
-
     // 2. Fetch backend database videos
     const url = type ? `${API_BASE_URL}/videos?type=${type}` : `${API_BASE_URL}/videos`;
     const json = await fetchCachedJson<any>(url);
-    if (json?.success && Array.isArray(json.data?.videos)) {
-      for (const v of json.data.videos) {
-        const idKey = v.youtubeId || v.id;
+    const dbVideos: Video[] = (json?.success && Array.isArray(json.data?.videos)) ? json.data.videos : [];
+
+    // Create lookup map for DB videos by youtubeId or id
+    const dbMap = new Map<string, Video>();
+    for (const dbv of dbVideos) {
+      const key = dbv.youtubeId || dbv.id;
+      if (key) dbMap.set(key, dbv);
+    }
+
+    // 3. FIRST: Add all DB videos that are marked as isFeatured: true
+    for (const dbv of dbVideos) {
+      if (dbv.isFeatured) {
+        const idKey = dbv.youtubeId || dbv.id;
         if (idKey && !seenIds.has(idKey)) {
           seenIds.add(idKey);
+          combined.push(dbv);
+        }
+      }
+    }
+
+    // 4. SECOND: Add live RSS videos, merging isFeatured and localized titles from DB if available
+    for (const v of liveList) {
+      if (v.youtubeId && !seenIds.has(v.youtubeId)) {
+        seenIds.add(v.youtubeId);
+        const dbMatch = dbMap.get(v.youtubeId);
+        if (dbMatch) {
+          combined.push({
+            ...v,
+            ...dbMatch,
+            isFeatured: dbMatch.isFeatured ?? v.isFeatured,
+            titleGu: dbMatch.titleGu || v.titleGu,
+            titleHi: dbMatch.titleHi || v.titleHi,
+          });
+        } else {
           combined.push(v);
         }
+      }
+    }
+
+    // 5. THIRD: Add remaining DB videos
+    for (const dbv of dbVideos) {
+      const idKey = dbv.youtubeId || dbv.id;
+      if (idKey && !seenIds.has(idKey)) {
+        seenIds.add(idKey);
+        combined.push(dbv);
       }
     }
   } catch (error: any) {

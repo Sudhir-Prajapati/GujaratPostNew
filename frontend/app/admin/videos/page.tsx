@@ -259,6 +259,40 @@ export default function VideosPage() {
       setChannelFeaturing(null);
     }
   };
+  // Toggle featured status for a video in Saved Videos tab
+  const handleToggleFeaturedSaved = async (video: VideoData) => {
+    const newFeatured = !video.isFeatured;
+    if (!newFeatured) {
+      const resCount = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
+      const jsonCount = await resCount.json();
+      const featCount = (jsonCount.data?.videos || []).filter((v: any) => v.isFeatured).length;
+      if (featCount <= 3) {
+        alert('Minimum 3 featured videos are compulsory for the homepage layout! Please feature another video before unfeaturing this one.');
+        return;
+      }
+    }
+
+    try {
+      const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${video.id}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isFeatured: newFeatured }),
+      });
+      const upJson = await upRes.json();
+      if (!upRes.ok) throw new Error(upJson.error || 'Failed to update feature status');
+
+      const cleanId = safeYouTubeId(video.youtubeId);
+      setVideos(prev => prev.map(v => (v.id === video.id ? { ...v, isFeatured: newFeatured } : v)));
+      setFeaturedIds(prev => {
+        const next = new Map(prev);
+        if (newFeatured) next.set(cleanId, video.id);
+        else next.delete(cleanId);
+        return next;
+      });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
 
   // Submit Add video
@@ -540,21 +574,37 @@ export default function VideosPage() {
                   </p>
                 </div>
 
-                <div className="flex justify-end gap-1.5 mt-4 border-t pt-3 border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-1.5 mt-4 border-t pt-3 border-zinc-100 dark:border-zinc-800">
                   <button
-                    onClick={() => openEdit(video)}
-                    className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-white"
-                    title="Edit metadata"
+                    onClick={() => handleToggleFeaturedSaved(video)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+                      video.isFeatured
+                        ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                        : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
+                    }`}
                   >
-                    <Edit2 className="h-4 w-4" />
+                    {video.isFeatured ? (
+                      <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
+                    ) : (
+                      <><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> Feature</>
+                    )}
                   </button>
-                  <button
-                    onClick={() => handleDelete(video.id)}
-                    className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-650 dark:hover:bg-red-950/20"
-                    title="Delete video"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => openEdit(video)}
+                      className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-white"
+                      title="Edit metadata"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(video.id)}
+                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-650 dark:hover:bg-red-950/20"
+                      title="Delete video"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
