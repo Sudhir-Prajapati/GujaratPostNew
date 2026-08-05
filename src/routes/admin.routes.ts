@@ -7,6 +7,8 @@ import { VideoController } from '../controllers/video.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 import { StatsController } from '../controllers/stats.controller.js';
 import { HeroController } from '../controllers/hero.controller.js';
+import { InstagramReelController } from '../controllers/instagramReel.controller.js';
+import { WebStoryController } from '../controllers/webStory.controller.js';
 import uploadRoutes from './upload.routes.js';
 
 
@@ -78,6 +80,22 @@ router.get('/stats', requireAuth, StatsController.getStats);
 // ==========================================
 router.get('/hero-settings', requireAuth, HeroController.getHeroSettings);
 router.put('/hero-settings', requireAuth, HeroController.updateHeroSettings);
+
+// ==========================================
+// 10. Instagram Reels Settings
+// ==========================================
+router.get('/reels', requireAuth, InstagramReelController.getAllReels);
+router.post('/reels', requireAuth, InstagramReelController.createReel);
+router.put('/reels/:id', requireAuth, InstagramReelController.updateReel);
+router.delete('/reels/:id', requireAuth, InstagramReelController.deleteReel);
+
+// ==========================================
+// 11. Web Stories
+// ==========================================
+router.get('/web-stories', requireAuth, WebStoryController.getAll);
+router.post('/web-stories', requireAuth, WebStoryController.create);
+router.put('/web-stories/:id', requireAuth, WebStoryController.update);
+router.delete('/web-stories/:id', requireAuth, WebStoryController.delete);
 
 export default router;
 
