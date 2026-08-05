@@ -270,12 +270,14 @@ router.get('/categories', async (req, res, next) => {
 router.get('/videos', async (req, res, next) => {
   try {
     const type = req.query.type as string;
+    const isFeatured = req.query.isFeatured;
     const where: any = {};
     if (type) where.type = type;
+    if (isFeatured !== undefined) where.isFeatured = isFeatured === 'true';
 
     const videos = await prisma.video.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
     });
     return sendSuccess(res, { videos }, 'Videos retrieved');
   } catch (error) {
