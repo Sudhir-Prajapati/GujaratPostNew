@@ -125,8 +125,8 @@ export async function proxy(request: NextRequest) {
       },
     });
 
-  } catch (error) {
-    console.error("Proxy JWT verification failed:", error);
+  } catch (error: any) {
+    console.warn(`Proxy JWT verification failed (${error?.code || error?.message || "invalid token"}). Clearing token cookie.`);
     
     if (pathname.startsWith("/api/")) {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
