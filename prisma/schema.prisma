@@ -298,3 +298,21 @@ model Reel {
 
   @@map("reels")
 }
+
+model Advertisement {
+  id        String   @id @default(uuid())
+  section   String   @unique // e.g. "AFTER_HERO", "SIDEBAR_HERO_TOP", "SIDEBAR_GUJARAT", "SIDEBAR_WORLD", "SIDEBAR_POPULAR"
+  title     String?  // Optional name label for admin reference
+  isActive  Boolean  @default(true)
+  mediaType String   @default("IMAGE") // "IMAGE" or "VIDEO"
+  image1    String?  @db.Text
+  link1     String?  @db.Text
+  image2    String?  @db.Text
+  link2     String?  @db.Text
+  image3    String?  @db.Text
+  link3     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("advertisements")
+}

@@ -37,14 +37,22 @@ const upload = multer({
   fileFilter,
 });
 
-router.post('/', (req: any, res: any) => {
-  upload.single('file')(req, res, async (err: any) => {
+const handleUpload = (req: any, res: any) => {
+  // Support both 'file' and 'image' field names in Multer
+  const singleUpload = upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'image', maxCount: 1 },
+  ]);
+
+  singleUpload(req, res, async (err: any) => {
     if (err) {
       console.error('Multer upload error:', err);
       return res.status(400).json({ success: false, error: err.message || 'File upload error.' });
     }
 
-    if (!req.file || !req.file.buffer) {
+    const uploadedFile = req.file || (req.files && (req.files.file?.[0] || req.files.image?.[0]));
+
+    if (!uploadedFile || !uploadedFile.buffer) {
       return res.status(400).json({ success: false, error: 'No file uploaded or file buffer empty.' });
     }
 
@@ -72,16 +80,20 @@ router.post('/', (req: any, res: any) => {
           return res.status(200).json({
             success: true,
             url: fileUrl,
+            data: { url: fileUrl },
           });
         }
       );
 
-      uploadStream.end(req.file.buffer);
+      uploadStream.end(uploadedFile.buffer);
     } catch (error: any) {
       console.error('Upload route error:', error);
       return res.status(500).json({ success: false, error: error.message || 'File upload failed.' });
     }
   });
-});
+};
+
+router.post('/', handleUpload);
+router.post('/image', handleUpload);
 
 export default router;
