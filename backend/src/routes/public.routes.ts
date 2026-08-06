@@ -4,8 +4,16 @@ import { sendSuccess } from '../utils/response.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
+import { AdController } from '../controllers/ad.controller.js';
 
 const router = Router();
+
+/**
+ * GET /api/public/ads
+ * GET /api/public/ads/:section
+ */
+router.get('/ads', AdController.getAllAds);
+router.get('/ads/:section', AdController.getAdBySection);
 
 /**
  * GET /api/public/hero-settings

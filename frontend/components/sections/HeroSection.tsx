@@ -32,6 +32,8 @@ import { ZodiacIcon, GUJARAT_ZODIAC_LETTERS } from '@/components/ui/ZodiacIcon';
 import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
 import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
+import AdSectionBanner from '@/components/ads/AdSectionBanner';
+import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 
 const CHANNEL_URL = 'https://www.youtube.com/@Gujaratpostnews';
@@ -785,23 +787,18 @@ export default function HeroSection({
 
         {/* ═══ RIGHT SIDEBAR — Ad + YouTube Latest + Popular ═══════════════ */}
         <div className="flex flex-col gap-4">
-          {/* Advertisement banner */}
-          <div className="ad-slot">
-            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </p>
-            <div className="ad-inner">
-              <div className="ad-creative rounded-sm p-4 text-white flex flex-col justify-between" style={{ background: 'linear-gradient(135deg,#FF6B35,#C81D25)', minHeight: 180 }}>
-                <div>
-                  <div className="ad-brand font-black text-lg uppercase tracking-wide">મેગા સેલ ડેઝ</div>
-                  <div className="ad-tag text-[12.5px] font-semibold mt-2 leading-snug">ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!</div>
-                </div>
-                <button className="ad-cta bg-white text-slate-900 rounded-sm px-4.5 py-1.5 text-[11px] font-black transition duration-200 hover:-translate-y-0.5 hover:shadow-lg w-max mt-4">
-                  હમણાં ખરીદો ↗
-                </button>
-              </div>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_HERO_TOP"
+            language={language}
+            fallbackTitleGu="મેગા સેલ ડેઝ"
+            fallbackTitleEn="Mega Sale Days"
+            fallbackTagGu="ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!"
+            fallbackTagEn="Up to 70% off on fashion and electronics — today only!"
+            fallbackCtaGu="હમણાં ખરીદો"
+            fallbackCtaEn="Shop Now"
+            fallbackGradient="linear-gradient(135deg,#FF6B35,#C81D25)"
+            minHeight={180}
+          />
 
           {/* YouTube Video Section */}
           <div className="w-full rounded-md border border-slate-200 bg-card p-4 shadow-sm flex flex-col gap-2.5">
@@ -894,6 +891,8 @@ export default function HeroSection({
       </div>
 
 
+
+      <AdSectionBanner section="AFTER_HERO" />
 
       <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
 
@@ -1000,6 +999,8 @@ export default function HeroSection({
 
       <TrendingSection />
 
+      <AdSectionBanner section="AFTER_TRENDING" />
+
       {/* Big Horizontal Ad before Latest News */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
         <Advertisement position="header" className="w-full" />
@@ -1023,6 +1024,8 @@ export default function HeroSection({
 
       <WebStoriesSection />
 
+      <AdSectionBanner section="AFTER_WEBSTORIES" />
+
       {/* Horizontal Ad Section before EntertainTechLifeSection */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
         <Advertisement position="header" className="w-full" />
@@ -1034,9 +1037,11 @@ export default function HeroSection({
 
       <PhotoGallerySection language={language} />
 
-
+      <AdSectionBanner section="AFTER_GALLERY" />
 
       <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
+
+      <AdSectionBanner section="AFTER_VIDEOS" />
 
       <WeatherDashboardSection language={language} />
 
@@ -3245,26 +3250,18 @@ function CityHyperlocalSection({
         {/* Right Column: Sidebar Ads and widgets */}
         <div className="flex flex-col gap-6 sticky top-20 select-none">
 
-          {/* Ad widget banner */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-            </span>
-            <div className="w-full rounded-sm bg-gradient-to-br from-[#0f3d70] to-[#001f3f] text-white p-6 flex flex-col items-center justify-center border border-border/10 shadow-sm text-center relative overflow-hidden" style={{ minHeight: 180 }}>
-              <h4 className="text-[20px] font-black tracking-tight select-none">
-                {language === 'gu' ? 'ઇઝી પર્સનલ લોન' : 'Easy Personal Loan'}
-              </h4>
-              <p className="text-[12px] text-white/90 font-bold mt-1.5 leading-snug">
-                {language === 'gu' ? 'ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી' : 'Just 10.5% interest, approval in 5 mins'}
-              </p>
-              <button
-                type="button"
-                className="mt-4 bg-white text-[#0f3d70] font-black text-[12px] px-5 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer border border-[#0f3d70]"
-              >
-                {language === 'gu' ? 'અરજી કરો ↗' : 'Apply Now ↗'}
-              </button>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_GUJARAT"
+            language={language}
+            fallbackTitleGu="ઇઝી પર્સનલ લોન"
+            fallbackTitleEn="Easy Personal Loan"
+            fallbackTagGu="ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી"
+            fallbackTagEn="Just 10.5% interest, approval in 5 mins"
+            fallbackCtaGu="અરજી કરો"
+            fallbackCtaEn="Apply Now"
+            fallbackGradient="linear-gradient(135deg,#0f3d70,#001f3f)"
+            minHeight={180}
+          />
 
           {/* WhatsApp Channel widget */}
           <div className="w-full rounded-sm border border-slate-200 bg-card p-5 shadow-sm">
@@ -4351,26 +4348,18 @@ function PopularStoriesSection({
         <span className="text-[#B3121B] font-extrabold text-[15px] pr-1">→</span>
       </div>
 
-      {/* Recharge Plus Ad Widget */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <div className="bg-slate-100/95 border border-slate-200 border-b-0 text-[10px] text-slate-500 font-black py-1.5 text-center uppercase tracking-widest rounded-t-sm">
-          {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-        </div>
-        <div className="w-full rounded-b-sm bg-gradient-to-br from-[#5D3FD3] to-[#4A2CA8] text-white p-8 py-10 flex flex-col items-center justify-center relative overflow-hidden border border-slate-200 text-center flex-1 shadow-sm" style={{ minHeight: 265 }}>
-          <h4 className="text-[22px] font-black tracking-tight select-none">
-            {language === 'gu' ? 'રિચાર્જ પ્લસ' : 'Recharge Plus'}
-          </h4>
-          <p className="text-[13px] text-white/90 font-bold mt-2.5 leading-snug max-w-[220px]">
-            {language === 'gu' ? 'અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને' : 'Unlimited data + calling only ₹199/month'}
-          </p>
-          <button
-            type="button"
-            className="mt-6 bg-white text-[#5D3FD3] font-black text-[13px] px-7 py-3 rounded-full shadow-md hover:bg-white/95 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            {language === 'gu' ? 'રિચાર્જ કરો ›' : 'Recharge Now ›'}
-          </button>
-        </div>
-      </div>
+      <SidebarAdBanner
+        slot="SIDEBAR_POPULAR"
+        language={language}
+        fallbackTitleGu="રિચાર્જ પ્લસ"
+        fallbackTitleEn="Recharge Plus"
+        fallbackTagGu="અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને"
+        fallbackTagEn="Unlimited data + calling only ₹199/month"
+        fallbackCtaGu="રિચાર્જ કરો"
+        fallbackCtaEn="Recharge Now"
+        fallbackGradient="linear-gradient(135deg,#5D3FD3,#4A2CA8)"
+        minHeight={265}
+      />
 
     </div>
   );
@@ -6376,25 +6365,18 @@ export function WorldSection({ language }: { language: Language }) {
         {/* Right Column: Widgets */}
         <div className="flex flex-col gap-6">
 
-          {/* Green Dream Home Ad */}
-          <div className="w-full rounded-sm bg-[#0E8044] text-white p-6 py-6 flex flex-col items-center justify-center relative overflow-hidden border border-border/10 shadow-md text-center" style={{ minHeight: 180 }}>
-            {/* Small Ad Label at top */}
-            <span className="absolute top-2.5 left-3.5 text-[9.5px] text-white/50 font-black tracking-wider uppercase select-none">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </span>
-            <h4 className="text-[22px] font-black tracking-tight select-none mt-2">
-              {language === 'gu' ? 'ડ્રીમ હોમ્સ' : 'Dream Homes'}
-            </h4>
-            <p className="text-[13px] text-white/95 font-bold mt-1.5 leading-snug max-w-[240px]">
-              {language === 'gu' ? 'તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે' : 'Your dream home — with 0% processing fee'}
-            </p>
-            <button
-              type="button"
-              className="mt-4 bg-white text-[#0E8044] font-black text-[12.5px] px-7 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              {language === 'gu' ? 'વધુ જાણો ›' : 'Learn More ›'}
-            </button>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_WORLD"
+            language={language}
+            fallbackTitleGu="ડ્રીમ હોમ્સ"
+            fallbackTitleEn="Dream Homes"
+            fallbackTagGu="તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે"
+            fallbackTagEn="Your dream home — with 0% processing fee"
+            fallbackCtaGu="વધુ જાણો"
+            fallbackCtaEn="Learn More"
+            fallbackGradient="#0E8044"
+            minHeight={180}
+          />
 
           {/* Dynamic Foreign Currency Widget */}
           <CurrencyRatesWidget language={language} />

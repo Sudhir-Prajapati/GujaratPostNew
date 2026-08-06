@@ -9,8 +9,8 @@ import { StatsController } from '../controllers/stats.controller.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
+import { AdController } from '../controllers/ad.controller.js';
 import uploadRoutes from './upload.routes.js';
-
 
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -96,6 +96,14 @@ router.get('/web-stories', requireAuth, WebStoryController.getAll);
 router.post('/web-stories', requireAuth, WebStoryController.create);
 router.put('/web-stories/:id', requireAuth, WebStoryController.update);
 router.delete('/web-stories/:id', requireAuth, WebStoryController.delete);
+
+// ==========================================
+// 12. Section Advertisements
+// ==========================================
+router.get('/ads', requireAuth, AdController.getAllAds);
+router.post('/ads', requireAuth, AdController.createOrUpdateAd);
+router.put('/ads/:id/toggle', requireAuth, AdController.toggleActive);
+router.delete('/ads/:id', requireAuth, AdController.deleteAd);
 
 export default router;
 
