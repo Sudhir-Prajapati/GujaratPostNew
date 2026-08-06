@@ -21,6 +21,7 @@ import {
   LayoutTemplate,
   Smartphone,
   BookOpen,
+  Megaphone,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
@@ -56,6 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Articles', href: '/admin/articles', icon: FileText },
     { label: 'Hero Section', href: '/admin/hero', icon: LayoutTemplate },
+    { label: 'Advertisements', href: '/admin/ads', icon: Megaphone },
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
     { label: 'Videos', href: '/admin/videos', icon: Video },
@@ -66,10 +68,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const ROLE_PERMISSIONS: Record<string, string[]> = {
     SUPER_ADMIN: ["/admin"],
-    EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories"],
+    EDITOR: ["/admin/articles", "/admin/hero", "/admin/ads", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories"],
     REPORTER: ["/admin/articles"],
     SEO: ["/admin/articles", "/admin/categories"],
-    ADVERTISEMENT: ["/admin/articles"],
+    ADVERTISEMENT: ["/admin/articles", "/admin/ads"],
     PHOTOGRAPHER: ["/admin/gallery"],
   };
 

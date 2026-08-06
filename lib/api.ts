@@ -471,3 +471,33 @@ export async function getPublicWeather(city?: string): Promise<any> {
   };
 }
 
+/**
+ * Fetch public advertisements for sections
+ */
+export async function getPublicAds(): Promise<any[]> {
+  try {
+    const url = `${API_BASE_URL}/ads`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ads) {
+      return json.data.ads;
+    }
+  } catch (error: any) {
+    console.warn('Failed to fetch public ads from API:', error?.message || error);
+  }
+  return [];
+}
+
+export async function getPublicAdBySection(section: string): Promise<any | null> {
+  try {
+    const url = `${API_BASE_URL}/ads/${encodeURIComponent(section)}`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ad) {
+      return json.data.ad;
+    }
+  } catch (error: any) {
+    console.warn(`Failed to fetch public ad for section ${section}:`, error?.message || error);
+  }
+  return null;
+}
+
+
