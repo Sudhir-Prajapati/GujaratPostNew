@@ -198,8 +198,8 @@ export class VideoController {
         throw new BadRequestError('Video not found.');
       }
 
-      if (existing.isFeatured) {
-        const featuredCount = await prisma.video.count({ where: { isFeatured: true } });
+      if (existing.isFeatured && existing.type !== 'short') {
+        const featuredCount = await prisma.video.count({ where: { isFeatured: true, type: 'video' } });
         if (featuredCount <= 3) {
           throw new BadRequestError('Minimum 3 featured videos are compulsory for the homepage layout! You cannot delete a featured video when only 3 featured videos exist.');
         }
@@ -210,6 +210,20 @@ export class VideoController {
       });
 
       return sendSuccess(res, null, 'Video deleted successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Bulk delete all short videos (type === 'short')
+   */
+  static async deleteAllShorts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await prisma.video.deleteMany({
+        where: { type: 'short' },
+      });
+      return sendSuccess(res, { count: result.count }, `Deleted ${result.count} short videos.`);
     } catch (error) {
       next(error);
     }

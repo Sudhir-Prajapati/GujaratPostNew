@@ -88,6 +88,8 @@ model Category {
   descriptionHi String?  @db.Text
   icon          String?
   color         String?
+  displayOrder  Int?     @default(0)
+  isActive      Boolean? @default(true)
   posts         Post[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -186,6 +188,7 @@ model GalleryPhoto {
   caption      String   @db.Text
   captionGu    String   @db.Text
   captionHi    String   @db.Text
+  category     String?  @default("સમાચાર")
   photographer String
   copyright    String
   createdAt    DateTime @default(now())
@@ -262,6 +265,7 @@ model AstrologySign {
   image        String   @db.Text
   prediction   String   @db.Text
   predictionGu String   @db.Text
+  detailsJson  String?  @db.Text
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -294,4 +298,32 @@ model Reel {
   updatedAt DateTime @updatedAt
 
   @@map("reels")
+}
+
+model EPaperCity {
+  id        String   @id @default(uuid())
+  city      String   @unique
+  cityGu    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("epaper_cities")
+}
+
+model EPaperEdition {
+  id           String   @id @default(uuid())
+  title        String?  // Sub-edition name e.g. "Ahmedabad City", "Ahmedabad East", "City Life"
+  city         String
+  cityGu       String?
+  date         String   // YYYY-MM-DD
+  pages        Int      @default(24)
+  fileUrl      String   @db.Text
+  thumbnailUrl String?  @db.Text
+  status       String   @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
+  publishTime  String?  @default("06:00 AM")
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("epaper_editions")
 }
