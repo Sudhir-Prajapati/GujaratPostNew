@@ -449,7 +449,10 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             </div>
 
             <h1 className="article-title">{title}</h1>
-            <p className="article-sub">{excerpt}</p>
+            <div
+              className="article-sub [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through"
+              dangerouslySetInnerHTML={{ __html: excerpt }}
+            />
 
             <div className="byline select-none">
               <div className="flex items-center gap-[11px]">

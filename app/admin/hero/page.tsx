@@ -306,6 +306,9 @@ export default function HeroManagerPage() {
   const [savingPopularNews, setSavingPopularNews] = useState(false);
   const [draggedPopularIndex, setDraggedPopularIndex] = useState<number | null>(null);
 
+  const [heroGridArticles, setHeroGridArticles] = useState<Article[]>([]);
+  const [savingHeroGrid, setSavingHeroGrid] = useState(false);
+
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3500);
@@ -322,6 +325,12 @@ export default function HeroManagerPage() {
 
       const arts = (pubRes.articles || []) as unknown as Article[];
       setAllArticles(arts);
+
+      if (heroRes && Array.isArray((heroRes as any).heroGridArticles) && (heroRes as any).heroGridArticles.length > 0) {
+        setHeroGridArticles((heroRes as any).heroGridArticles as unknown as Article[]);
+      } else {
+        setHeroGridArticles(arts.slice(0, 13));
+      }
 
       if (heroRes && Array.isArray(heroRes.slots) && heroRes.slots.length > 0) {
         setSlots([
@@ -371,6 +380,8 @@ export default function HeroManagerPage() {
         slot3Id: slots[2]?.id || null,
         trendingTopics: trendingTopics,
         trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
       };
 
       const res = await updateHeroSettings(payload);
@@ -615,6 +626,61 @@ export default function HeroManagerPage() {
     }
   };
 
+  const moveHeroGridArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= heroGridArticles.length) return;
+    setHeroGridArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
+  const handleRemoveHeroGridArticle = (id: string) => {
+    setHeroGridArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleAddHeroGridArticle = (art: Article) => {
+    if (heroGridArticles.some((a) => a.id === art.id)) {
+      showToast('Article is already in Hero Grid list', false);
+      return;
+    }
+    setHeroGridArticles((prev) => [...prev, art]);
+  };
+
+  const handleSaveHeroGrid = async () => {
+    setSavingHeroGrid(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        clearApiCache();
+        showToast('✅ Saved! Top Main Hero Grid positions updated live on user side.', true);
+        if (res.data?.heroGridArticles && Array.isArray(res.data.heroGridArticles)) {
+          setHeroGridArticles(res.data.heroGridArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Hero Grid positions. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingHeroGrid(false);
+    }
+  };
+
   const setSlot = (idx: number, art: Article) => {
     setSlots((prev) => { const next = [...prev]; next[idx] = art; return next; });
   };
@@ -713,6 +779,145 @@ export default function HeroManagerPage() {
         </div>
       ) : (
         <>
+          {/* ════════════════════════════════════════════════════════════════
+             MAIN HERO GRID (13 POSITIONS MANAGEMENT)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏆</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Top Main Hero Grid (13 Article Positions)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-red-50 text-[#B3121B] border-red-200 dark:bg-red-950/40 dark:border-red-800">
+                    {heroGridArticles.length} / 13 Positions
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Manage the exact positions of articles displayed in the top homepage Hero Grid: 
+                  <strong> Position #1 = Spotlight Banner</strong>, 
+                  <strong> Positions #2 & #3 = Top Middle Image Cards</strong>, 
+                  <strong> Positions #4 to #13 = Middle Headline List</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSaveHeroGrid}
+                  disabled={savingHeroGrid}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingHeroGrid ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {savingHeroGrid ? 'Saving Hero Grid...' : 'Save Hero Grid Positions'}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Article Search to Add Position */}
+            <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                ➕ Add Article to Hero Grid Positions
+              </p>
+              <ArticleSearchBox
+                allArticles={allArticles}
+                excluded={heroGridArticles.map((a) => a.id)}
+                placeholder="Search article by title or #articleNumber to add to Hero Grid..."
+                onSelect={(art) => handleAddHeroGridArticle(art)}
+              />
+            </div>
+
+            {/* Grid List of Positions */}
+            <div className="space-y-3">
+              {heroGridArticles.map((art, index) => {
+                const isSpotlight = index === 0;
+                const isTopCard = index === 1 || index === 2;
+                const slotTitle = isSpotlight
+                  ? '🌟 Main Hero Spotlight Banner (#1 Big Card)'
+                  : isTopCard
+                  ? `🖼️ Middle Column - Top Image Card #${index}`
+                  : `📰 Middle Column - Text Headline #${index - 2}`;
+
+                return (
+                  <div
+                    key={art.id}
+                    className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border transition-all ${
+                      isSpotlight
+                        ? 'border-[#B3121B]/40 bg-red-50/40 dark:bg-red-950/10'
+                        : isTopCard
+                        ? 'border-blue-200 bg-blue-50/20 dark:border-blue-900/40 dark:bg-blue-950/10'
+                        : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80'
+                    }`}
+                  >
+                    {/* Left Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white ${
+                        isSpotlight ? 'bg-[#B3121B]' : isTopCard ? 'bg-blue-600' : 'bg-zinc-700'
+                      }`}>
+                        #{index + 1}
+                      </span>
+
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            isSpotlight ? 'bg-red-100 text-[#B3121B]' : isTopCard ? 'bg-blue-100 text-blue-700' : 'bg-zinc-100 text-zinc-600'
+                          }`}>
+                            {slotTitle}
+                          </span>
+                          {art.articleNumber && (
+                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                              #{art.articleNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                          {getTitle(art)}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => moveHeroGridArticle(index, -1)}
+                        disabled={index === 0}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Up 1 Position"
+                      >
+                        ⬆️ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveHeroGridArticle(index, 1)}
+                        disabled={index === heroGridArticles.length - 1}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Down 1 Position"
+                      >
+                        ⬇️ Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHeroGridArticle(art.id)}
+                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                        title="Remove from Hero Grid"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[0, 1, 2].map((idx) => (
               <SlotCard

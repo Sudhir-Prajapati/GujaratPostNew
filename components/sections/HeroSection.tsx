@@ -38,6 +38,8 @@ import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 
+const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
+
 const CHANNEL_URL = 'https://www.youtube.com/@Gujaratpostnews';
 const CHANNEL_ID = 'UCqQ8YbFSZ4j8J4iVJOHurTw';
 const LATEST_VIDEO_ID = 'A_5vL-ngK4M';
@@ -442,14 +444,16 @@ export default function HeroSection({
         setTopNews(arts.slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
         // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
-        const heroPool = arts
+        const customGridArts: Article[] = (heroRes?.heroGridArticles || []).filter(Boolean);
+        const autoHeroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
             const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
             const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
             return bScore - aScore;
           });
-        setTopStories(heroPool.slice(0, 16));
+        const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
+        setTopStories(heroPool);
 
         const trending = arts.filter((a: Article) => a.isTrending);
         setTrendingArtDB(fillPool(trending, arts, 10));
@@ -3179,7 +3183,7 @@ function CityHyperlocalSection({
 
                   <div className="h-[38px] overflow-hidden mt-2">
                     <p className="text-muted-foreground text-[12.5px] leading-relaxed line-clamp-2 font-medium">
-                      {getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi })}
+                      {stripHtmlTags(getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi }))}
                     </p>
                   </div>
 
@@ -5651,7 +5655,7 @@ export function FactCheckSection({ language }: { language: Language }) {
       ? 'શું સરકારે ખરેખર બધા વિદ્યાર્થીઓને મફત લેપટોપ આપવાની જાહેરાત કરી? જાણો સત્ય'
       : 'Did government really announce free laptops for all students? Know truth'
   );
-  const featExcerpt = featArt ? getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt }) : (
+  const featExcerpt = featArt ? stripHtmlTags(getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt })) : (
     language === 'gu'
       ? 'ગુજરાત પોસ્ટની તપાસમાં જાણવા મળ્યું કે વાયરલ પરિપત્ર બનાવટી છે – શિક્ષણ વિભાગે આવી કોઈ જાહેરાત કરી નથી.'
       : 'Gujarat Post investigation revealed that the viral circular is fake – the education department has made no such announcement.'
@@ -6282,7 +6286,7 @@ export function WorldSection({ language }: { language: Language }) {
                 {featured.title}
               </h3>
               <p className="text-muted-foreground text-[13px] leading-relaxed mt-3.5 line-clamp-4 select-none">
-                {featured.excerpt}
+                {stripHtmlTags(featured.excerpt)}
               </p>
             </div>
 

@@ -495,10 +495,15 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
         setStatus(art.status || 'PUBLISHED');
-        if (art.scheduledAt) {
-          const d = new Date(art.scheduledAt);
-          const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-          setScheduledAt(localIso);
+        const rawSched = art.scheduledAt || (art.status === 'SCHEDULED' ? art.publishedAt : null);
+        if (rawSched) {
+          const d = new Date(rawSched);
+          if (!isNaN(d.getTime())) {
+            const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            setScheduledAt(localIso);
+          } else {
+            setScheduledAt('');
+          }
         } else {
           setScheduledAt('');
         }
@@ -515,7 +520,12 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setMetaRobots(art.metaRobots || 'index, follow');
 
         if (art.tags && art.tags.length > 0) {
-          setTagsString(art.tags.map((t: any) => t.name).join(', '));
+          const names = art.tags
+            .map((t: any) => (t.tag?.name || t.name || '').trim())
+            .filter((name: string) => name.length > 0);
+          setTagsString(names.join(', '));
+        } else {
+          setTagsString('');
         }
       } catch (err: any) {
         console.error('Error loading article in edit mode:', err);
