@@ -22,6 +22,9 @@ import {
   Smartphone,
   BookOpen,
   Megaphone,
+  Film,
+  Newspaper,
+  Sparkles,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
