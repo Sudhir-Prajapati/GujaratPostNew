@@ -45,16 +45,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     authFetch(getBackendApiUrl('/api/auth/me'))
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          router.push('/login');
+          return null;
+        }
+        return res.json();
+      })
       .then((json) => {
-        if (json.success && json.data?.user) {
+        if (json?.success && json.data?.user) {
           setUserRole(json.data.user.role);
           setUserEmail(json.data.user.email);
           setUserName(json.data.user.authorName || json.data.user.email?.split('@')[0]);
+        } else if (json && !json.success) {
+          router.push('/login');
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        router.push('/login');
+      });
+  }, [router]);
 
   const menuItems = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
