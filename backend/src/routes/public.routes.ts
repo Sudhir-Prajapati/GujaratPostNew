@@ -450,7 +450,7 @@ router.get('/live-center', async (req, res) => {
     ]);
 
     // Parse Live USD/INR Rate
-    const inrRate = exRes?.rates?.INR ? exRes.rates.INR.toFixed(2) : '83.92';
+    const inrRate = (exRes as any)?.rates?.INR ? (exRes as any).rates.INR.toFixed(2) : '83.92';
 
     // Parse Live Yahoo Finance Stock Tickers
     const parseStock = (json: any, defaultName: string, defaultEx: string, defVal: number, defCh: number, defPct: number) => {
@@ -481,7 +481,7 @@ router.get('/live-center', async (req, res) => {
     ];
 
     try {
-      const events = espnSoccerRes?.events;
+      const events = (espnSoccerRes as any)?.events;
       if (Array.isArray(events) && events.length > 0) {
         const parsed = events.slice(0, 3).map((evt: any) => {
           const comp = evt.competitions?.[0];
@@ -548,10 +548,10 @@ router.get('/tickers', async (req, res, next) => {
  */
 router.get('/rss', async (req, res, next) => {
   try {
-    const articles = await prisma.article.findMany({
-      where: { status: 'published' },
+    const articles = await prisma.post.findMany({
+      where: { status: 'PUBLISHED' },
       take: 50,
-      orderBy: { publishedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       include: { category: true, author: true }
     });
 
@@ -568,9 +568,9 @@ router.get('/rss', async (req, res, next) => {
     <atom:link href="${baseUrl}/api/public/rss" rel="self" type="application/rss+xml" />
 `;
 
-    articles.forEach((art) => {
+    articles.forEach((art: any) => {
       const artUrl = `${baseUrl}/news/${art.slug}`;
-      const pubDate = art.publishedAt ? new Date(art.publishedAt).toUTCString() : new Date(art.createdAt).toUTCString();
+      const pubDate = art.createdAt ? new Date(art.createdAt).toUTCString() : new Date().toUTCString();
       const catName = art.category?.nameGu || art.category?.name || 'સમાચાર';
       const titleGu = art.titleGu || art.title;
       const excerptGu = art.excerptGu || art.excerpt || art.title;
