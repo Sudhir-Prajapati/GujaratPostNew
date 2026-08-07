@@ -13,7 +13,17 @@ interface PhotosClientProps {
 
 export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
   const { language } = useApp();
-  const gallery = initialPhotos.length > 0 ? initialPhotos : PHOTOS;
+  let photoList = [...(initialPhotos || [])];
+  if (photoList.length < 5) {
+    const existingIds = new Set(photoList.map(p => p.id || p.src));
+    for (const defPhoto of PHOTOS) {
+      if (photoList.length >= 5) break;
+      if (!existingIds.has(defPhoto.id) && !existingIds.has(defPhoto.src)) {
+        photoList.push(defPhoto);
+      }
+    }
+  }
+  const gallery = photoList.slice(0, 5);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
