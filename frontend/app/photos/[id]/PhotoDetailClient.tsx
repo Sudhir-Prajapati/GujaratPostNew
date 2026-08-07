@@ -8,7 +8,7 @@ import {
   ChevronLeft, ChevronRight, Clock, Eye, Phone, Globe, Mail, ChevronRight as ChevronRightIcon,
   Bookmark, Printer, Copy
 } from 'lucide-react';
-import { getLocalized } from '@/data';
+import { getLocalized, PHOTOS } from '@/data';
 import { useApp } from '@/components/AppProvider';
 import NewsCard from '@/components/ui/NewsCard';
 
@@ -73,8 +73,8 @@ export default function PhotoDetailClient({ activeId, photo: dbPhoto, allPhotos:
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const photosList = dbAllPhotos;
-  const photo = dbPhoto || photosList.find(p => p.id === activeId) || photosList[0] || { id: activeId, caption: '', captionGu: '', captionHi: '', src: '' };
+  const photosList = dbAllPhotos && dbAllPhotos.length > 0 ? dbAllPhotos : PHOTOS;
+  const photo = dbPhoto || photosList.find(p => p.id === activeId || p.id === `photo-${activeId}` || p.id === activeId.replace('photo-', '')) || photosList[0];
   const activeIndex = photosList.findIndex((item) => item.id === photo?.id);
   const photoUrl = typeof window !== 'undefined' ? window.location.href : 'https://gujaratpost.com/photos';
 

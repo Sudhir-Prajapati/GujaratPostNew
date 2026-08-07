@@ -15,6 +15,8 @@ import uploadRoutes from './upload.routes.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 import { Role } from '@prisma/client';
+import { prisma } from '../config/prisma.js';
+import { sendSuccess } from '../utils/response.js';
 
 const router = Router();
 
@@ -54,6 +56,7 @@ router.delete('/articles/:id', requireAuth, ArticleController.deleteArticle);
 // ==========================================
 router.get('/videos', requireAuth, VideoController.getAllVideos);
 router.post('/videos', requireAuth, VideoController.createVideo);
+router.delete('/videos/all-shorts', requireAuth, VideoController.deleteAllShorts);
 router.put('/videos/:id', requireAuth, VideoController.updateVideo);
 router.delete('/videos/:id', requireAuth, VideoController.deleteVideo);
 
@@ -95,7 +98,60 @@ router.delete('/reels/:id', requireAuth, InstagramReelController.deleteReel);
 router.get('/web-stories', requireAuth, WebStoryController.getAll);
 router.post('/web-stories', requireAuth, WebStoryController.create);
 router.put('/web-stories/:id', requireAuth, WebStoryController.update);
-router.delete('/web-stories/:id', requireAuth, WebStoryController.delete);
+// ==========================================
+// 12. Astrology Signs Management
+// ==========================================
+router.get('/astrology', requireAuth, async (req, res, next) => {
+  try {
+    const signs = await prisma.astrologySign.findMany({ orderBy: { createdAt: 'asc' } });
+    return sendSuccess(res, { signs }, 'Astrology signs retrieved');
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/astrology/:id', requireAuth, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { prediction, predictionGu, nameGu, nameHi, details, detailsJson } = req.body;
+
+    const existing = await prisma.astrologySign.findFirst({
+      where: { OR: [{ id }, { slug: id }] },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Astrology sign not found' });
+    }
+
+    const payloadJson = detailsJson || (details ? JSON.stringify(details) : undefined);
+
+    const updated = await (prisma.astrologySign as any).update({
+      where: { id: existing.id },
+      data: {
+        ...(prediction !== undefined && { prediction }),
+        ...(predictionGu !== undefined && { predictionGu }),
+        ...(nameGu !== undefined && { nameGu }),
+        ...(nameHi !== undefined && { nameHi }),
+        ...(payloadJson !== undefined && { detailsJson: payloadJson }),
+      },
+    });
+
+    return sendSuccess(res, { sign: updated }, 'Astrology sign updated successfully');
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ==========================================
+// 13. E-Paper Management
+// ==========================================
+router.get('/epaper', requireAuth, EPaperController.getAdminEditions);
+router.post('/epaper', requireAuth, EPaperController.createEdition);
+router.put('/epaper/:id', requireAuth, EPaperController.updateEdition);
+router.delete('/epaper/:id', requireAuth, EPaperController.deleteEdition);
+router.get('/epaper/cities', requireAuth, EPaperController.getCities);
+router.post('/epaper/cities', requireAuth, EPaperController.createCity);
+router.delete('/epaper/cities/:id', requireAuth, EPaperController.deleteCity);
 
 // ==========================================
 // 12. Section Advertisements

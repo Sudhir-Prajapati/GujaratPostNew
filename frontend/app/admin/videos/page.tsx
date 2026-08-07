@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { getBackendApiUrl, authFetch, clearApiCache } from '@/lib/api';
 import { safeYouTubeId } from '@/lib/youtube';
 import { 
   Search, 
@@ -54,7 +54,7 @@ export default function VideosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('video');
+  const [selectedType, setSelectedType] = useState('ALL');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -106,7 +106,11 @@ export default function VideosPage() {
   };
 
   const handleYoutubeInputChange = (raw: string) => {
-    setYoutubeId(extractYouTubeId(raw));
+    const extractedId = extractYouTubeId(raw);
+    setYoutubeId(extractedId);
+    if (raw.toLowerCase().includes('/shorts/')) {
+      setType('short');
+    }
   };
 
   // Fetch videos
@@ -114,14 +118,20 @@ export default function VideosPage() {
     async function loadVideos() {
       setLoading(true);
       try {
-        const typeFilter = selectedType || 'video';
-        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${typeFilter}`));
+        const typeParam = selectedType === 'ALL' ? '' : selectedType;
+        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=24&query=${encodeURIComponent(query)}${typeParam ? `&type=${typeParam}` : ''}`));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
         const loadedVideos: VideoData[] = json.data.videos || [];
-        // Strict filter: only include regular YouTube videos
-        const regularVideosOnly = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
-        setVideos(regularVideosOnly);
+        let filtered = loadedVideos;
+        if (selectedType === 'video') {
+          filtered = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
+        } else if (selectedType === 'short') {
+          filtered = loadedVideos.filter((v: VideoData) => v.type === 'short');
+        } else if (selectedType !== 'ALL') {
+          filtered = loadedVideos.filter((v: VideoData) => v.type === selectedType);
+        }
+        setVideos(filtered);
         setTotalPages(json.data.totalPages || 1);
       } catch (err: any) {
         setError(err.message);
@@ -315,6 +325,8 @@ export default function VideosPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to save video');
 
+      clearApiCache();
+
       setAddModalOpen(false);
       setTitle('');
       setTitleGu('');
@@ -379,6 +391,8 @@ export default function VideosPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update video');
+
+      clearApiCache();
 
       setVideos(prev => prev.map(v => v.id === selectedVideo.id ? json.data : v));
       setFeaturedIds(prev => {
@@ -505,7 +519,11 @@ export default function VideosPage() {
                 }}
                 className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
               >
-                <option value="video">YouTube Videos Only</option>
+                <option value="ALL">All Video Types (બધા વીડિયો & શોર્ટ્સ)</option>
+                <option value="video">Standard Videos Only (માત્ર વીડિયો)</option>
+                <option value="short">YouTube Shorts Only (માત્ર શોર્ટ વીડિયો)</option>
+                <option value="podcast">Podcasts Only</option>
+                <option value="interview">Interviews Only</option>
               </select>
             </div>
           </div>
