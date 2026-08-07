@@ -21,6 +21,12 @@ router.get('/ads/:section', AdController.getAdBySection);
  */
 router.get('/hero-settings', HeroController.getHeroSettings);
 
+/**
+ * GET /api/public/reels
+ * Fetch public active Instagram reels
+ */
+router.get('/reels', InstagramReelController.getAllReels);
+
 
 /**
  * GET /api/public/articles
@@ -319,14 +325,22 @@ router.get('/authors', async (req, res, next) => {
  */
 router.get('/categories', async (req, res, next) => {
   try {
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: true,
-        slug: {
-          notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-        },
+    const showInHeader = req.query.showInHeader === 'true';
+    const showInHome = req.query.showInHome === 'true';
+
+    const where: any = {
+      isActive: true,
+      slug: {
+        notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
       },
-      orderBy: { displayOrder: 'asc' },
+    };
+
+    if (showInHeader) where.showInHeader = true;
+    if (showInHome) where.showInHome = true;
+
+    const categories = await prisma.category.findMany({
+      where,
+      orderBy: { displayOrder: 'desc' },
     });
     return sendSuccess(res, { categories }, 'Categories retrieved');
   } catch (error) {

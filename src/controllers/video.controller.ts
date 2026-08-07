@@ -26,7 +26,7 @@ function extractYouTubeId(input: string): string {
 
 export class VideoController {
   /**
-   * Fetch all videos with pagination, search query, and type filters.
+   * Fetch all videos with pagination, search query, type, and category filters.
    */
   static async getAllVideos(req: Request, res: Response, next: NextFunction) {
     try {
@@ -36,6 +36,7 @@ export class VideoController {
 
       const query = req.query.query as string || '';
       const type = req.query.type as string || '';
+      const categoryId = req.query.categoryId as string || '';
 
       const where: any = {};
 
@@ -52,9 +53,18 @@ export class VideoController {
         where.type = type;
       }
 
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
+
       const [videos, total] = await Promise.all([
         prisma.video.findMany({
           where,
+          include: {
+            category: {
+              select: { id: true, name: true, nameGu: true, nameHi: true, slug: true, color: true },
+            },
+          },
           orderBy: [
             { isFeatured: 'desc' },
             { createdAt: 'desc' },
@@ -91,6 +101,8 @@ export class VideoController {
         duration,
         isFeatured,
         channel,
+        categoryId,
+        categoryName,
       } = req.body;
 
       if (!title || !youtubeId) {
@@ -101,6 +113,12 @@ export class VideoController {
       const cleanId = extractYouTubeId(youtubeId);
       const embedUrl = `https://www.youtube.com/embed/${cleanId}`;
       const thumbnail = `https://img.youtube.com/vi/${cleanId}/maxresdefault.jpg`;
+
+      let finalCategoryName = categoryName || null;
+      if (categoryId && !finalCategoryName) {
+        const cat = await prisma.category.findUnique({ where: { id: categoryId } });
+        if (cat) finalCategoryName = cat.name;
+      }
 
       const video = await prisma.video.create({
         data: {
@@ -115,6 +133,11 @@ export class VideoController {
           duration: duration || '0:00',
           isFeatured: !!isFeatured,
           channel: channel ? channel.trim() : 'Gujarat Post News',
+          categoryId: categoryId || null,
+          categoryName: finalCategoryName,
+        },
+        include: {
+          category: true,
         },
       });
 
@@ -140,6 +163,8 @@ export class VideoController {
         duration,
         isFeatured,
         channel,
+        categoryId,
+        categoryName,
       } = req.body;
 
       const existing = await prisma.video.findUnique({ where: { id } });
@@ -155,6 +180,15 @@ export class VideoController {
       if (type !== undefined) updateData.type = type;
       if (description !== undefined) updateData.description = description ? description.trim() : null;
       if (duration !== undefined) updateData.duration = duration;
+      if (categoryId !== undefined) {
+        updateData.categoryId = categoryId || null;
+        if (categoryId) {
+          const cat = await prisma.category.findUnique({ where: { id: categoryId } });
+          updateData.categoryName = cat ? cat.name : (categoryName || null);
+        } else {
+          updateData.categoryName = null;
+        }
+      }
       if (isFeatured !== undefined) {
         const newFeatured = !!isFeatured;
         if (!newFeatured && existing.isFeatured) {
@@ -179,6 +213,9 @@ export class VideoController {
       const updated = await prisma.video.update({
         where: { id },
         data: updateData,
+        include: {
+          category: true,
+        },
       });
 
       return sendSuccess(res, updated, 'Video updated successfully.');
