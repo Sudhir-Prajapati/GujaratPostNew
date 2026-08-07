@@ -1,22 +1,17 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
   Strikethrough,
-  RotateCcw,
   List,
   ListOrdered,
   Quote,
-  Heading1,
-  Heading2,
-  Heading3,
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   Link as LinkIcon,
   Image as ImageIcon,
   Code,
@@ -37,138 +32,52 @@ export default function RichTextArea({
   value,
   onChange,
   placeholder = 'Write content here...',
-  rows = 6,
+  rows = 5,
   label,
   required = false,
 }: RichTextAreaProps) {
-  // 'editor' mode is active by default so users can type immediately
-  const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showSource, setShowSource] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
 
-  // Helper to wrap selected text with open and close tags
-  const applyTag = (openTag: string, closeTag: string, defaultText = 'text') => {
-    // If in preview mode, switch to editor mode first so user sees text input
-    if (viewMode !== 'editor') {
-      setViewMode('editor');
+  // Sync internal HTML content with prop value when value changes externally
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || '';
     }
+  }, [value, showSource]);
 
+  // Execute browser formatting command on contentEditable div
+  const execCmd = (command: string, arg: string | undefined = undefined) => {
+    if (showSource) setShowSource(false);
+    
     setTimeout(() => {
-      const el = textareaRef.current;
-      if (!el) {
-        onChange(`${value}${openTag}${defaultText}${closeTag}`);
-        return;
+      if (editorRef.current) {
+        editorRef.current.focus();
       }
-
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const selected = value.substring(start, end) || defaultText;
-      const replacement = `${openTag}${selected}${closeTag}`;
-      const newValue = value.substring(0, start) + replacement + value.substring(end);
-
-      onChange(newValue);
-
-      setTimeout(() => {
-        el.focus();
-        el.setSelectionRange(start + openTag.length, start + openTag.length + selected.length);
-      }, 10);
+      document.execCommand(command, false, arg);
+      if (editorRef.current) {
+        onChange(editorRef.current.innerHTML);
+      }
     }, 10);
   };
 
-  // Insert list items
-  const applyList = (type: 'ul' | 'ol') => {
-    if (viewMode !== 'editor') setViewMode('editor');
-    setTimeout(() => {
-      const el = textareaRef.current;
-      if (!el) {
-        onChange(`${value}\n<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>\n`);
-        return;
-      }
-
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const selected = value.substring(start, end);
-
-      let listHtml = '';
-      if (selected.trim()) {
-        const lines = selected.split('\n').filter((l) => l.trim());
-        const items = lines.map((l) => `  <li>${l.replace(/^[-•*1-9.]+\s*/, '')}</li>`).join('\n');
-        listHtml = `<${type}>\n${items}\n</${type}>`;
-      } else {
-        listHtml = `<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>`;
-      }
-
-      const newValue = value.substring(0, start) + listHtml + value.substring(end);
-      onChange(newValue);
-    }, 10);
-  };
-
-  // Insert quote
-  const applyQuote = () => {
-    if (viewMode !== 'editor') setViewMode('editor');
-    setTimeout(() => {
-      const el = textareaRef.current;
-      const start = el ? el.selectionStart : value.length;
-      const end = el ? el.selectionEnd : value.length;
-      const selected = value.substring(start, end) || 'Important quote statement...';
-      const quoteHtml = `<blockquote>\n  "${selected}"\n</blockquote>`;
-      const newValue = value.substring(0, start) + quoteHtml + value.substring(end);
-      onChange(newValue);
-    }, 10);
-  };
-
-  // Insert heading
-  const applyHeading = (level: number) => {
-    applyTag(`<h${level}>`, `</h${level}>`, `Heading ${level}`);
-  };
-
-  // Insert link
+  // Insert Link
   const applyLink = () => {
     const url = prompt('Enter website link / URL:', 'https://');
-    if (!url) return;
-    applyTag(`<a href="${url}" target="_blank" rel="noopener">`, '</a>', 'Click here');
+    if (url) execCmd('createLink', url);
   };
 
-  // Insert image
+  // Insert Image
   const applyImage = () => {
     const url = prompt('Enter image URL:', 'https://');
-    if (!url) return;
-    const alt = prompt('Enter image caption / alt text:', 'Photo') || 'Photo';
-    const imgMarkdown = `![${alt}](${url})`;
-    if (viewMode !== 'editor') setViewMode('editor');
-    setTimeout(() => {
-      const el = textareaRef.current;
-      const start = el ? el.selectionStart : value.length;
-      const newValue = value.substring(0, start) + `\n${imgMarkdown}\n` + value.substring(start);
-      onChange(newValue);
-    }, 10);
+    if (url) execCmd('insertImage', url);
   };
 
-  // Text alignment
-  const applyAlign = (align: 'left' | 'center' | 'right' | 'justify') => {
-    applyTag(`<p style="text-align: ${align}">`, '</p>', 'Aligned paragraph text');
-  };
-
-  // Clear tags
-  const clearFormatting = () => {
-    if (viewMode !== 'editor') setViewMode('editor');
-    setTimeout(() => {
-      const el = textareaRef.current;
-      if (!el) {
-        onChange(value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, ''));
-        return;
-      }
-      const start = el.selectionStart;
-      const end = el.selectionEnd;
-      const selected = value.substring(start, end);
-      if (!selected) {
-        const stripped = value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
-        onChange(stripped);
-        return;
-      }
-      const stripped = selected.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
-      const newValue = value.substring(0, start) + stripped + value.substring(end);
-      onChange(newValue);
-    }, 10);
+  // Handle typing inside contentEditable container
+  const handleInput = () => {
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
   };
 
   return (
@@ -188,15 +97,15 @@ export default function RichTextArea({
           <div className="flex items-center rounded-lg bg-white p-0.5 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 shadow-2xs">
             <button
               type="button"
-              onClick={() => applyTag('<b>', '</b>', 'bold text')}
+              onClick={() => execCmd('bold')}
               title="Bold (B)"
-              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-bold"
             >
               <Bold className="h-4 w-4" />
             </button>
             <button
               type="button"
-              onClick={() => applyTag('<i>', '</i>', 'italic text')}
+              onClick={() => execCmd('italic')}
               title="Italic (I)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -204,7 +113,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyTag('<u>', '</u>', 'underlined text')}
+              onClick={() => execCmd('underline')}
               title="Underline (U)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -212,7 +121,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyTag('<s>', '</s>', 'strikethrough text')}
+              onClick={() => execCmd('strikeThrough')}
               title="Strikethrough (S)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -220,7 +129,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={clearFormatting}
+              onClick={() => execCmd('removeFormat')}
               title="Remove Formatting (Tx)"
               className="rounded p-1.5 hover:bg-red-50 text-red-600 dark:hover:bg-red-950/40"
             >
@@ -234,7 +143,7 @@ export default function RichTextArea({
           <div className="flex items-center rounded-lg bg-white p-0.5 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 shadow-2xs">
             <button
               type="button"
-              onClick={() => applyHeading(1)}
+              onClick={() => execCmd('formatBlock', '<h1>')}
               title="Heading 1 (H1)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
@@ -242,7 +151,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyHeading(2)}
+              onClick={() => execCmd('formatBlock', '<h2>')}
               title="Heading 2 (H2)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
@@ -250,7 +159,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyHeading(3)}
+              onClick={() => execCmd('formatBlock', '<h3>')}
               title="Heading 3 (H3)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
@@ -264,7 +173,7 @@ export default function RichTextArea({
           <div className="flex items-center rounded-lg bg-white p-0.5 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 shadow-2xs">
             <button
               type="button"
-              onClick={() => applyList('ul')}
+              onClick={() => execCmd('insertUnorderedList')}
               title="Bullet List (::)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -272,7 +181,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyList('ol')}
+              onClick={() => execCmd('insertOrderedList')}
               title="Numbered List (1=)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -280,7 +189,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={applyQuote}
+              onClick={() => execCmd('formatBlock', 'blockquote')}
               title="Blockquote Quote Box (&quot;&quot;)"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -294,7 +203,7 @@ export default function RichTextArea({
           <div className="flex items-center rounded-lg bg-white p-0.5 border border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 shadow-2xs">
             <button
               type="button"
-              onClick={() => applyAlign('left')}
+              onClick={() => execCmd('justifyLeft')}
               title="Align Left"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -302,7 +211,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyAlign('center')}
+              onClick={() => execCmd('justifyCenter')}
               title="Align Center"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -310,7 +219,7 @@ export default function RichTextArea({
             </button>
             <button
               type="button"
-              onClick={() => applyAlign('right')}
+              onClick={() => execCmd('justifyRight')}
               title="Align Right"
               className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
@@ -342,53 +251,45 @@ export default function RichTextArea({
 
           <div className="flex-1" />
 
-          {/* Toggle View Mode Button */}
+          {/* Toggle View Mode Button (Switch to Raw Source Code if needed) */}
           <button
             type="button"
-            onClick={() => setViewMode(viewMode === 'editor' ? 'preview' : 'editor')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all border ${
-              viewMode === 'preview'
-                ? 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm'
-                : 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm hover:bg-zinc-800'
-            }`}
+            onClick={() => setShowSource(!showSource)}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all border bg-zinc-900 text-white border-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm"
           >
-            {viewMode === 'editor' ? (
+            {showSource ? (
               <>
                 <Eye className="h-3.5 w-3.5" />
-                <span>Live Preview</span>
+                <span>Visual Editor</span>
               </>
             ) : (
               <>
                 <Code className="h-3.5 w-3.5" />
-                <span>Edit Content</span>
+                <span>Source Code</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Display Area: Input Textarea vs Live HTML Preview */}
-        {viewMode === 'editor' ? (
+        {/* Display Area: Visual WYSIWYG Editable Div vs Raw HTML Textarea */}
+        {showSource ? (
           <textarea
-            ref={textareaRef}
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
             rows={rows}
             required={required}
-            className="w-full bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 font-sans leading-relaxed"
+            className="w-full bg-white px-4 py-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 leading-relaxed"
           />
         ) : (
           <div
-            className="p-4 min-h-[140px] prose dark:prose-invert max-w-none text-sm text-zinc-900 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-950/20 cursor-text"
-            onClick={() => setViewMode('editor')}
-            dangerouslySetInnerHTML={{
-              __html: value
-                ? value
-                    .replace(/\n\n+/g, '</p><p>')
-                    .replace(/\n/g, '<br/>')
-                    .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="rounded-lg my-2 max-h-64 object-cover" />')
-                : `<span className="text-zinc-400 italic">${placeholder}</span>`,
-            }}
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onBlur={handleInput}
+            style={{ minHeight: `${rows * 28}px` }}
+            className="w-full bg-white px-4 py-3 text-sm text-zinc-900 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 font-sans leading-relaxed prose dark:prose-invert max-w-none empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:italic"
+            data-placeholder={placeholder}
           />
         )}
       </div>
