@@ -297,13 +297,14 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
 export async function getPublicGallery(): Promise<any[]> {
   try {
     const url = `${API_BASE_URL}/gallery`;
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
     if (json?.success && json.data?.photos && json.data.photos.length > 0) {
       return json.data.photos;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for gallery:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for gallery:', error?.message || error);
+    }
   }
 
   return PHOTOS;
@@ -320,7 +321,9 @@ export async function getPublicStories(): Promise<any[]> {
       return json.data.stories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for stories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for stories:', error?.message || error);
+    }
   }
   return [];
 }
@@ -336,7 +339,9 @@ export async function getPublicWebStories(): Promise<any[]> {
       return json.data.webStories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for webstories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for webstories:', error?.message || error);
+    }
   }
   return [];
 }
@@ -347,13 +352,14 @@ export async function getPublicWebStories(): Promise<any[]> {
 export async function getLiveCenterData(): Promise<any> {
   try {
     const url = `${API_BASE_URL}/live-center`;
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
     if (json?.success && json.data) {
       return json.data;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for live center:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for live center:', error?.message || error);
+    }
   }
   return null;
 }
