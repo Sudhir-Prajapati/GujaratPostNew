@@ -739,39 +739,6 @@ export default function HeroManagerPage() {
         </div>
       </div>
 
-      {/* Homepage Layout Hint */}
-      <div className="mb-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Homepage Layout Preview</p>
-        <div className="flex gap-2 items-stretch">
-          {/* Main hero (auto) */}
-          <div className="flex-[2] rounded-xl bg-zinc-200 dark:bg-zinc-700 p-3 flex flex-col gap-1 min-h-[80px]">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Main Hero</span>
-            <span className="text-[10px] text-zinc-400">Auto (latest article)</span>
-          </div>
-          {/* Right 2 (auto) */}
-          <div className="flex-1 flex flex-col gap-2">
-            {[1, 2].map((n) => (
-              <div key={n} className="flex-1 rounded-xl bg-zinc-200 dark:bg-zinc-700 p-2 flex flex-col gap-0.5">
-                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Right {n}</span>
-                <span className="text-[10px] text-zinc-400">Auto</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Bottom 3 — admin controlled */}
-        <div className="grid grid-cols-3 gap-2 mt-2">
-          {['Slot 1 ✎', 'Slot 2 ✎', 'Slot 3 ✎'].map((label, i) => (
-            <div key={i} className={`rounded-xl p-3 flex flex-col gap-0.5 ${slots[i] ? 'bg-[#B3121B]/10 border border-[#B3121B]/30' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
-              <span className={`text-[9px] font-bold uppercase tracking-wide ${slots[i] ? 'text-[#B3121B]' : 'text-zinc-500'}`}>{label}</span>
-              <span className="text-[10px] text-zinc-400 line-clamp-1">
-                {slots[i] ? `${slots[i]?.articleNumber ? `#${slots[i]?.articleNumber} - ` : ''}${getTitle(slots[i])}` : 'Empty'}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="text-[10px] text-zinc-400 mt-2">✎ = Admin-controlled slots (this page) &nbsp;|&nbsp; Auto = Latest published articles</p>
-      </div>
-
       {/* 3-Column Slot Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-32 text-zinc-400">
