@@ -53,12 +53,15 @@ function LoginForm() {
         throw new Error(result.error || result.message || 'Invalid credentials. Please try again.');
       }
 
-      // Store access_token cookie for Next.js proxy middleware
+      // Store access_token cookie for Next.js proxy middleware & localStorage for authFetch
       const token = result.data?.accessToken || result.accessToken;
       if (token) {
         const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
         const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         document.cookie = `access_token=${token}; path=/; max-age=${maxAge}; ${isHttps ? 'Secure;' : ''} SameSite=Lax`;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('access_token', token);
+        }
       }
 
       // Success! Redirect to target page

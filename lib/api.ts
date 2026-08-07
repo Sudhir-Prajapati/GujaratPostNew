@@ -16,9 +16,15 @@ export function getBackendApiUrl(path: string): string {
 }
 
 export function getAccessTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+  }
+  if (typeof localStorage !== 'undefined') {
+    const localToken = localStorage.getItem('access_token');
+    if (localToken) return localToken;
+  }
+  return null;
 }
 
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
