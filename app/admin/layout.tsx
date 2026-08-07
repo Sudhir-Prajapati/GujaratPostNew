@@ -61,8 +61,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
     { label: 'Videos', href: '/admin/videos', icon: Video },
+    { label: 'Short Videos (શોર્ટ્સ)', href: '/admin/shorts', icon: Film },
     { label: 'Reels', href: '/admin/reels', icon: Smartphone },
     { label: 'Web Stories', href: '/admin/web-stories', icon: BookOpen },
+    { label: 'E-Paper (ઈ-પેપર)', href: '/admin/epaper', icon: Newspaper },
+    { label: 'Astrology (રાશિફળ)', href: '/admin/astrology', icon: Sparkles },
     { label: 'Users', href: '/admin/users', icon: Users },
   ];
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getLocalized } from '@/data';
+import { getLocalized, PHOTOS } from '@/data';
 import { getPublicGallery } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -42,7 +42,8 @@ export default function PhotoGallery() {
 
   useEffect(() => {
     getPublicGallery().then((res) => {
-      setPhotos(res || []);
+      const items = res && res.length > 0 ? res : PHOTOS;
+      setPhotos(items.slice(0, 5));
       setLoading(false);
     });
   }, []);
@@ -105,7 +106,7 @@ export default function PhotoGallery() {
 
   if (loading) return <GallerySkeleton />;
 
-  const gallery = photos;
+  const gallery = (photos && photos.length > 0 ? photos : PHOTOS).slice(0, 5);
 
   return (
     <section className="py-6 bg-background select-none">
@@ -184,7 +185,7 @@ export default function PhotoGallery() {
                   {/* Category Chip */}
                   <div className="absolute top-3 left-3 z-10">
                     <span className="bg-[#B3121B] text-white text-[11px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-md select-none">
-                      {CATS[index % CATS.length]}
+                      {photo.category || photo.tag || CATS[index % CATS.length]}
                     </span>
                   </div>
 
@@ -192,9 +193,9 @@ export default function PhotoGallery() {
                   <div className="absolute inset-x-0 bottom-0 z-10 p-4">
                     <p className="text-white font-extrabold leading-snug line-clamp-2 drop-shadow-md text-[14px] md:text-[15px]">
                       {getLocalized(language, {
-                        en: photo.caption,
-                        gu: photo.captionGu,
-                        hi: photo.captionHi,
+                        en: photo.caption || photo.alt,
+                        gu: photo.captionGu || photo.caption || photo.alt,
+                        hi: photo.captionHi || photo.caption || photo.alt,
                       })}
                     </p>
                     <div
