@@ -905,37 +905,107 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
-        {/* Placement Badges */}
-        <div className="flex flex-wrap gap-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/30">
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isBreaking}
-              onChange={(e) => setIsBreaking(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-amber-500 text-white font-black px-2 py-0.5 rounded text-[10px]">BREAKING NEWS</span>
-          </label>
+        {/* Placement Badges & Website Location Info */}
+        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+          <div className="flex items-center justify-between border-b border-zinc-200/80 pb-2 dark:border-zinc-800">
+            <span className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <span>Article Display Placement & Badges (તમારું આર્ટીકલ ક્યાં દેખાશે)</span>
+            </span>
+            <span className="text-[11px] font-medium text-zinc-400">Select where this article should appear on Gujarat Post homepage</span>
+          </div>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isTrending}
-              onChange={(e) => setIsTrending(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded text-[10px]">TRENDING STORY</span>
-          </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {/* BREAKING NEWS */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isBreaking 
+                ? 'border-amber-400 bg-amber-50/80 dark:border-amber-800/80 dark:bg-amber-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-amber-500 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    ⚡ BREAKING NEWS
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isBreaking}
+                    onChange={(e) => setIsBreaking(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Top Breaking Ticker Bar</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Shows in red ticker bar at the top of homepage and adds urgent "તાજા સમાચાર" tag.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Header & Top Flashes
+              </span>
+            </label>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isFeatured}
-              onChange={(e) => setIsFeatured(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-emerald-600 text-white font-black px-2 py-0.5 rounded text-[10px]">FEATURED COVERAGE</span>
-          </label>
+            {/* TRENDING STORY */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isTrending 
+                ? 'border-blue-400 bg-blue-50/80 dark:border-blue-800/80 dark:bg-blue-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    🔥 TRENDING STORY
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isTrending}
+                    onChange={(e) => setIsTrending(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Trending Sidebar & List</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Appears in "ટ્રેન્ડિંગ સમાચાર" sidebar widget and top read news lists across pages.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-blue-700 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Right Sidebar & Feed
+              </span>
+            </label>
+
+            {/* FEATURED COVERAGE */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isFeatured 
+                ? 'border-emerald-400 bg-emerald-50/80 dark:border-emerald-800/80 dark:bg-emerald-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-emerald-600 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    ⭐ FEATURED COVERAGE
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Main Hero Grid Banner</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Promotes article to main homepage Hero Big Banner cards and category top feature spots.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Main Hero Grid
+              </span>
+            </label>
+          </div>
         </div>
         <div>
           <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
