@@ -1352,25 +1352,27 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                Scheduled Publish Date & Time ⏰
-              </label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => {
-                  setScheduledAt(e.target.value);
-                  if (e.target.value && status !== 'SCHEDULED') {
-                    setStatus('SCHEDULED');
-                  }
-                }}
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-              />
-              <p className="text-[10px] text-zinc-400 mt-1">
-                Article will automatically become visible on the public website when this time arrives.
-              </p>
-            </div>
+            {status !== 'PUBLISHED' && (
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                  Scheduled Publish Date & Time ⏰
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => {
+                    setScheduledAt(e.target.value);
+                    if (e.target.value && status !== 'SCHEDULED') {
+                      setStatus('SCHEDULED');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                />
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Article will automatically become visible on the public website when this time arrives.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">

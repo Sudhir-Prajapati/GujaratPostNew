@@ -41,7 +41,8 @@ export default function RichTextArea({
   label,
   required = false,
 }: RichTextAreaProps) {
-  const [showSource, setShowSource] = useState(false);
+  // 'preview' mode is active by default to show live rendered HTML preview
+  const [viewMode, setViewMode] = useState<'preview' | 'source'>('preview');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Helper to wrap selected text with open and close tags
@@ -69,7 +70,10 @@ export default function RichTextArea({
   // Insert list items
   const applyList = (type: 'ul' | 'ol') => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el) {
+      onChange(`${value}\n<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>\n`);
+      return;
+    }
 
     const start = el.selectionStart;
     const end = el.selectionEnd;
@@ -91,8 +95,8 @@ export default function RichTextArea({
   // Insert quote
   const applyQuote = () => {
     const el = textareaRef.current;
-    const start = el ? el.selectionStart : 0;
-    const end = el ? el.selectionEnd : 0;
+    const start = el ? el.selectionStart : value.length;
+    const end = el ? el.selectionEnd : value.length;
     const selected = value.substring(start, end) || 'Important quote statement...';
     const quoteHtml = `<blockquote>\n  "${selected}"\n</blockquote>`;
     const newValue = value.substring(0, start) + quoteHtml + value.substring(end);
@@ -131,7 +135,10 @@ export default function RichTextArea({
   // Clear tags
   const clearFormatting = () => {
     const el = textareaRef.current;
-    if (!el) return;
+    if (!el) {
+      onChange(value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, ''));
+      return;
+    }
     const start = el.selectionStart;
     const end = el.selectionEnd;
     const selected = value.substring(start, end);
@@ -210,25 +217,25 @@ export default function RichTextArea({
               type="button"
               onClick={() => applyHeading(1)}
               title="Heading 1 (H1)"
-              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
-              <Heading1 className="h-4 w-4" />
+              H1
             </button>
             <button
               type="button"
               onClick={() => applyHeading(2)}
               title="Heading 2 (H2)"
-              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
-              <Heading2 className="h-4 w-4" />
+              H2
             </button>
             <button
               type="button"
               onClick={() => applyHeading(3)}
               title="Heading 3 (H3)"
-              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="rounded p-1.5 hover:bg-zinc-100 text-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 font-extrabold text-xs"
             >
-              <Heading3 className="h-4 w-4" />
+              H3
             </button>
           </div>
 
@@ -316,25 +323,35 @@ export default function RichTextArea({
 
           <div className="flex-1" />
 
-          {/* Toggle View Mode (Raw Source / Live Preview) */}
+          {/* Toggle View Mode Button (Shows "Source Code" in preview mode, and "Live Preview" in source mode) */}
           <button
             type="button"
-            onClick={() => setShowSource(!showSource)}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all border ${
-              showSource
+            onClick={() => setViewMode(viewMode === 'preview' ? 'source' : 'preview')}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all border ${
+              viewMode === 'source'
                 ? 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm'
-                : 'bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-300 dark:border-zinc-800'
+                : 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm hover:bg-zinc-800'
             }`}
           >
-            {showSource ? <Eye className="h-3.5 w-3.5" /> : <Code className="h-3.5 w-3.5" />}
-            <span>{showSource ? 'Live Preview' : 'Source Code'}</span>
+            {viewMode === 'preview' ? (
+              <>
+                <Code className="h-3.5 w-3.5" />
+                <span>Source Code</span>
+              </>
+            ) : (
+              <>
+                <Eye className="h-3.5 w-3.5" />
+                <span>Live Preview</span>
+              </>
+            )}
           </button>
         </div>
 
-        {/* Input Area / Live Preview */}
-        {showSource ? (
+        {/* Display Area: Live HTML Preview vs Source Code Textarea */}
+        {viewMode === 'preview' ? (
           <div
-            className="p-4 min-h-[140px] prose dark:prose-invert max-w-none text-sm text-zinc-900 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-950/20"
+            className="p-4 min-h-[140px] prose dark:prose-invert max-w-none text-sm text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 cursor-text"
+            onClick={() => setViewMode('source')}
             dangerouslySetInnerHTML={{
               __html: value
                 ? value
@@ -352,7 +369,7 @@ export default function RichTextArea({
             placeholder={placeholder}
             rows={rows}
             required={required}
-            className="w-full bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 font-sans leading-relaxed"
+            className="w-full bg-white px-4 py-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 leading-relaxed"
           />
         )}
       </div>
