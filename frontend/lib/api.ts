@@ -1,4 +1,5 @@
 import { Article, Video, Photo } from '@/types';
+import { PHOTOS } from '@/data';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gujaratpost.onrender.com/api/public';
 
@@ -64,7 +65,8 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    // Increase timeout to 30s to allow remote cloud database queries to complete smoothly without premature aborts
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(url, {
@@ -292,18 +294,19 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
 /**
  * Fetch photo gallery items from Express Backend API
  */
-export async function getPublicGallery(): Promise<Photo[]> {
+export async function getPublicGallery(): Promise<any[]> {
   try {
     const url = `${API_BASE_URL}/gallery`;
-    const json = await fetchCachedJson<any>(url);
-    if (json?.success && json.data?.photos) {
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json?.success && json.data?.photos && json.data.photos.length > 0) {
       return json.data.photos;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for gallery:', error?.message || error);
   }
 
-  return [];
+  return PHOTOS;
 }
 
 /**
@@ -336,6 +339,23 @@ export async function getPublicWebStories(): Promise<any[]> {
     console.warn('Backend API fetch error for webstories:', error?.message || error);
   }
   return [];
+}
+
+/**
+ * Fetch Live Center data (Fuel, Market, Cricket, Football) from Express Backend API
+ */
+export async function getLiveCenterData(): Promise<any> {
+  try {
+    const url = `${API_BASE_URL}/live-center`;
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json?.success && json.data) {
+      return json.data;
+    }
+  } catch (error: any) {
+    console.warn('Backend API fetch error for live center:', error?.message || error);
+  }
+  return null;
 }
 
 /**
@@ -469,5 +489,18 @@ export async function getPublicWeather(city?: string): Promise<any> {
     weatherCode: 2,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/**
+ * Update Astrology Sign prediction from Admin Panel
+ */
+export async function updateAdminAstrologySign(id: string, data: { prediction?: string; predictionGu?: string; nameGu?: string; nameHi?: string }) {
+  const url = getBackendApiUrl(`/api/admin/astrology/${id}`);
+  const res = await authFetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  return res.json();
 }
 
