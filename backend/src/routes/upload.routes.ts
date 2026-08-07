@@ -81,57 +81,64 @@ const upload = multer({
   fileFilter,
 });
 
-router.post('/', upload.single('file'), async (req: any, res: any) => {
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: 'No file uploaded.' });
-  }
+const handleUpload = (req: any, res: any) => {
+  // Support both 'file' and 'image' field names in Multer
+  const singleUpload = upload.fields([
+    { name: 'file', maxCount: 1 },
+    { name: 'image', maxCount: 1 },
+  ]);
 
-  try {
-    const localFilePath = req.file.path;
-    const localUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    const isPdf = req.file.mimetype === 'application/pdf' || req.file.filename.toLowerCase().endsWith('.pdf');
+  singleUpload(req, res, async (err: any) => {
+    if (err) {
+      console.error('Multer upload error:', err);
+      return res.status(400).json({ success: false, error: err.message || 'File upload error.' });
+    }
 
-    // For PDF files, return local server URL and dynamic page count
-    if (isPdf) {
-      const pageCount = getPdfPageCount(localFilePath);
-      // Optional async Cloudinary backup in background
-      cloudinary.uploader.upload(localFilePath, { folder: 'gujarat-post', resource_type: 'raw' }).catch(() => {});
+    const uploadedFile = req.file || (req.files && (req.files.file?.[0] || req.files.image?.[0]));
 
-      return res.status(200).json({
-        success: true,
-        data: { url: localUrl, pageCount },
-        url: localUrl,
-        pageCount,
-      });
+    if (!uploadedFile || !uploadedFile.buffer) {
+      return res.status(400).json({ success: false, error: 'No file uploaded or file buffer empty.' });
     }
 
     // For images, upload to Cloudinary or fallback to localUrl
     try {
-      const cloudResult = await cloudinary.uploader.upload(localFilePath, {
-        folder: 'gujarat-post',
-        resource_type: 'image',
-      });
+      // Upload file buffer directly to Cloudinary
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'gujarat-post',
+          resource_type: 'auto',
+        },
+        (uploadErr: any, result: any) => {
+          if (uploadErr) {
+            console.error('Cloudinary stream upload error:', uploadErr);
+            return res.status(400).json({
+              success: false,
+              error: uploadErr.message || 'Cloudinary image processing failed.',
+            });
+          }
 
-      const finalUrl = cloudResult?.secure_url || cloudResult?.url || localUrl;
-      return res.status(200).json({
-        success: true,
-        data: { url: finalUrl, pageCount: 1 },
-        url: finalUrl,
-        pageCount: 1,
-      });
-    } catch (cloudErr) {
-      console.warn('Cloudinary upload fallback to local static URL:', cloudErr);
-      return res.status(200).json({
-        success: true,
-        data: { url: localUrl, pageCount: 1 },
-        url: localUrl,
-        pageCount: 1,
-      });
+          const fileUrl = result?.secure_url || result?.url;
+          if (!fileUrl) {
+            return res.status(500).json({ success: false, error: 'Failed to retrieve Cloudinary URL.' });
+          }
+
+          return res.status(200).json({
+            success: true,
+            url: fileUrl,
+            data: { url: fileUrl },
+          });
+        }
+      );
+
+      uploadStream.end(uploadedFile.buffer);
+    } catch (error: any) {
+      console.error('Upload route error:', error);
+      return res.status(500).json({ success: false, error: error.message || 'File upload failed.' });
     }
-  } catch (error: any) {
-    console.error('Upload error:', error);
-    return res.status(500).json({ success: false, error: error.message || 'File upload failed.' });
-  }
-});
+  });
+};
+
+router.post('/', handleUpload);
+router.post('/image', handleUpload);
 
 export default router;

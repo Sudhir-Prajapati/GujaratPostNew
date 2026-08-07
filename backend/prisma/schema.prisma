@@ -88,8 +88,8 @@ model Category {
   descriptionHi String?  @db.Text
   icon          String?
   color         String?
-  displayOrder  Int?     @default(0)
-  isActive      Boolean? @default(true)
+  displayOrder  Int      @default(0)
+  isActive      Boolean  @default(true)
   posts         Post[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -286,44 +286,35 @@ model HeroSetting {
 }
 
 model Reel {
-  id        String   @id @default(uuid())
-  type      String   @default("INSTAGRAM") // "VIDEO" or "INSTAGRAM"
-  heading   String   @db.Text
-  headingGu String   @db.Text
-  headingHi String   @db.Text
-  videoUrl  String?  @db.Text // Used if type is "VIDEO"
-  instaUrl  String?  @db.Text // Used if type is "INSTAGRAM"
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(uuid())
+  type        String    @default("INSTAGRAM") // "VIDEO" or "INSTAGRAM"
+  heading     String    @db.Text
+  headingGu   String    @db.Text
+  headingHi   String    @db.Text
+  videoUrl    String?   @db.Text // Used if type is "VIDEO"
+  instaUrl    String?   @db.Text // Used if type is "INSTAGRAM"
+  isActive    Boolean   @default(true)
+  scheduledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("reels")
 }
 
-model EPaperCity {
+model Advertisement {
   id        String   @id @default(uuid())
-  city      String   @unique
-  cityGu    String?
+  section   String   @unique // e.g. "AFTER_HERO", "SIDEBAR_HERO_TOP", "SIDEBAR_GUJARAT", "SIDEBAR_WORLD", "SIDEBAR_POPULAR"
+  title     String?  // Optional name label for admin reference
+  isActive  Boolean  @default(true)
+  mediaType String   @default("IMAGE") // "IMAGE" or "VIDEO"
+  image1    String?  @db.Text
+  link1     String?  @db.Text
+  image2    String?  @db.Text
+  link2     String?  @db.Text
+  image3    String?  @db.Text
+  link3     String?  @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("epaper_cities")
-}
-
-model EPaperEdition {
-  id           String   @id @default(uuid())
-  title        String?  // Sub-edition name e.g. "Ahmedabad City", "Ahmedabad East", "City Life"
-  city         String
-  cityGu       String?
-  date         String   // YYYY-MM-DD
-  pages        Int      @default(24)
-  fileUrl      String   @db.Text
-  thumbnailUrl String?  @db.Text
-  status       String   @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
-  publishTime  String?  @default("06:00 AM")
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("epaper_editions")
+  @@map("advertisements")
 }

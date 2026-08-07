@@ -492,15 +492,32 @@ export async function getPublicWeather(city?: string): Promise<any> {
 }
 
 /**
- * Update Astrology Sign prediction from Admin Panel
+ * Fetch public advertisements for sections
  */
-export async function updateAdminAstrologySign(id: string, data: { prediction?: string; predictionGu?: string; nameGu?: string; nameHi?: string }) {
-  const url = getBackendApiUrl(`/api/admin/astrology/${id}`);
-  const res = await authFetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return res.json();
+export async function getPublicAds(): Promise<any[]> {
+  try {
+    const url = `${API_BASE_URL}/ads`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ads) {
+      return json.data.ads;
+    }
+  } catch (error: any) {
+    console.warn('Failed to fetch public ads from API:', error?.message || error);
+  }
+  return [];
 }
+
+export async function getPublicAdBySection(section: string): Promise<any | null> {
+  try {
+    const url = `${API_BASE_URL}/ads/${encodeURIComponent(section)}`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ad) {
+      return json.data.ad;
+    }
+  } catch (error: any) {
+    console.warn(`Failed to fetch public ad for section ${section}:`, error?.message || error);
+  }
+  return null;
+}
+
 

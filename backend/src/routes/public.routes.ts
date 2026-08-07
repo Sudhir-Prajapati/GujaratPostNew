@@ -5,14 +5,20 @@ import { withDbRetry } from '../utils/db.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
-import { GalleryController } from '../controllers/gallery.controller.js';
-import { EPaperController } from '../controllers/epaper.controller.js';
+import { AdController } from '../controllers/ad.controller.js';
 
 const router = Router();
 
 // Public E-Paper routes
 router.get('/epaper', EPaperController.getPublicEditions);
 router.get('/epaper/cities', EPaperController.getCities);
+
+/**
+ * GET /api/public/ads
+ * GET /api/public/ads/:section
+ */
+router.get('/ads', AdController.getAllAds);
+router.get('/ads/:section', AdController.getAdBySection);
 
 /**
  * GET /api/public/hero-settings
@@ -37,9 +43,20 @@ router.get('/articles', async (req, res, next) => {
     const isBreaking = req.query.isBreaking === 'true';
     const isFeatured = req.query.isFeatured === 'true';
 
+    const now = new Date();
     const where: any = {
-      status: 'PUBLISHED', // Only show published articles on the public site
-      AND: [],
+      OR: [
+        { status: 'PUBLISHED' },
+        { status: 'SCHEDULED', scheduledAt: { lte: now } }
+      ],
+      AND: [
+        {
+          OR: [
+            { scheduledAt: null },
+            { scheduledAt: { lte: now } }
+          ]
+        }
+      ],
     };
 
     if (query) {
@@ -194,8 +211,25 @@ router.get('/articles', async (req, res, next) => {
 router.get('/articles/:slug', async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const now = new Date();
     const p = await prisma.post.findFirst({
-      where: { OR: [{ slug }, { id: slug }], status: 'PUBLISHED' },
+      where: {
+        OR: [{ slug }, { id: slug }],
+        AND: [
+          {
+            OR: [
+              { status: 'PUBLISHED' },
+              { status: 'SCHEDULED', scheduledAt: { lte: now } }
+            ]
+          },
+          {
+            OR: [
+              { scheduledAt: null },
+              { scheduledAt: { lte: now } }
+            ]
+          }
+        ]
+      },
       include: {
         category: true,
         author: true,
@@ -296,11 +330,15 @@ router.get('/authors', async (req, res, next) => {
  */
 router.get('/categories', async (req, res, next) => {
   try {
-    const categories = await withDbRetry(() =>
-      prisma.category.findMany({
-        orderBy: { name: 'asc' },
-      })
-    );
+    const categories = await prisma.category.findMany({
+      where: {
+        isActive: true,
+        slug: {
+          notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
+        },
+      },
+      orderBy: { displayOrder: 'asc' },
+    });
     return sendSuccess(res, { categories }, 'Categories retrieved');
   } catch (error) {
     next(error);

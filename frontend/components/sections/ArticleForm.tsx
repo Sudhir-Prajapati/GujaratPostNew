@@ -155,6 +155,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [location, setLocation] = useState('');
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED'>('DRAFT');
+  const [scheduledAt, setScheduledAt] = useState('');
   const [priority, setPriority] = useState(0);
   const [readingTime, setReadingTime] = useState(3);
 
@@ -493,6 +494,13 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
         setStatus(art.status || 'PUBLISHED');
+        if (art.scheduledAt) {
+          const d = new Date(art.scheduledAt);
+          const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+          setScheduledAt(localIso);
+        } else {
+          setScheduledAt('');
+        }
         setPriority(art.priority || 0);
         setReadingTime(art.readingTime || 3);
         setIsTrending(art.isTrending || false);
@@ -633,6 +641,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       location: location || null,
       authorId,
       status,
+      scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       priority: Number(priority),
       readingTime: Number(readingTime),
       isTrending,
@@ -1330,7 +1339,14 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               ) : (
                 <CustomSelect
                   value={status || 'DRAFT'}
-                  onChange={(val) => setStatus(val as any)}
+                  onChange={(val) => {
+                    setStatus(val as any);
+                    if (val === 'SCHEDULED' && !scheduledAt) {
+                      const nextHour = new Date(Date.now() + 3600000);
+                      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                      setScheduledAt(localIso);
+                    }
+                  }}
                   options={[
                     { value: 'PUBLISHED', label: 'Publish' },
                     { value: 'DRAFT', label: 'Draft' },
@@ -1341,6 +1357,26 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                   searchable={false}
                 />
               )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                Scheduled Publish Date & Time ⏰
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => {
+                  setScheduledAt(e.target.value);
+                  if (e.target.value && status !== 'SCHEDULED') {
+                    setStatus('SCHEDULED');
+                  }
+                }}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+              />
+              <p className="text-[10px] text-zinc-400 mt-1">
+                Article will automatically become visible on the public website when this time arrives.
+              </p>
             </div>
 
             <div>

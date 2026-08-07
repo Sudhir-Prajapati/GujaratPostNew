@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles } from 'lucide-react';
+import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import {
   getArticleTitle,
   getArticleExcerpt,
@@ -21,7 +21,7 @@ import {
 } from '@/data';
 import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicAstrology, getPublicGallery, getLiveCenterData } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
@@ -34,6 +34,9 @@ import ZodiacDetailModal from '@/components/sections/ZodiacDetailModal';
 import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
 import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
+import AdSectionBanner from '@/components/ads/AdSectionBanner';
+import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
+import CategorySection from '@/components/sections/CategorySection';
 
 const CHANNEL_URL = 'https://www.youtube.com/@Gujaratpostnews';
 const CHANNEL_ID = 'UCqQ8YbFSZ4j8J4iVJOHurTw';
@@ -388,41 +391,30 @@ export default function HeroSection({
   });
   const [astrologySignsDB, setAstrologySignsDB] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(['gujarat', 'national', 'world', 'politics', 'crime']);
+  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch main articles pool, hero slots settings, videos, market rates, weather, AND astrology in parallel
+    // Fetch main articles pool, hero slots settings, videos, market rates, weather, AND categories in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
       getPublicVideos('video'),
       getMarketRates(),
       getPublicWeather('ahmedabad'),
-      getPublicAstrology(),
-    ]).then(([mainRes, heroRes, videoRes, marketRes, weatherRes, astroRes]: any[]) => {
-      if (Array.isArray(astroRes) && astroRes.length > 0) {
-        // Merge backend dynamic predictions into astrology signs
-        setAstrologySignsDB((prev) =>
-          prev.map((sign) => {
-            const match = astroRes.find(
-              (a: any) => a.slug === sign.id || a.id === sign.id || a.name?.toLowerCase() === sign.name?.toLowerCase()
-            );
-            if (match) {
-              return {
-                ...sign,
-                nameGu: match.nameGu || sign.nameGu,
-                prediction: match.prediction || sign.prediction,
-                predictionGu: match.predictionGu || sign.predictionGu,
-              };
-            }
-            return sign;
-          })
-        );
-      }
+      getPublicCategories(),
+    ]).then(([mainRes, heroRes, videoRes, marketRes, weatherRes, categoriesRes]: any[]) => {
       if (weatherRes) {
         setWeatherData(weatherRes);
       }
       if (marketRes) {
         setMarketRates(marketRes);
+      }
+      if (categoriesRes && Array.isArray(categoriesRes) && categoriesRes.length > 0) {
+        const sortedCats = [...categoriesRes].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+        setAllCategoriesDB(sortedCats);
+        const sortedSlugs = sortedCats.map((c) => c.slug?.toLowerCase()).filter(Boolean);
+        setOrderedCategorySlugs(sortedSlugs);
       }
       if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
         setDynamicTrendingTopics(heroRes.trendingTopics);
@@ -798,23 +790,18 @@ export default function HeroSection({
 
         {/* ═══ RIGHT SIDEBAR — Ad + YouTube Latest + Popular ═══════════════ */}
         <div className="flex flex-col gap-4">
-          {/* Advertisement banner */}
-          <div className="ad-slot">
-            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </p>
-            <div className="ad-inner">
-              <div className="ad-creative rounded-sm p-4 text-white flex flex-col justify-between" style={{ background: 'linear-gradient(135deg,#FF6B35,#C81D25)', minHeight: 180 }}>
-                <div>
-                  <div className="ad-brand font-black text-lg uppercase tracking-wide">મેગા સેલ ડેઝ</div>
-                  <div className="ad-tag text-[12.5px] font-semibold mt-2 leading-snug">ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!</div>
-                </div>
-                <button className="ad-cta bg-white text-slate-900 rounded-sm px-4.5 py-1.5 text-[11px] font-black transition duration-200 hover:-translate-y-0.5 hover:shadow-lg w-max mt-4">
-                  હમણાં ખરીદો ↗
-                </button>
-              </div>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_HERO_TOP"
+            language={language}
+            fallbackTitleGu="મેગા સેલ ડેઝ"
+            fallbackTitleEn="Mega Sale Days"
+            fallbackTagGu="ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!"
+            fallbackTagEn="Up to 70% off on fashion and electronics — today only!"
+            fallbackCtaGu="હમણાં ખરીદો"
+            fallbackCtaEn="Shop Now"
+            fallbackGradient="linear-gradient(135deg,#FF6B35,#C81D25)"
+            minHeight={180}
+          />
 
           {/* YouTube Video Section */}
           <div className="w-full rounded-md border border-slate-200 bg-card p-4 shadow-sm flex flex-col gap-2.5">
@@ -908,14 +895,114 @@ export default function HeroSection({
 
 
 
+      <AdSectionBanner section="AFTER_HERO" />
+
       <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
 
-      <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
+      {/* Dynamic category sections according to displayOrder (Gujarat, Crime, Vishw/World, Desh/National, Rajkaran/Politics) */}
+      {orderedCategorySlugs.map((slug) => {
+        const s = slug.toLowerCase();
+        if (s === 'gujarat') {
+          return <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />;
+        }
+        if (s === 'national' || s === 'india' || s === 'desh') {
+          return <NationalSection key="national" language={language} />;
+        }
+        if (s === 'world' || s === 'vishw') {
+          return <WorldSection key="world" language={language} />;
+        }
+        if (s === 'politics' || s === 'rajkaran') {
+          return <PoliticsSection key="politics" language={language} />;
+        }
+        if (s === 'crime') {
+          return (
+            <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
+                {/* Left Column */}
+                <div className="flex flex-col gap-10 min-w-0">
+                  <CrimeSection language={language} view="content" />
+                </div>
 
+                {/* Right Column / Sidebar */}
+                <div className="flex flex-col gap-6 sticky top-20 select-none">
+                  {/* Gold & Silver Rates Widget */}
+                  <div>
+                    <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
+                      <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
+                      <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
+                        {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
+                      </h3>
+                    </div>
 
-      <NationalSection language={language} />
+                    <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
+                      {/* Gold Rate Row */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
+                            🏅
+                          </div>
+                          <div>
+                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                              {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
+                            </h4>
+                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                              {language === 'gu' ? '24 Karat' : '24 Karat'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                            {marketRates?.gold?.price || '₹74,850'}
+                          </p>
+                          <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
+                            {marketRates?.gold?.change || '▲ ₹450'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-border/40" />
+
+                      {/* Silver Rate Row */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
+                            🥈
+                          </div>
+                          <div>
+                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                              {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
+                            </h4>
+                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                              {language === 'gu' ? 'Per Kg' : 'Per Kg'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                            {marketRates?.silver?.price || '₹84,200'}
+                          </p>
+                          <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
+                            {marketRates?.silver?.change || '— Stable'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weather, WhatsApp, and Astrology */}
+                  <CrimeSection language={language} view="sidebar" />
+                </div>
+              </div>
+            </section>
+          );
+        }
+        return null;
+      })}
 
       <TrendingSection />
+
+      <AdSectionBanner section="AFTER_TRENDING" />
 
       {/* Big Horizontal Ad before Latest News */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
@@ -938,92 +1025,9 @@ export default function HeroSection({
 
       <InstagramStories />
 
-      <WorldSection language={language} />
-
-      <PoliticsSection language={language} />
-
       <WebStoriesSection />
 
-      {/* Main 2-Column Section: Crime (Left) + Sidebar (Right) */}
-      <section className="mx-auto max-w-screen-xl px-4 mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
-          {/* Left Column */}
-          <div className="flex flex-col gap-10 min-w-0">
-            <CrimeSection language={language} view="content" />
-          </div>
-
-          {/* Right Column / Sidebar */}
-          <div className="flex flex-col gap-6 sticky top-20 select-none">
-            {/* Gold & Silver Rates Widget */}
-            <div>
-              <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
-                <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
-                <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
-                  {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
-                </h3>
-              </div>
-
-              <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
-                {/* Gold Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
-                      🏅
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? '24 Karat' : '24 Karat'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      {marketRates?.gold?.price || '₹74,850'}
-                    </p>
-                    <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
-                      {marketRates?.gold?.change || '▲ ₹450'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border/40" />
-
-                {/* Silver Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
-                      🥈
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? 'Per Kg' : 'Per Kg'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      {marketRates?.silver?.price || '₹84,200'}
-                    </p>
-                    <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
-                      {marketRates?.silver?.change || '— Stable'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Weather, WhatsApp, and Astrology */}
-            <CrimeSection language={language} view="sidebar" />
-          </div>
-        </div>
-      </section>
+      <AdSectionBanner section="AFTER_WEBSTORIES" />
 
       {/* Horizontal Ad Section before EntertainTechLifeSection */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
@@ -1036,9 +1040,11 @@ export default function HeroSection({
 
       <PhotoGallerySection language={language} />
 
-
+      <AdSectionBanner section="AFTER_GALLERY" />
 
       <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
+
+      <AdSectionBanner section="AFTER_VIDEOS" />
 
       <WeatherDashboardSection language={language} />
 
@@ -3247,26 +3253,18 @@ function CityHyperlocalSection({
         {/* Right Column: Sidebar Ads and widgets */}
         <div className="flex flex-col gap-6 sticky top-20 select-none">
 
-          {/* Ad widget banner */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-            </span>
-            <div className="w-full rounded-sm bg-gradient-to-br from-[#0f3d70] to-[#001f3f] text-white p-6 flex flex-col items-center justify-center border border-border/10 shadow-sm text-center relative overflow-hidden" style={{ minHeight: 180 }}>
-              <h4 className="text-[20px] font-black tracking-tight select-none">
-                {language === 'gu' ? 'ઇઝી પર્સનલ લોન' : 'Easy Personal Loan'}
-              </h4>
-              <p className="text-[12px] text-white/90 font-bold mt-1.5 leading-snug">
-                {language === 'gu' ? 'ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી' : 'Just 10.5% interest, approval in 5 mins'}
-              </p>
-              <button
-                type="button"
-                className="mt-4 bg-white text-[#0f3d70] font-black text-[12px] px-5 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer border border-[#0f3d70]"
-              >
-                {language === 'gu' ? 'અરજી કરો ↗' : 'Apply Now ↗'}
-              </button>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_GUJARAT"
+            language={language}
+            fallbackTitleGu="ઇઝી પર્સનલ લોન"
+            fallbackTitleEn="Easy Personal Loan"
+            fallbackTagGu="ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી"
+            fallbackTagEn="Just 10.5% interest, approval in 5 mins"
+            fallbackCtaGu="અરજી કરો"
+            fallbackCtaEn="Apply Now"
+            fallbackGradient="linear-gradient(135deg,#0f3d70,#001f3f)"
+            minHeight={180}
+          />
 
           {/* WhatsApp Channel widget */}
           <div className="w-full rounded-sm border border-slate-200 bg-card p-5 shadow-sm">
@@ -4318,26 +4316,18 @@ function PopularStoriesSection({
         <span className="text-[#B3121B] font-extrabold text-[15px] pr-1">→</span>
       </div>
 
-      {/* Recharge Plus Ad Widget */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <div className="bg-slate-100/95 border border-slate-200 border-b-0 text-[10px] text-slate-500 font-black py-1.5 text-center uppercase tracking-widest rounded-t-sm">
-          {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-        </div>
-        <div className="w-full rounded-b-sm bg-gradient-to-br from-[#5D3FD3] to-[#4A2CA8] text-white p-8 py-10 flex flex-col items-center justify-center relative overflow-hidden border border-slate-200 text-center flex-1 shadow-sm" style={{ minHeight: 265 }}>
-          <h4 className="text-[22px] font-black tracking-tight select-none">
-            {language === 'gu' ? 'રિચાર્જ પ્લસ' : 'Recharge Plus'}
-          </h4>
-          <p className="text-[13px] text-white/90 font-bold mt-2.5 leading-snug max-w-[220px]">
-            {language === 'gu' ? 'અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને' : 'Unlimited data + calling only ₹199/month'}
-          </p>
-          <button
-            type="button"
-            className="mt-6 bg-white text-[#5D3FD3] font-black text-[13px] px-7 py-3 rounded-full shadow-md hover:bg-white/95 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            {language === 'gu' ? 'રિચાર્જ કરો ›' : 'Recharge Now ›'}
-          </button>
-        </div>
-      </div>
+      <SidebarAdBanner
+        slot="SIDEBAR_POPULAR"
+        language={language}
+        fallbackTitleGu="રિચાર્જ પ્લસ"
+        fallbackTitleEn="Recharge Plus"
+        fallbackTagGu="અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને"
+        fallbackTagEn="Unlimited data + calling only ₹199/month"
+        fallbackCtaGu="રિચાર્જ કરો"
+        fallbackCtaEn="Recharge Now"
+        fallbackGradient="linear-gradient(135deg,#5D3FD3,#4A2CA8)"
+        minHeight={265}
+      />
 
     </div>
   );
@@ -6343,25 +6333,18 @@ export function WorldSection({ language }: { language: Language }) {
         {/* Right Column: Widgets */}
         <div className="flex flex-col gap-6">
 
-          {/* Green Dream Home Ad */}
-          <div className="w-full rounded-sm bg-[#0E8044] text-white p-6 py-6 flex flex-col items-center justify-center relative overflow-hidden border border-border/10 shadow-md text-center" style={{ minHeight: 180 }}>
-            {/* Small Ad Label at top */}
-            <span className="absolute top-2.5 left-3.5 text-[9.5px] text-white/50 font-black tracking-wider uppercase select-none">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </span>
-            <h4 className="text-[22px] font-black tracking-tight select-none mt-2">
-              {language === 'gu' ? 'ડ્રીમ હોમ્સ' : 'Dream Homes'}
-            </h4>
-            <p className="text-[13px] text-white/95 font-bold mt-1.5 leading-snug max-w-[240px]">
-              {language === 'gu' ? 'તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે' : 'Your dream home — with 0% processing fee'}
-            </p>
-            <button
-              type="button"
-              className="mt-4 bg-white text-[#0E8044] font-black text-[12.5px] px-7 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              {language === 'gu' ? 'વધુ જાણો ›' : 'Learn More ›'}
-            </button>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_WORLD"
+            language={language}
+            fallbackTitleGu="ડ્રીમ હોમ્સ"
+            fallbackTitleEn="Dream Homes"
+            fallbackTagGu="તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે"
+            fallbackTagEn="Your dream home — with 0% processing fee"
+            fallbackCtaGu="વધુ જાણો"
+            fallbackCtaEn="Learn More"
+            fallbackGradient="#0E8044"
+            minHeight={180}
+          />
 
           {/* Dynamic Foreign Currency Widget */}
           <CurrencyRatesWidget language={language} />
@@ -7187,71 +7170,83 @@ function WeatherDashboardSection({ language }: { language: Language }) {
 /* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
 /* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
 export function EntertainTechLifeSection({ language }: { language: Language }) {
-  const [healthArticles, setHealthArticles] = useState<Article[]>([]);
-  const [entArticles, setEntArticles] = useState<Article[]>([]);
-  const [techArticles, setTechArticles] = useState<Article[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryArticlesMap, setCategoryArticlesMap] = useState<Record<string, Article[]>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      getPublicArticles({ categorySlug: 'health', limit: 5 }),
-      getPublicArticles({ categorySlug: 'entertainment', limit: 5 }),
-      getPublicArticles({ categorySlug: 'technology', limit: 5 }),
-    ]).then(([healthRes, entRes, techRes]) => {
-      if (healthRes && healthRes.articles && healthRes.articles.length > 0) {
-        setHealthArticles(healthRes.articles);
-      }
-      if (entRes && entRes.articles && entRes.articles.length > 0) {
-        setEntArticles(entRes.articles);
-      }
-      if (techRes && techRes.articles && techRes.articles.length > 0) {
-        setTechArticles(techRes.articles);
-      }
-    });
+    getPublicCategories()
+      .then(async (cats) => {
+        if (cats && Array.isArray(cats)) {
+          setCategories(cats);
+          
+          // Fetch articles for each category in parallel
+          const articlePromises = cats.map(async (cat: any) => {
+            try {
+              const res = await getPublicArticles({ categorySlug: cat.slug, limit: 5 });
+              return { slug: cat.slug, articles: res.articles || [] };
+            } catch (e) {
+              console.warn(`Error fetching articles for category ${cat.slug}:`, e);
+              return { slug: cat.slug, articles: [] };
+            }
+          });
+          
+          const results = await Promise.all(articlePromises);
+          const map: Record<string, Article[]> = {};
+          results.forEach((r) => {
+            map[r.slug] = r.articles;
+          });
+          setCategoryArticlesMap(map);
+        }
+      })
+      .catch((err) => console.warn('Error loading dynamic sections:', err))
+      .finally(() => setLoading(false));
   }, []);
 
   type DisplayItem = { id?: string; slug?: string; img: string; title: string; titleGu: string; age: string };
 
-  const mockHealth: DisplayItem[] = [
-    { img: '/assets/demo/2.jpg', titleGu: 'પોસ્ટમોર્ટમમાં ખતરાના ચરણના આધુનિક સ્ટોરનો શુભારંભ', title: 'Modern store launched at Post Mortem danger step', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/6.jpg', titleGu: 'મેઘરાજા સક્રિય : અનેક સ્થળોવરસાદ, હવામાન વિભાગની આગાહી', title: 'Rain active: Rainfall in many places, weather department forecast', age: '4 કલાક પહેલાં' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ડુંગળીના ભાવમાં નોંધપાત્ર વધારો, ખરીદદારોએ ચિંતા વધારી', title: 'Onion prices rise significantly, buyers worry', age: '5 કલાક પહેલાં' },
-    { img: '/assets/demo/3.jpg', titleGu: 'વધુશે ઉકળો માટે સરકારની નવી સહાય યોજના અને મોટો નિર્ણય', title: 'New government aid scheme and big decision for startups', age: '7 કલાક પહેલાં' },
-    { img: '/assets/demo/1.jpg', titleGu: 'આ મહિને OTP પર મળશે રિફંડ, જાણો RBIના નવા નિયમો', title: 'Get refund on OTP this month, know new RBI rules', age: '8 કલાક પહેલાં' },
-  ];
-
-  const mockManoranjan: DisplayItem[] = [
-    { img: '/assets/demo/6.jpg', titleGu: 'નવી ગુજરાતી ફિલ્મ \'લીસ્ચ\' ઓફિસ પર રેકોર્ડ તોડશે જૂનો કલાત્મક આંકડો', title: 'New Gujarati film to break box office records', age: '1 કલાક પહેલાં' },
-    { img: '/assets/demo/4.jpg', titleGu: 'લોકપ્રિય ગાયકપ્રિન્ટનો નવો સિંગલ કૂક આગામી, ચાહકોમાં ઉત્સાહ', title: 'Popular singer new single release soon, excitement among fans', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/1.jpg', titleGu: 'જાણીતા ગાયકનો નવો આલ્બમ રિલીઝ! ચાહકોમાં જબરદસ્ત ઉત્સાહ', title: 'Famous singer releases new album! Huge excitement among fans', age: '4 કલાક પહેલાં' },
-    { img: '/assets/demo/5.jpg', titleGu: 'આ વીકેન્ડ OTT પર ધમાકો: રિલીઝ થશે આ પાંચ મોસ્ટ ફિલ્મો અને શો', title: 'Weekend OTT blast: These five top movies and shows to release', age: '6 કલાક પહેલાં' },
-    { img: '/assets/demo/7.jpg', titleGu: 'બોક્સ ઓફિસ પર \'સ્ટાર ફિલ્મ\'ની ધમાકેદાર કમાણી, તોડ્યા રેકોર્ડ', title: 'Star movie hits box office with record earnings', age: '7 કલાક પહેલાં' },
-  ];
-
-  const mockTechnology: DisplayItem[] = [
-    { img: '/assets/demo/3.jpg', titleGu: 'નવી સ્માર્ટસિટી સાર્ગરની યોજના, શહેરો બનશે વધુ સ્માર્ટ', title: 'New smart city plan, cities to become smarter', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/7.jpg', titleGu: 'ગુજરાતમાં ટેકનોલોજી આધારિત વિકાસના નવા પ્રોજેક્ટને મંજુરી', title: 'Approval for tech-based development projects in Gujarat', age: '3 કલાક પહેલાં' },
-    { img: '/assets/demo/5.jpg', titleGu: 'ભારતમાં 5G ટેકનોલોજીનો વ્યાપ ઝડપથી વધી રહ્યો છે', title: '5G technology footprint growing rapidly in India', age: '5 કલાક પહેલાં' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ટેકનોલોજીની ખાતામાં બદલાવ, ખેડૂતની આવકમાં વધારો', title: 'Technology change in agriculture boosts farmer income', age: '7 કલાક પહેલાં' },
-    { img: '/assets/demo/2.jpg', titleGu: 'AI ટૂલ્સ હવે રોજિંદા જીવનમાં જરૂરી, જાણો લાભ અને ઉપયોગ', title: 'AI tools essential in daily life, know benefits & usage', age: '8 કલાક પહેલાં' },
-  ];
-
-  const mapToDisplayItems = (dbArticles: Article[], mockItems: DisplayItem[]): DisplayItem[] => {
-    if (dbArticles.length > 0) {
-      return dbArticles.slice(0, 5).map((art) => ({
-        id: art.id,
-        slug: art.slug,
-        img: art.image || '/assets/demo/2.jpg',
-        title: art.title,
-        titleGu: art.titleGu || art.title,
-        age: formatTime(art.publishedAt),
-      }));
+  const getCategoryIcon = (slug: string) => {
+    const s = slug.toLowerCase();
+    if (s === 'health') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          <path d="M12 9v6m-3-3h6" />
+        </svg>
+      );
     }
-    return mockItems;
+    if (s === 'entertainment' || s === 'manoranjan') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M7 3v18M17 3v18M3 7.5h18M3 12h18M3 16.5h18" />
+        </svg>
+      );
+    }
+    if (s === 'technology') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect width="16" height="16" x="4" y="4" rx="2" />
+          <rect width="6" height="6" x="9" y="9" rx="1" />
+          <path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" />
+        </svg>
+      );
+    }
+    if (s === 'sports' || s === 'khel') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M6 12A6 6 0 0 1 18 12" />
+          <path d="M12 6A6 6 0 0 1 12 18" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+      </svg>
+    );
   };
-
-  const health = mapToDisplayItems(healthArticles, mockHealth);
-  const manoranjan = mapToDisplayItems(entArticles, mockManoranjan);
-  const technology = mapToDisplayItems(techArticles, mockTechnology);
 
   const col = (
     titleGu: string,
@@ -7264,7 +7259,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
   ) => (
     <div className="bg-card border border-border/80 rounded-xl p-5 shadow-sm flex flex-col justify-between min-w-0">
       <div>
-        {/* Column heading matching Image 1 */}
         <div className="flex flex-col mb-4 select-none">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 flex items-center justify-center shrink-0">
@@ -7279,7 +7273,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
           <div className="h-0.5 w-8 bg-[#B3121B] mt-2 rounded-full" />
         </div>
 
-        {/* Article rows */}
         <div className="flex flex-col divide-y divide-border/40">
           {items.map((a, i) => (
             <Link
@@ -7287,7 +7280,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
               href={a.slug ? `/news/${a.slug}` : href}
               className="group flex gap-3 py-3 hover:bg-muted/10 transition-colors"
             >
-              {/* Thumbnail */}
               <div className="relative h-[68px] w-[84px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
                 <Image
                   src={a.img}
@@ -7297,7 +7289,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
-              {/* Text */}
               <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
                 <h4 className="text-[12.5px] md:text-[13px] font-black text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
                   {language === 'gu' ? a.titleGu : a.title}
@@ -7312,7 +7303,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
         </div>
       </div>
 
-      {/* Bottom Button matching Image 1 */}
       <Link
         href={href}
         className="mt-4 w-full border border-red-200 dark:border-red-900/50 bg-red-50/40 dark:bg-red-950/20 text-[#B3121B] font-extrabold text-[12.5px] md:text-[13px] py-2.5 rounded-lg text-center hover:bg-[#B3121B] hover:text-white transition-all block select-none"
@@ -7322,58 +7312,57 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-screen-xl px-4 mt-8 py-10 flex justify-center items-center text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-[#B3121B] mr-2" />
+        <span>લોડ થઈ રહ્યું છે...</span>
+      </div>
+    );
+  }
+
+  if (categories.length === 0) return null;
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8">
       {/* Section Header */}
       <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
         <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
           {language === 'gu'
-            ? 'હેલ્થ   •   મનોરંજન   •   ટેક્નોલોજી'
+            ? categories.map(c => c.nameGu || c.name).join('   •   ')
             : language === 'hi'
-              ? 'हेल्थ   •   मनोरंजन   •   टेक्नोलॉजी'
-              : 'Health   •   Entertainment   •   Technology'}
+              ? categories.map(c => c.nameHi || c.name).join('   •   ')
+              : categories.map(c => c.name).join('   •   ')}
         </span>
       </div>
 
-      {/* 3-Column Grid with Cards matching Image 1 */}
+      {/* Dynamic Grid with Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {col(
-          'હેલ્થ',
-          'Health',
-          '/category/health',
-          health,
-          'વધુ હેલ્થ સમાચાર જુઓ',
-          'More Health News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            <path d="M12 9v6m-3-3h6" />
-          </svg>
-        )}
-        {col(
-          'મનોરંજન',
-          'Entertainment',
-          '/category/entertainment',
-          manoranjan,
-          'વધુ મનોરંજન સમાચાર જુઓ',
-          'More Entertainment News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect width="18" height="18" x="3" y="3" rx="2" />
-            <path d="M7 3v18M17 3v18M3 7.5h18M3 12h18M3 16.5h18" />
-          </svg>
-        )}
-        {col(
-          'ટેકનોલોજી',
-          'Technology',
-          '/category/technology',
-          technology,
-          'વધુ ટેકનોલોજી સમાચાર જુઓ',
-          'More Technology News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect width="16" height="16" x="4" y="4" rx="2" />
-            <rect width="6" height="6" x="9" y="9" rx="1" />
-            <path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" />
-          </svg>
-        )}
+        {categories.map((cat) => {
+          const catArticles = categoryArticlesMap[cat.slug] || [];
+          const items = catArticles.map((art) => ({
+            id: art.id,
+            slug: art.slug,
+            img: art.image || '/assets/demo/2.jpg',
+            title: art.title,
+            titleGu: art.titleGu || art.title,
+            age: formatTime(art.publishedAt),
+          }));
+
+          return (
+            <div key={cat.id}>
+              {col(
+                cat.nameGu || cat.name,
+                cat.name,
+                `/category/${cat.slug}`,
+                items,
+                `વધુ ${cat.nameGu || cat.name} સમાચાર જુઓ`,
+                `More ${cat.name} News`,
+                getCategoryIcon(cat.slug)
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

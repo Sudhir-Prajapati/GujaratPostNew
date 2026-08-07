@@ -9,9 +9,8 @@ import { StatsController } from '../controllers/stats.controller.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
-import { EPaperController } from '../controllers/epaper.controller.js';
+import { AdController } from '../controllers/ad.controller.js';
 import uploadRoutes from './upload.routes.js';
-
 
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
@@ -153,6 +152,14 @@ router.delete('/epaper/:id', requireAuth, EPaperController.deleteEdition);
 router.get('/epaper/cities', requireAuth, EPaperController.getCities);
 router.post('/epaper/cities', requireAuth, EPaperController.createCity);
 router.delete('/epaper/cities/:id', requireAuth, EPaperController.deleteCity);
+
+// ==========================================
+// 12. Section Advertisements
+// ==========================================
+router.get('/ads', requireAuth, AdController.getAllAds);
+router.post('/ads', requireAuth, AdController.createOrUpdateAd);
+router.put('/ads/:id/toggle', requireAuth, AdController.toggleActive);
+router.delete('/ads/:id', requireAuth, AdController.deleteAd);
 
 export default router;
 
