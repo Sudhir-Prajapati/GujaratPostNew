@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicCategories } from '@/lib/api';
 import { safeYouTubeId } from '@/lib/youtube';
 import { 
   Search, 
@@ -19,7 +19,8 @@ import {
   StarOff,
   Download,
   Eye,
-  RefreshCw
+  RefreshCw,
+  FolderOpen
 } from 'lucide-react';
 
 function YoutubeIcon({ className = 'h-5 w-5' }: { className?: string }) {
@@ -42,6 +43,9 @@ interface VideoData {
   embedUrl: string;
   duration: string;
   type: string;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  category?: { id: string; name: string; nameGu: string; color: string | null } | null;
   isFeatured: boolean;
   channel: string | null;
   views: number;
@@ -55,12 +59,19 @@ export default function VideosPage() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [selectedType, setSelectedType] = useState('video');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Categories list state
+  const [categories, setCategories] = useState<any[]>([]);
 
   // Modals state
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [importingCv, setImportingCv] = useState<any>(null);
+  const [importCategoryId, setImportCategoryId] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<VideoData | null>(null);
   const [previewVideo, setPreviewVideo] = useState<VideoData | null>(null);
 
@@ -82,18 +93,27 @@ export default function VideosPage() {
   const [titleHi, setTitleHi] = useState('');
   const [youtubeId, setYoutubeId] = useState('');
   const [type, setType] = useState('video'); // video | short | podcast | interview
+  const [categoryId, setCategoryId] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('0:00');
   const [isFeatured, setIsFeatured] = useState(false);
   const [channel, setChannel] = useState('Gujarat Post News');
-  // Single language: Gujarati only
+
+  // Fetch categories on mount
+  useEffect(() => {
+    getPublicCategories()
+      .then((cats) => {
+        if (cats && Array.isArray(cats)) {
+          setCategories(cats);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Extract YouTube video ID from any URL format
   const extractYouTubeId = (input: string): string => {
     const trimmed = input.trim();
-    // Already a bare 11-char ID
     if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
-    // Match various YouTube URL patterns
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
       /[?&]v=([a-zA-Z0-9_-]{11})/,
@@ -102,7 +122,7 @@ export default function VideosPage() {
       const m = trimmed.match(pattern);
       if (m) return m[1];
     }
-    return trimmed; // fallback: return as-is
+    return trimmed;
   };
 
   const handleYoutubeInputChange = (raw: string) => {
@@ -115,11 +135,11 @@ export default function VideosPage() {
       setLoading(true);
       try {
         const typeFilter = selectedType || 'video';
-        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${typeFilter}`));
+        const catFilter = selectedCategory ? `&categoryId=${selectedCategory}` : '';
+        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${typeFilter}${catFilter}`));
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
         const loadedVideos: VideoData[] = json.data.videos || [];
-        // Strict filter: only include regular YouTube videos
         const regularVideosOnly = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
         setVideos(regularVideosOnly);
         setTotalPages(json.data.totalPages || 1);
@@ -130,7 +150,7 @@ export default function VideosPage() {
       }
     }
     loadVideos();
-  }, [page, query, selectedType]);
+  }, [page, query, selectedType, selectedCategory]);
 
   // Load channel videos from YouTube RSS
   const loadChannelVideos = async () => {
@@ -147,7 +167,6 @@ export default function VideosPage() {
   useEffect(() => {
     if (activeTab !== 'channel') return;
     loadChannelVideos();
-    // Also load all DB video IDs for cross-referencing
     authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'))
       .then(r => r.json())
       .then(json => {
@@ -163,29 +182,42 @@ export default function VideosPage() {
       .catch(() => {});
   }, [activeTab]);
 
-  // Import a channel video into DB
-  const importFromChannel = async (cv: any) => {
-    const cleanId = safeYouTubeId(cv.youtubeId);
+  // Open Import Modal for a Channel Video
+  const openImportModal = (cv: any) => {
+    setImportingCv(cv);
+    setImportCategoryId('');
+    setImportModalOpen(true);
+  };
+
+  // Confirm and save imported video into DB
+  const handleConfirmImport = async () => {
+    if (!importingCv) return;
+    const cleanId = safeYouTubeId(importingCv.youtubeId);
     setChannelImporting(cleanId);
     try {
+      const selectedCatObj = categories.find((c) => c.id === importCategoryId);
       const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: cv.title,
-          titleGu: cv.title,
-          titleHi: cv.title,
+          title: importingCv.title,
+          titleGu: importingCv.title,
+          titleHi: importingCv.title,
           youtubeId: cleanId,
           type: 'video',
           description: '',
-          duration: cv.duration || '0:00',
+          duration: importingCv.duration || '0:00',
           isFeatured: false,
           channel: 'Gujarat Post News',
+          categoryId: importCategoryId || null,
+          categoryName: selectedCatObj ? selectedCatObj.name : null,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Import failed');
       setSavedIds(prev => new Set([...prev, cleanId]));
+      setImportModalOpen(false);
+      setImportingCv(null);
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -296,11 +328,9 @@ export default function VideosPage() {
 
 
   // Submit Add video
-  // Submit Add video
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!titleGu || !youtubeId) return alert('Title (Gujarati) and YouTube Video ID are required');
-    // Use Gujarati title for all three title fields
     setTitle(titleGu);
     setTitleHi(titleGu);
     setSaving(true);
@@ -309,7 +339,16 @@ export default function VideosPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: titleGu, titleGu, titleHi: titleGu, youtubeId, type, description, duration, isFeatured, channel
+          title: titleGu,
+          titleGu,
+          titleHi: titleGu,
+          youtubeId,
+          type,
+          description,
+          duration,
+          isFeatured,
+          channel,
+          categoryId: categoryId || null,
         }),
       });
       const json = await res.json();
@@ -321,13 +360,15 @@ export default function VideosPage() {
       setTitleHi('');
       setYoutubeId('');
       setType('video');
+      setCategoryId('');
       setDescription('');
       setDuration('0:00');
       setIsFeatured(false);
       setPage(1);
 
       // reload list
-      const rRes = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}`));
+      const catFilter = selectedCategory ? `&categoryId=${selectedCategory}` : '';
+      const rRes = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}${catFilter}`));
       const rJson = await rRes.json();
       if (rRes.ok) setVideos(rJson.data.videos);
     } catch (err: any) {
@@ -345,11 +386,11 @@ export default function VideosPage() {
     setTitleHi(video.titleHi);
     setYoutubeId(video.youtubeId);
     setType(video.type);
+    setCategoryId(video.categoryId || '');
     setDescription(video.description || '');
     setDuration(video.duration);
     setIsFeatured(video.isFeatured);
     setChannel(video.channel || 'Gujarat Post News');
-    // Gujarati only
     setEditModalOpen(true);
   };
 
@@ -374,7 +415,16 @@ export default function VideosPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: titleGu, titleGu, titleHi: titleGu, youtubeId, type, description, duration, isFeatured, channel
+          title: titleGu,
+          titleGu,
+          titleHi: titleGu,
+          youtubeId,
+          type,
+          description,
+          duration,
+          isFeatured,
+          channel,
+          categoryId: categoryId || null,
         }),
       });
       const json = await res.json();
@@ -507,6 +557,22 @@ export default function VideosPage() {
               >
                 <option value="video">YouTube Videos Only</option>
               </select>
+
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setPage(1);
+                }}
+                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+              >
+                <option value="">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.nameGu || c.name})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -566,6 +632,14 @@ export default function VideosPage() {
               {/* Text detail */}
               <div className="flex-1 p-4 flex flex-col justify-between">
                 <div>
+                  {(video.categoryName || video.category?.name) && (
+                    <div className="mb-1.5">
+                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold bg-red-50 text-[#B3121B] dark:bg-red-950/40 dark:text-red-300">
+                        <FolderOpen className="h-3 w-3" />
+                        <span>{video.category?.nameGu || video.categoryName || video.category?.name}</span>
+                      </span>
+                    </div>
+                  )}
                   <p className="line-clamp-2 text-sm font-bold text-zinc-900 dark:text-white group-hover:text-accent transition-colors">
                     {video.title}
                   </p>
@@ -749,7 +823,7 @@ export default function VideosPage() {
                           </button>
                         ) : (
                           <button
-                            onClick={() => importFromChannel(cv)}
+                            onClick={() => openImportModal(cv)}
                             disabled={isImporting || channelImporting === safeYouTubeId(cv.youtubeId)}
                             className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-zinc-900 py-2 text-xs font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-sm transition-all"
                           >
@@ -770,6 +844,84 @@ export default function VideosPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── IMPORT VIDEO MODAL WITH CATEGORY SELECTOR ─── */}
+      {importModalOpen && importingCv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Download className="h-5 w-5 text-red-500" />
+                Import & Categorize Video
+              </h3>
+              <button 
+                onClick={() => { setImportModalOpen(false); setImportingCv(null); }}
+                className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex gap-3 items-center rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <img
+                src={importingCv.thumbnail || `https://i.ytimg.com/vi/${safeYouTubeId(importingCv.youtubeId)}/hqdefault.jpg`}
+                alt={importingCv.title}
+                className="h-16 w-24 rounded-lg object-cover flex-shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-zinc-900 dark:text-white line-clamp-2 leading-snug">{importingCv.title}</p>
+                <p className="text-[11px] text-zinc-500 mt-1 font-mono">Duration: {importingCv.duration || '0:00'}</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-2">
+                Select Category for Video (કૅટેગરી પસંદ કરો)
+              </label>
+              <select
+                value={importCategoryId}
+                onChange={(e) => setImportCategoryId(e.target.value)}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+              >
+                <option value="">Select Category (Optional / Default)</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name} ({cat.nameGu || cat.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setImportModalOpen(false); setImportingCv(null); }}
+                className="rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                disabled={channelImporting === safeYouTubeId(importingCv.youtubeId)}
+                className="flex items-center gap-2 rounded-xl bg-[#B3121B] px-5 py-2.5 text-xs font-bold text-white hover:bg-red-700 shadow-sm transition-all"
+              >
+                {channelImporting === safeYouTubeId(importingCv.youtubeId) ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Save & Import Video
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -866,6 +1018,25 @@ export default function VideosPage() {
                     className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   />
                 </div>
+              </div>
+
+              {/* Category selection */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  Category (કૅટેગરી)
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                >
+                  <option value="">Select Category (Optional)</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name} ({cat.nameGu || cat.name})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1007,6 +1178,25 @@ export default function VideosPage() {
                     className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   />
                 </div>
+              </div>
+
+              {/* Category selection */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  Category (કૅટેગરી)
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                >
+                  <option value="">Select Category (Optional)</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name} ({cat.nameGu || cat.name})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

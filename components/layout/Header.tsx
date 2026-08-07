@@ -226,7 +226,7 @@ export default function Header() {
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    getPublicCategories()
+    getPublicCategories({ showInHeader: true })
       .then((cats) => {
         if (cats && Array.isArray(cats) && cats.length > 0) {
           setDbCategories(cats);
@@ -242,10 +242,14 @@ export default function Header() {
 
     const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
     const videosLink = { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' };
-    const photosLink = { label: 'Photos', labelGu: 'ફોટો ગેલેરી', labelHi: 'फोटो गैलरी', href: '/photos' };
+    const photosLink = { label: 'Photos', labelGu: 'ફોટો ગેલેરી', labelHi: 'फोटो गैलરી', href: '/photos' };
 
-    // DB categories sorted by displayOrder asc from backend
-    const categoryLinks = dbCategories.map((c) => ({
+    // DB categories filtered by showInHeader !== false and sorted by displayOrder asc
+    const validHeaderCategories = dbCategories
+      .filter((c) => c.showInHeader !== false)
+      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+    const categoryLinks = validHeaderCategories.map((c) => ({
       label: c.name,
       labelGu: c.nameGu || c.name,
       labelHi: c.nameHi || c.name,

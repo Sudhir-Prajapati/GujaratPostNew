@@ -158,9 +158,14 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
 /**
  * Fetch list of categories from Express Backend API
  */
-export async function getPublicCategories(): Promise<any[]> {
+export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean }): Promise<any[]> {
   try {
-    const url = `${API_BASE_URL}/categories`;
+    const query = new URLSearchParams();
+    if (options?.showInHeader) query.set('showInHeader', 'true');
+    if (options?.showInHome) query.set('showInHome', 'true');
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+
+    const url = `${API_BASE_URL}/categories${queryString}`;
     const json = await fetchCachedJson<any>(url);
     if (json?.success && json.data?.categories) {
       return json.data.categories;
