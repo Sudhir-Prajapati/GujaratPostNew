@@ -41,66 +41,79 @@ export default function RichTextArea({
   label,
   required = false,
 }: RichTextAreaProps) {
-  // 'preview' mode is active by default to show live rendered HTML preview
-  const [viewMode, setViewMode] = useState<'preview' | 'source'>('preview');
+  // 'editor' mode is active by default so users can type immediately
+  const [viewMode, setViewMode] = useState<'editor' | 'preview'>('editor');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Helper to wrap selected text with open and close tags
   const applyTag = (openTag: string, closeTag: string, defaultText = 'text') => {
-    const el = textareaRef.current;
-    if (!el) {
-      onChange(`${value}${openTag}${defaultText}${closeTag}`);
-      return;
+    // If in preview mode, switch to editor mode first so user sees text input
+    if (viewMode !== 'editor') {
+      setViewMode('editor');
     }
 
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = value.substring(start, end) || defaultText;
-    const replacement = `${openTag}${selected}${closeTag}`;
-    const newValue = value.substring(0, start) + replacement + value.substring(end);
-
-    onChange(newValue);
-
     setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(start + openTag.length, start + openTag.length + selected.length);
+      const el = textareaRef.current;
+      if (!el) {
+        onChange(`${value}${openTag}${defaultText}${closeTag}`);
+        return;
+      }
+
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const selected = value.substring(start, end) || defaultText;
+      const replacement = `${openTag}${selected}${closeTag}`;
+      const newValue = value.substring(0, start) + replacement + value.substring(end);
+
+      onChange(newValue);
+
+      setTimeout(() => {
+        el.focus();
+        el.setSelectionRange(start + openTag.length, start + openTag.length + selected.length);
+      }, 10);
     }, 10);
   };
 
   // Insert list items
   const applyList = (type: 'ul' | 'ol') => {
-    const el = textareaRef.current;
-    if (!el) {
-      onChange(`${value}\n<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>\n`);
-      return;
-    }
+    if (viewMode !== 'editor') setViewMode('editor');
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) {
+        onChange(`${value}\n<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>\n`);
+        return;
+      }
 
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = value.substring(start, end);
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const selected = value.substring(start, end);
 
-    let listHtml = '';
-    if (selected.trim()) {
-      const lines = selected.split('\n').filter((l) => l.trim());
-      const items = lines.map((l) => `  <li>${l.replace(/^[-•*1-9.]+\s*/, '')}</li>`).join('\n');
-      listHtml = `<${type}>\n${items}\n</${type}>`;
-    } else {
-      listHtml = `<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>`;
-    }
+      let listHtml = '';
+      if (selected.trim()) {
+        const lines = selected.split('\n').filter((l) => l.trim());
+        const items = lines.map((l) => `  <li>${l.replace(/^[-•*1-9.]+\s*/, '')}</li>`).join('\n');
+        listHtml = `<${type}>\n${items}\n</${type}>`;
+      } else {
+        listHtml = `<${type}>\n  <li>List item 1</li>\n  <li>List item 2</li>\n</${type}>`;
+      }
 
-    const newValue = value.substring(0, start) + listHtml + value.substring(end);
-    onChange(newValue);
+      const newValue = value.substring(0, start) + listHtml + value.substring(end);
+      onChange(newValue);
+    }, 10);
   };
 
   // Insert quote
   const applyQuote = () => {
-    const el = textareaRef.current;
-    const start = el ? el.selectionStart : value.length;
-    const end = el ? el.selectionEnd : value.length;
-    const selected = value.substring(start, end) || 'Important quote statement...';
-    const quoteHtml = `<blockquote>\n  "${selected}"\n</blockquote>`;
-    const newValue = value.substring(0, start) + quoteHtml + value.substring(end);
-    onChange(newValue);
+    if (viewMode !== 'editor') setViewMode('editor');
+    setTimeout(() => {
+      const el = textareaRef.current;
+      const start = el ? el.selectionStart : value.length;
+      const end = el ? el.selectionEnd : value.length;
+      const selected = value.substring(start, end) || 'Important quote statement...';
+      const quoteHtml = `<blockquote>\n  "${selected}"\n</blockquote>`;
+      const newValue = value.substring(0, start) + quoteHtml + value.substring(end);
+      onChange(newValue);
+    }, 10);
   };
 
   // Insert heading
@@ -121,10 +134,13 @@ export default function RichTextArea({
     if (!url) return;
     const alt = prompt('Enter image caption / alt text:', 'Photo') || 'Photo';
     const imgMarkdown = `![${alt}](${url})`;
-    const el = textareaRef.current;
-    const start = el ? el.selectionStart : value.length;
-    const newValue = value.substring(0, start) + `\n${imgMarkdown}\n` + value.substring(start);
-    onChange(newValue);
+    if (viewMode !== 'editor') setViewMode('editor');
+    setTimeout(() => {
+      const el = textareaRef.current;
+      const start = el ? el.selectionStart : value.length;
+      const newValue = value.substring(0, start) + `\n${imgMarkdown}\n` + value.substring(start);
+      onChange(newValue);
+    }, 10);
   };
 
   // Text alignment
@@ -134,22 +150,25 @@ export default function RichTextArea({
 
   // Clear tags
   const clearFormatting = () => {
-    const el = textareaRef.current;
-    if (!el) {
-      onChange(value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, ''));
-      return;
-    }
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = value.substring(start, end);
-    if (!selected) {
-      const stripped = value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
-      onChange(stripped);
-      return;
-    }
-    const stripped = selected.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
-    const newValue = value.substring(0, start) + stripped + value.substring(end);
-    onChange(newValue);
+    if (viewMode !== 'editor') setViewMode('editor');
+    setTimeout(() => {
+      const el = textareaRef.current;
+      if (!el) {
+        onChange(value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, ''));
+        return;
+      }
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const selected = value.substring(start, end);
+      if (!selected) {
+        const stripped = value.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
+        onChange(stripped);
+        return;
+      }
+      const stripped = selected.replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
+      const newValue = value.substring(0, start) + stripped + value.substring(end);
+      onChange(newValue);
+    }, 10);
   };
 
   return (
@@ -323,35 +342,45 @@ export default function RichTextArea({
 
           <div className="flex-1" />
 
-          {/* Toggle View Mode Button (Shows "Source Code" in preview mode, and "Live Preview" in source mode) */}
+          {/* Toggle View Mode Button */}
           <button
             type="button"
-            onClick={() => setViewMode(viewMode === 'preview' ? 'source' : 'preview')}
+            onClick={() => setViewMode(viewMode === 'editor' ? 'preview' : 'editor')}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all border ${
-              viewMode === 'source'
+              viewMode === 'preview'
                 ? 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm'
                 : 'bg-zinc-900 text-white border-zinc-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-sm hover:bg-zinc-800'
             }`}
           >
-            {viewMode === 'preview' ? (
-              <>
-                <Code className="h-3.5 w-3.5" />
-                <span>Source Code</span>
-              </>
-            ) : (
+            {viewMode === 'editor' ? (
               <>
                 <Eye className="h-3.5 w-3.5" />
                 <span>Live Preview</span>
+              </>
+            ) : (
+              <>
+                <Code className="h-3.5 w-3.5" />
+                <span>Edit Content</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Display Area: Live HTML Preview vs Source Code Textarea */}
-        {viewMode === 'preview' ? (
+        {/* Display Area: Input Textarea vs Live HTML Preview */}
+        {viewMode === 'editor' ? (
+          <textarea
+            ref={textareaRef}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={rows}
+            required={required}
+            className="w-full bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 font-sans leading-relaxed"
+          />
+        ) : (
           <div
-            className="p-4 min-h-[140px] prose dark:prose-invert max-w-none text-sm text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-900 cursor-text"
-            onClick={() => setViewMode('source')}
+            className="p-4 min-h-[140px] prose dark:prose-invert max-w-none text-sm text-zinc-900 dark:text-zinc-100 bg-zinc-50/50 dark:bg-zinc-950/20 cursor-text"
+            onClick={() => setViewMode('editor')}
             dangerouslySetInnerHTML={{
               __html: value
                 ? value
@@ -360,16 +389,6 @@ export default function RichTextArea({
                     .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="rounded-lg my-2 max-h-64 object-cover" />')
                 : `<span className="text-zinc-400 italic">${placeholder}</span>`,
             }}
-          />
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder}
-            rows={rows}
-            required={required}
-            className="w-full bg-white px-4 py-3 text-sm font-mono text-zinc-900 placeholder:text-zinc-400 focus:outline-none dark:bg-zinc-900 dark:text-zinc-100 leading-relaxed"
           />
         )}
       </div>
