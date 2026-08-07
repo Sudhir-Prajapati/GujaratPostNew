@@ -59,11 +59,13 @@ function ArticleSearchBox({
   onSelect,
   excluded = [],
   allArticles,
+  maxLimit,
 }: {
   placeholder?: string;
   onSelect: (a: Article) => void;
   excluded?: string[];
   allArticles: Article[];
+  maxLimit?: number;
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -77,7 +79,8 @@ function ArticleSearchBox({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const available = allArticles.filter((a) => !excluded.includes(a.id));
+  const sourcePool = maxLimit && maxLimit > 0 ? allArticles.slice(0, maxLimit) : allArticles;
+  const available = sourcePool.filter((a) => !excluded.includes(a.id));
   const results = q.trim()
     ? available.filter((a) => {
         const low = q.toLowerCase().replace(/^#/, '').trim();
@@ -87,8 +90,8 @@ function ArticleSearchBox({
           catName(a.category).toLowerCase().includes(low) ||
           numMatch
         );
-      }).slice(0, 150)
-    : available.slice(0, 150);
+      }).slice(0, 100)
+    : available.slice(0, 100);
 
   return (
     <div ref={ref} className="relative">
@@ -115,36 +118,45 @@ function ArticleSearchBox({
 
       {/* Dropdown */}
       {open && results.length > 0 && (
-        <div className="absolute top-full mt-1.5 left-0 right-0 z-50 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[0_8px_30px_rgba(0,0,0,0.12)] overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute top-full mt-1.5 left-0 right-0 z-50 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="sticky top-0 flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-100 dark:border-zinc-700 backdrop-blur-sm">
-            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
-              {q.trim() ? `${results.length} search results` : `Select from Published Articles (${available.length})`}
+          <div className="shrink-0 flex items-center justify-between px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 z-20">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+              {q.trim() ? `${results.length} search results` : `Select from Latest ${available.length} Published Articles`}
             </span>
-            <button onClick={() => setOpen(false)} className="text-[9px] font-semibold text-zinc-400 hover:text-zinc-600 transition">Close ✕</button>
-          </div>
-          {results.map((a) => (
             <button
-              key={a.id}
               type="button"
-              onClick={() => { onSelect(a); setQ(''); setOpen(false); }}
-              className="group flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#B3121B]/5 active:bg-[#B3121B]/10 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-0"
+              onClick={() => setOpen(false)}
+              className="text-[10px] font-bold text-zinc-500 hover:text-red-600 dark:hover:text-red-400 transition flex items-center gap-1 cursor-pointer"
             >
-              <div className="relative h-9 w-14 shrink-0 rounded-lg overflow-hidden bg-zinc-100 shadow-sm">
-                <Image src={getArticleImage(a)} alt="" fill unoptimized className="object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 group-hover:text-[#B3121B] transition-colors">{getTitle(a)}</p>
-                <p className="text-[9px] text-zinc-400 mt-0.5">
-                  {a.articleNumber ? `#${a.articleNumber} • ` : ''}
-                  {catName(a.category)} {(a.publishedAt ?? a.createdAt) && `• ${fmtDate(a.publishedAt ?? a.createdAt)}`}
-                </p>
-              </div>
-              <div className="shrink-0 h-5 w-5 rounded-full border border-zinc-200 dark:border-zinc-700 group-hover:border-[#B3121B] group-hover:bg-[#B3121B] flex items-center justify-center transition-all">
-                <svg className="h-2.5 w-2.5 text-transparent group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              </div>
+              Close ✕
             </button>
-          ))}
+          </div>
+          {/* Scrollable list container */}
+          <div className="overflow-y-auto max-h-60 divide-y divide-zinc-100 dark:divide-zinc-800">
+            {results.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => { onSelect(a); setQ(''); setOpen(false); }}
+                className="group flex items-center gap-3 w-full px-3.5 py-2.5 text-left hover:bg-[#B3121B]/5 active:bg-[#B3121B]/10 transition-colors"
+              >
+                <div className="relative h-9 w-14 shrink-0 rounded-lg overflow-hidden bg-zinc-100 shadow-sm">
+                  <Image src={getArticleImage(a)} alt="" fill unoptimized className="object-cover" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 group-hover:text-[#B3121B] transition-colors">{getTitle(a)}</p>
+                  <p className="text-[9px] text-zinc-400 mt-0.5">
+                    {a.articleNumber ? `#${a.articleNumber} • ` : ''}
+                    {catName(a.category)} {(a.publishedAt ?? a.createdAt) && `• ${fmtDate(a.publishedAt ?? a.createdAt)}`}
+                  </p>
+                </div>
+                <div className="shrink-0 h-5 w-5 rounded-full border border-zinc-200 dark:border-zinc-700 group-hover:border-[#B3121B] group-hover:bg-[#B3121B] flex items-center justify-center transition-all">
+                  <svg className="h-2.5 w-2.5 text-transparent group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -681,6 +693,43 @@ export default function HeroManagerPage() {
     }
   };
 
+  const [savingBottomSlots, setSavingBottomSlots] = useState(false);
+
+  const handleSaveBottomSlots = async () => {
+    setSavingBottomSlots(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        clearApiCache();
+        showToast('✅ Saved! Bottom Row 3 Image Cards updated live on user side.', true);
+        if (res.data?.slots) {
+          setSlots([
+            res.data.slots[0] ? (res.data.slots[0] as unknown as Article) : null,
+            res.data.slots[1] ? (res.data.slots[1] as unknown as Article) : null,
+            res.data.slots[2] ? (res.data.slots[2] as unknown as Article) : null,
+          ]);
+        }
+      } else {
+        showToast('Failed to save Bottom Cards. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingBottomSlots(false);
+    }
+  };
+
   const setSlot = (idx: number, art: Article) => {
     setSlots((prev) => { const next = [...prev]; next[idx] = art; return next; });
   };
@@ -706,17 +755,13 @@ export default function HeroManagerPage() {
             Hero Section Manager
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Pick the <strong>3 articles</strong> that appear as image cards in the <strong>bottom row</strong> of the homepage hero section.
+            Manage all hero sections, main grid positions, bottom image slots, and news sliders for the homepage.
           </p>
         </div>
         <div className="flex items-center gap-3 mt-3 sm:mt-0 shrink-0">
           <Link href="/" target="_blank" className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 transition">
             <Eye className="h-4 w-4" /> Preview Homepage <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
-          <button onClick={handleSave} disabled={saving || loading} className="inline-flex items-center gap-1.5 rounded-lg bg-[#B3121B] px-4 py-2 text-sm font-bold text-white hover:bg-[#8E0E15] transition disabled:opacity-60">
-            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
         </div>
       </div>
 
@@ -790,7 +835,8 @@ export default function HeroManagerPage() {
               <ArticleSearchBox
                 allArticles={allArticles}
                 excluded={heroGridArticles.map((a) => a.id)}
-                placeholder="Search article by title or #articleNumber to add to Hero Grid..."
+                maxLimit={100}
+                placeholder="Search latest 100 articles by title or #articleNumber to add to Hero Grid..."
                 onSelect={(art) => handleAddHeroGridArticle(art)}
               />
             </div>
@@ -885,18 +931,50 @@ export default function HeroManagerPage() {
               })}
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[0, 1, 2].map((idx) => (
-              <SlotCard
-                key={idx}
-                slotNum={idx + 1}
-                article={slots[idx]}
-                onSelect={(a) => setSlot(idx, a)}
-                onRemove={() => removeSlot(idx)}
-                allArticles={allArticles}
-                excluded={usedIds.filter((id) => id !== slots[idx]?.id)}
-              />
-            ))}
+          {/* ════════════════════════════════════════════════════════════════
+             BOTTOM ROW 3 IMAGE CARDS MANAGEMENT
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📌</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Bottom Row 3 Image Cards (હરોળના 3 ઈમેજ કાર્ડ્સ)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
+                    {usedIds.length} / 3 Cards Selected
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Pick the 3 image cards displayed in the bottom row of the homepage hero section.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveBottomSlots}
+                disabled={savingBottomSlots}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                {savingBottomSlots ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {savingBottomSlots ? 'Saving Bottom Cards...' : 'Save Bottom 3 Cards'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[0, 1, 2].map((idx) => (
+                <SlotCard
+                  key={idx}
+                  slotNum={idx + 1}
+                  article={slots[idx]}
+                  onSelect={(a) => setSlot(idx, a)}
+                  onRemove={() => removeSlot(idx)}
+                  allArticles={allArticles}
+                  excluded={usedIds.filter((id) => id !== slots[idx]?.id)}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Managing Trending Topics Section */}
