@@ -391,6 +391,23 @@ export async function getPublicAstrology(): Promise<any[]> {
 }
 
 /**
+ * Update Astrology sign details (Admin)
+ */
+export async function updateAdminAstrologySign(slug: string, payload: any): Promise<any> {
+  const res = await authFetch(`/api/admin/astrology/${slug}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to update astrology sign');
+  }
+  clearApiCache();
+  return res.json();
+}
+
+
+/**
  * Fetch Hero section settings and slot articles from Express Backend API
  */
 export async function getHeroSettings(): Promise<{ slots: (Article | null)[]; setting: any }> {
