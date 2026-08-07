@@ -9,6 +9,8 @@ import { AdController } from '../controllers/ad.controller.js';
 import { EPaperController } from '../controllers/epaper.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 
+import { autoPublishDueArticles } from '../controllers/article.controller.js';
+
 const router = Router();
 
 // Public E-Paper routes
@@ -35,6 +37,7 @@ router.get('/hero-settings', HeroController.getHeroSettings);
  */
 router.get('/articles', async (req, res, next) => {
   try {
+    await autoPublishDueArticles();
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.max(1, parseInt(req.query.limit as string) || 120);
     const skip = (page - 1) * limit;

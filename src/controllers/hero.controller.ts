@@ -144,12 +144,35 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      let parsedHeroGridIds: string[] = [];
+      if ((heroSetting as any)?.heroGridIds) {
+        try {
+          parsedHeroGridIds = JSON.parse((heroSetting as any).heroGridIds);
+        } catch {
+          parsedHeroGridIds = [];
+        }
+      }
+
+      let heroGridArticles: any[] = [];
+      if (parsedHeroGridIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedHeroGridIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        heroGridArticles = parsedHeroGridIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...(heroSetting || { id: 'default', slot1Id, slot2Id, slot3Id }),
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
           popularNewsIds: parsedPopularNewsIds,
+          heroGridIds: parsedHeroGridIds,
         },
         slots,
         trendingTopics: parsedTopics,
@@ -157,6 +180,8 @@ export class HeroController {
         trendingNewsArticles,
         popularNewsIds: parsedPopularNewsIds,
         popularNewsArticles,
+        heroGridIds: parsedHeroGridIds,
+        heroGridArticles,
       }, 'Hero section settings retrieved successfully.');
     } catch (error) {
       next(error);
@@ -168,7 +193,7 @@ export class HeroController {
    */
   static async updateHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds, popularNewsIds } = req.body;
+      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds, popularNewsIds, heroGridIds } = req.body;
 
       const topicsStr = Array.isArray(trendingTopics)
         ? JSON.stringify(trendingTopics)
@@ -188,6 +213,12 @@ export class HeroController {
         ? popularNewsIds
         : null;
 
+      const heroGridIdsStr = Array.isArray(heroGridIds)
+        ? JSON.stringify(heroGridIds)
+        : typeof heroGridIds === 'string'
+        ? heroGridIds
+        : null;
+
       const updatedSetting = await prisma.heroSetting.upsert({
         where: { id: 'default' },
         update: {
@@ -197,7 +228,8 @@ export class HeroController {
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
           popularNewsIds: popularIdsStr,
-        },
+          heroGridIds: heroGridIdsStr,
+        } as any,
         create: {
           id: 'default',
           slot1Id: slot1Id || null,
@@ -206,7 +238,8 @@ export class HeroController {
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
           popularNewsIds: popularIdsStr,
-        },
+          heroGridIds: heroGridIdsStr,
+        } as any,
       });
 
       const featuredIds = [slot1Id, slot2Id, slot3Id].filter((id): id is string => Boolean(id));
