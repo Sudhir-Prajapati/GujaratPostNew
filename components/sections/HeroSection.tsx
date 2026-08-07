@@ -453,10 +453,10 @@ export default function HeroSection({
             return bScore - aScore;
           });
         const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
-        setTopStories(heroPool);
-
+        const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
         const trending = arts.filter((a: Article) => a.isTrending);
-        setTrendingArtDB(fillPool(trending, arts, 10));
+        const popularPool = customPopularArts.length > 0 ? fillPool(customPopularArts, fillPool(trending, arts, 10), 10) : fillPool(trending, arts, 10);
+        setTrendingArtDB(popularPool);
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
         setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));
         setNationalArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
