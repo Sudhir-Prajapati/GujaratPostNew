@@ -90,7 +90,10 @@ model Category {
   color         String?
   displayOrder  Int      @default(0)
   isActive      Boolean  @default(true)
+  showInHome    Boolean  @default(true)
+  showInHeader  Boolean  @default(true)
   posts         Post[]
+  videos        Video[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -161,22 +164,25 @@ model PostTag {
 }
 
 model Video {
-  id          String   @id @default(uuid())
-  title       String
-  titleGu     String
-  titleHi     String
-  description String?  @db.Text
-  thumbnail   String   @db.Text
-  youtubeId   String
-  embedUrl    String   @db.Text
-  duration    String   @default("0:00")
-  type        String   @default("video") // video | short | podcast | interview
-  isFeatured  Boolean  @default(false)
-  channel     String?  @default("Gujarat Post News")
-  views       Int      @default(0)
-  publishedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(uuid())
+  title        String
+  titleGu      String
+  titleHi      String
+  description  String?   @db.Text
+  thumbnail    String    @db.Text
+  youtubeId    String
+  embedUrl     String    @db.Text
+  duration     String    @default("0:00")
+  type         String    @default("video") // video | short | podcast | interview
+  categoryId   String?
+  categoryName String?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isFeatured   Boolean   @default(false)
+  channel      String?   @default("Gujarat Post News")
+  views        Int       @default(0)
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("videos")
 }
