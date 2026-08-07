@@ -365,7 +365,12 @@ export default function HeroSection({
   // DB-backed article state
   const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
   // topStories: auto-populated from latest articles (main hero, right 2, text articles)
-  const [topStories, setTopStories] = useState<Article[]>(initialArticles.slice(0, 16));
+  const initialSortedHeroPool = [...initialArticles].sort((a: Article, b: Article) => {
+    const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
+    const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
+    return bScore - aScore;
+  });
+  const [topStories, setTopStories] = useState<Article[]>(initialSortedHeroPool.slice(0, 16));
   // bottomFeatured: admin-selected 3 articles shown in the bottom image row
   const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
   const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
@@ -436,12 +441,12 @@ export default function HeroSection({
         setArticlesList(arts);
         setTopNews(arts.slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
-        // Prioritize articles with BREAKING, TRENDING, or FEATURED flags for main hero spotlight
+        // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
         const heroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
-            const aScore = (a.isBreaking ? 3 : 0) + (a.isTrending ? 2 : 0) + (a.isFeatured ? 1 : 0);
-            const bScore = (b.isBreaking ? 3 : 0) + (b.isTrending ? 2 : 0) + (b.isFeatured ? 1 : 0);
+            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
+            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
             return bScore - aScore;
           });
         setTopStories(heroPool.slice(0, 16));
