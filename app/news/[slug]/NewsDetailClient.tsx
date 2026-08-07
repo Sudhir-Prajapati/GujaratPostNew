@@ -786,11 +786,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   );
                 }
 
-                // 3. Normal text paragraph
+                // 3. Formatted text paragraph with HTML & Markdown rendering
                 return (
-                  <p key={idx} className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100">
-                    {trimmed}
-                  </p>
+                  <div
+                    key={idx}
+                    className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+                    dangerouslySetInnerHTML={{ __html: trimmed }}
+                  />
                 );
               })}
             </div>
