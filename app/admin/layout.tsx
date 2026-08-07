@@ -156,8 +156,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 space-y-1.5 p-4">
+        {/* Navigation Menu (Scrollable) */}
+        <nav className="flex-1 overflow-y-auto min-h-0 space-y-1.5 p-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
           {filteredMenuItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
