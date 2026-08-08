@@ -46,28 +46,35 @@ export class HeroController {
    */
   static async getHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      let heroSetting = await withDbRetry(() =>
-        prisma.heroSetting.findUnique({
-          where: { id: 'default' },
-        })
-      );
+      let heroSetting: any = null;
+      try {
+        heroSetting = await withDbRetry(() =>
+          prisma.heroSetting.findUnique({
+            where: { id: 'default' },
+          })
+        );
+      } catch (err: any) {
+        console.warn('Warning: heroSetting query error, using fallback:', err?.message);
+        heroSetting = null;
+      }
 
       let slot1Id = heroSetting?.slot1Id;
       let slot2Id = heroSetting?.slot2Id;
       let slot3Id = heroSetting?.slot3Id;
 
-      // If heroSetting doesn't exist or is empty, fallback to currently featured posts or top published posts
-      if (!slot1Id && !slot2Id && !slot3Id) {
-        const featuredPosts = await prisma.post.findMany({
-          where: { isFeatured: true, status: 'PUBLISHED' },
-          orderBy: { createdAt: 'asc' },
-          take: 3,
-        });
+      // Fetch backup featured or published posts in case any slot is missing
+      const fallbackPosts = await prisma.post.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+        take: 10,
+        include: { category: true, author: true },
+      });
 
-        slot1Id = featuredPosts[0]?.id || null;
-        slot2Id = featuredPosts[1]?.id || null;
-        slot3Id = featuredPosts[2]?.id || null;
-      }
+      const fallbackFormatted = fallbackPosts.map(formatPost);
+
+      if (!slot1Id && fallbackPosts[0]) slot1Id = fallbackPosts[0].id;
+      if (!slot2Id && fallbackPosts[1]) slot2Id = fallbackPosts[1].id;
+      if (!slot3Id && fallbackPosts[2]) slot3Id = fallbackPosts[2].id;
 
       const targetIds = [slot1Id, slot2Id, slot3Id].filter((id): id is string => Boolean(id));
 
@@ -83,11 +90,11 @@ export class HeroController {
         posts.forEach((p) => postsMap.set(p.id, formatPost(p)));
       }
 
-      const slots = [
-        slot1Id ? postsMap.get(slot1Id) || null : null,
-        slot2Id ? postsMap.get(slot2Id) || null : null,
-        slot3Id ? postsMap.get(slot3Id) || null : null,
-      ];
+      const s1 = (slot1Id ? postsMap.get(slot1Id) : null) || fallbackFormatted[0] || null;
+      const s2 = (slot2Id ? postsMap.get(slot2Id) : null) || fallbackFormatted[1] || null;
+      const s3 = (slot3Id ? postsMap.get(slot3Id) : null) || fallbackFormatted[2] || null;
+
+      const slots = [s1, s2, s3];
 
       const DEFAULT_TOPICS = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
 
