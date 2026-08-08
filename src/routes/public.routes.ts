@@ -340,6 +340,7 @@ router.get('/categories', async (req, res, next) => {
   try {
     const showInHeader = req.query.showInHeader === 'true';
     const showInHome = req.query.showInHome === 'true';
+    const headerType = req.query.headerType as string | undefined;
 
     const where: any = {
       isActive: true,
@@ -350,6 +351,7 @@ router.get('/categories', async (req, res, next) => {
 
     if (showInHeader) where.showInHeader = true;
     if (showInHome) where.showInHome = true;
+    if (headerType) where.headerType = headerType;
 
     const categories = await prisma.category.findMany({
       where,
