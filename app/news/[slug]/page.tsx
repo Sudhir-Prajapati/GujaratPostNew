@@ -49,8 +49,16 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
 
   if (!article) notFound();
 
-  // Fetch related & trending articles from dynamic API
-  const { articles: related } = await getPublicArticles({ limit: 9 });
+  // Dynamically fetch related articles matching this article's categorySlug
+  const categorySlug = (article.category || '').toLowerCase().replace(/\s+/g, '-');
+  const { articles: categoryArticles } = await getPublicArticles({ categorySlug, limit: 12 });
+  const { articles: fallbackArticles } = await getPublicArticles({ limit: 12 });
+
+  // Filter out current article and deduplicate
+  const related = [...(categoryArticles || []), ...(fallbackArticles || [])]
+    .filter((a, idx, self) => a.id !== article.id && self.findIndex((t) => t.id === a.id) === idx)
+    .slice(0, 10);
+
   const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 11 });
 
   const articleUrl = `${SITE_URL}/news/${article.slug}`;
