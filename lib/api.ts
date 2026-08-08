@@ -71,8 +71,8 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    // Increase timeout to 30s to allow remote cloud database queries to complete smoothly without premature aborts
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // Increase timeout to 120s to allow remote cloud database queries (and cold starts on Render) to complete smoothly
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
       const res = await fetch(url, {
