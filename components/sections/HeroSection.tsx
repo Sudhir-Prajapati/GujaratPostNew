@@ -27,8 +27,10 @@ import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
 import InstagramStories from '@/components/sections/InstagramStories';
 import WebStoriesSection from '@/components/sections/WebStoriesSection';
+import YouTubeShorts from '@/components/sections/YouTubeShorts';
 import { ZODIAC_SIGNS, ZodiacSign } from '@/components/sections/AstrologySection';
 import { ZodiacIcon, GUJARAT_ZODIAC_LETTERS } from '@/components/ui/ZodiacIcon';
+import ZodiacDetailModal from '@/components/sections/ZodiacDetailModal';
 import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
 import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
@@ -387,6 +389,7 @@ export default function HeroSection({
     conditionGu: 'આંશિક વાદળછાયું',
     conditionEn: 'Partly cloudy',
   });
+  const [astrologySignsDB, setAstrologySignsDB] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(['gujarat', 'national', 'world', 'politics', 'crime']);
   const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>([]);
@@ -4002,46 +4005,11 @@ function CrimeSection({
   );
 
   const zodiacModal = selectedZodiac && (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="absolute inset-0" onClick={() => setSelectedZodiac(null)} />
-
-      <div className="relative w-full max-w-md rounded-3xl overflow-hidden bg-card border border-purple-500/30 p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200 text-center">
-        <button
-          type="button"
-          onClick={() => setSelectedZodiac(null)}
-          className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted-foreground/10 transition cursor-pointer"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="relative mx-auto mt-2 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700/60 shadow-md">
-          <ZodiacIcon id={selectedZodiac.id} className="h-14 w-14" />
-        </div>
-
-        <h3 className="mt-4 text-2xl font-black text-foreground">
-          {language === 'gu' ? `${selectedZodiac.nameGu} (${selectedZodiac.name})` : language === 'hi' ? `${selectedZodiac.nameHi} (${selectedZodiac.name})` : selectedZodiac.name}
-        </h3>
-
-        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-purple-500/10 px-3.5 py-1 text-xs font-black text-purple-600 dark:text-purple-400 border border-purple-500/20">
-          <Sparkles className="h-3.5 w-3.5" />
-          <span>{getLocalized(language, { en: 'Daily Horoscope', gu: 'આજનું રાશિફળ', hi: 'आज का राशिफल' })}</span>
-        </div>
-
-        <div className="mt-5 border-t border-border/80 pt-4 text-left">
-          <p className="text-sm font-black text-foreground leading-relaxed">
-            {language === 'gu' ? selectedZodiac.predictionGu : selectedZodiac.prediction}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSelectedZodiac(null)}
-          className="mt-6 w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-bold shadow-lg shadow-purple-900/30 active:scale-98 transition-all cursor-pointer"
-        >
-          {language === 'gu' ? 'સમજાયું' : language === 'hi' ? 'ठीक है' : 'Got it'}
-        </button>
-      </div>
-    </div>
+    <ZodiacDetailModal
+      sign={selectedZodiac}
+      onClose={() => setSelectedZodiac(null)}
+      language={language}
+    />
   );
 
   if (view === 'content') {
@@ -6568,6 +6536,7 @@ const FUEL_PRICE_CITY_MAP: Record<string, { petrol: string; diesel: string; cng:
 
 export function LiveCenterSection({ language }: { language: Language }) {
   const [fuelCity, setFuelCity] = useState('Ahmedabad');
+  const [fuelPrices, setFuelPrices] = useState(FUEL_PRICE_CITY_MAP);
 
   // Live Stock Market state
   const [stocks, setStocks] = useState([
@@ -6593,8 +6562,18 @@ export function LiveCenterSection({ language }: { language: Language }) {
     { league: 'La Liga', statusType: 'time', statusText: '23:00', homeTeam: 'Real Madrid', homeScore: '—', awayTeam: 'Barcelona', awayScore: '—' }
   ]);
 
-  // Fetch live Exchange rate and stock ticker updates
+  // Fetch live center data from API
   useEffect(() => {
+    getLiveCenterData().then((data) => {
+      if (data) {
+        if (data.fuelPrices) setFuelPrices(data.fuelPrices);
+        if (data.stocks) setStocks(data.stocks);
+        if (data.usdRate) setUsdRate(data.usdRate);
+        if (data.cricketMatches) setCricketMatches(data.cricketMatches);
+        if (data.footballMatches) setFootballMatches(data.footballMatches);
+      }
+    });
+
     // Live USD/INR Exchange Rate fetch
     fetch('https://open.er-api.com/v6/latest/USD')
       .then((res) => res.json())
@@ -6627,7 +6606,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
     return () => clearInterval(timer);
   }, []);
 
-  const activeFuel = FUEL_PRICE_CITY_MAP[fuelCity] || FUEL_PRICE_CITY_MAP.Ahmedabad;
+  const activeFuel = fuelPrices[fuelCity] || fuelPrices.Ahmedabad || FUEL_PRICE_CITY_MAP.Ahmedabad;
 
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8 relative">
@@ -7552,16 +7531,36 @@ const GALLERY_DATA = [
 function PhotoGallerySection({ language }: { language: Language }) {
   const CATS_GU = ['ગુજરાત', 'સંસ્કૃતિ', 'ધર્મ', 'પ્રવાસ', 'ખેલ', 'ઉત્સવ', 'શહેર', 'પ્રકૃતિ', 'ઐતિહાસ'];
   const CATS_EN = ['Gujarat', 'Culture', 'Religion', 'Travel', 'Sports', 'Festival', 'City', 'Nature', 'Heritage'];
+  
+  const [photos, setPhotos] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollPosRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const isPausedRef = useRef<boolean>(false);
 
-  // Duplicate GALLERY_DATA to create an infinite scroll list
+  useEffect(() => {
+    getPublicGallery().then((res) => {
+      let items = res && res.length > 0 ? [...res] : [...PHOTOS];
+      if (items.length < 5) {
+        const existingIds = new Set(items.map((p: any) => p.id || p.src));
+        for (const defPhoto of PHOTOS) {
+          if (items.length >= 5) break;
+          if (!existingIds.has(defPhoto.id) && !existingIds.has(defPhoto.src)) {
+            items.push(defPhoto);
+          }
+        }
+      }
+      setPhotos(items.slice(0, 5));
+    });
+  }, []);
+
+  const galleryList = photos.length > 0 ? photos.slice(0, 5) : PHOTOS.slice(0, 5);
+
+  // Duplicate galleryList 3 times to create a seamless infinite scroll strip
   const repeatedGallery = [
-    ...GALLERY_DATA,
-    ...GALLERY_DATA,
-    ...GALLERY_DATA,
+    ...galleryList,
+    ...galleryList,
+    ...galleryList,
   ];
 
   useEffect(() => {
@@ -7601,91 +7600,96 @@ function PhotoGallerySection({ language }: { language: Language }) {
       cancelAnimationFrame(animId);
       el.removeEventListener('scroll', handleNativeScroll);
     };
-  }, []);
+  }, [photos]);
 
   return (
-    <section className="py-6 bg-background select-none">
-      <div className="mx-auto max-w-screen-xl px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
-          <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
-            {language === 'gu' ? 'ફોટો   ગેલેરી' : language === 'hi' ? 'फोटो   गैलरी' : 'Photo   Gallery'}
-          </span>
-          <Link
-            href="/photos"
-            className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
+    <>
+      <section className="py-6 bg-background select-none">
+        <div className="mx-auto max-w-screen-xl px-4">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
+            <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
+              {language === 'gu' ? 'ફોટો   ગેલેરી' : language === 'hi' ? 'फोटो   गैलरी' : 'Photo   Gallery'}
+            </span>
+            <Link
+              href="/photos"
+              className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
+            >
+              {language === 'gu' ? 'વધુ ફોટો ગેલેરી →' : 'More Photo Gallery →'}
+            </Link>
+          </div>
+
+          {/* Scrollable Magazine Flex Strip */}
+          <div
+            ref={scrollRef}
+            onMouseEnter={() => { isPausedRef.current = true; }}
+            onMouseLeave={() => { isPausedRef.current = false; lastTimeRef.current = performance.now(); }}
+            className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
           >
-            {language === 'gu' ? 'વધુ ફોટો ગેલેરી →' : 'More Photo Gallery →'}
-          </Link>
-        </div>
+            {repeatedGallery.map((item, index) => {
+              const cat = item.category || (language === 'gu' ? CATS_GU[index % CATS_GU.length] : CATS_EN[index % CATS_EN.length]);
+              const title = getLocalized(language, { en: item.caption || item.alt, gu: item.captionGu || item.caption || item.alt, hi: item.captionHi || item.caption || item.alt });
 
-        {/* Scrollable Magazine Flex Strip */}
-        <div
-          ref={scrollRef}
-          onMouseEnter={() => { isPausedRef.current = true; }}
-          onMouseLeave={() => { isPausedRef.current = false; lastTimeRef.current = performance.now(); }}
-          className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
-        >
-          {repeatedGallery.map((item, index) => {
-            const cat = language === 'gu' ? CATS_GU[index % CATS_GU.length] : CATS_EN[index % CATS_EN.length];
-            const title = language === 'gu' ? item.titleGu : item.title;
+              return (
+                <Link
+                  key={item.id + '-' + index}
+                  href={`/photos/${item.id}`}
+                  className="group relative flex flex-shrink-0 w-[85vw] sm:w-[48vw] md:w-[350px] h-[280px] md:h-[350px] overflow-hidden rounded-2xl shadow-lg"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  {/* Image */}
+                  <Image
+                    src={item.src}
+                    alt={title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 330px"
+                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+                  />
 
-            return (
-              <Link
-                key={item.id + '-' + index}
-                href="/photos"
-                className="group relative flex flex-shrink-0 w-[85vw] sm:w-[48vw] md:w-[350px] h-[280px] md:h-[350px] overflow-hidden rounded-2xl shadow-lg"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                {/* Image */}
-                <Image
-                  src={item.src}
-                  alt={title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 330px"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-                />
+                  {/* Top gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
 
-                {/* Top gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+                  {/* Bottom strong gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-100" style={{ opacity: 0.85 }} />
 
-                {/* Bottom strong gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-100" style={{ opacity: 0.85 }} />
-
-                {/* Category chip */}
-                <div className="absolute top-3 left-3 z-10">
-                  <span className="bg-[#B3121B] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
-                    {cat}
-                  </span>
-                </div>
-
-                {/* Caption */}
-                <div className="absolute inset-x-0 bottom-0 z-10 p-4 translate-y-0 group-hover:-translate-y-1 transition-transform duration-300">
-                  <p className="text-white font-bold leading-snug line-clamp-2 drop-shadow-lg text-[14px] md:text-[16px]">
-                    {title}
-                  </p>
-
-                  {/* View Photos — on hover */}
-                  <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="h-[1.5px] w-7 bg-[#B3121B] rounded-full" />
-                    <span className="text-white/75 text-[11px] font-semibold tracking-wider uppercase">
-                      {language === 'gu' ? 'ફોટો જુઓ' : 'View Photos'}
+                  {/* Category chip */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <span className="bg-[#B3121B] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
+                      {cat}
                     </span>
-                    <svg className="h-3 w-3 text-[#B3121B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
                   </div>
-                </div>
 
-                {/* Red border glow on hover */}
-                <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ boxShadow: 'inset 0 0 0 2px #B3121B' }} />
-              </Link>
-            );
-          })}
+                  {/* Caption */}
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-4 translate-y-0 group-hover:-translate-y-1 transition-transform duration-300">
+                    <p className="text-white font-bold leading-snug line-clamp-2 drop-shadow-lg text-[14px] md:text-[16px]">
+                      {title}
+                    </p>
+
+                    {/* View Photos — on hover */}
+                    <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="h-[1.5px] w-7 bg-[#B3121B] rounded-full" />
+                      <span className="text-white/75 text-[11px] font-semibold tracking-wider uppercase">
+                        {language === 'gu' ? 'ફોટો જુઓ' : 'View Photos'}
+                      </span>
+                      <svg className="h-3 w-3 text-[#B3121B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Red border glow on hover */}
+                  <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ boxShadow: 'inset 0 0 0 2px #B3121B' }} />
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Short Videos Section — Placed right after Photo Gallery */}
+      <YouTubeShorts />
+    </>
   );
 }
 

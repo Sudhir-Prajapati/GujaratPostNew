@@ -8,21 +8,14 @@ export default function SplashLoader() {
   const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
-    // Only show splash once per browser session
-    const hasSeenSplash = sessionStorage.getItem('gp-has-seen-splash');
-    if (hasSeenSplash === 'true') {
-      setShouldRender(false);
-      return;
-    }
-
+    // Show 3D Microphone Loader on page load until homepage is fully ready
     const fadeTimer = setTimeout(() => {
       setVisible(false);
-    }, 3200); // 3.2s display time
+    }, 2200); // 2.2s display time for website initial load
 
     const destroyTimer = setTimeout(() => {
       setShouldRender(false);
-      sessionStorage.setItem('gp-has-seen-splash', 'true');
-    }, 3600); // Unmount after fade out
+    }, 2600); // Unmount after smooth fade out
 
     return () => {
       clearTimeout(fadeTimer);

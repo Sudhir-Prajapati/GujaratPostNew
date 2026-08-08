@@ -1,19 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBackendApiUrl, authFetch, getPublicCategories } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicCategories, clearApiCache } from '@/lib/api';
 import { safeYouTubeId } from '@/lib/youtube';
-import { 
-  Search, 
-  Plus, 
-  Trash2, 
-  Edit2, 
-  Loader2, 
-  X, 
-  Video as VideoIcon, 
-  Play, 
-  Clock, 
-  Bookmark, 
+import {
+  Search,
+  Plus,
+  Trash2,
+  Edit2,
+  Loader2,
+  X,
+  Video as VideoIcon,
+  Play,
+  Clock,
+  Bookmark,
   Radio,
   Star,
   StarOff,
@@ -107,7 +107,7 @@ export default function VideosPage() {
           setCategories(cats);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // Extract YouTube video ID from any URL format
@@ -126,7 +126,11 @@ export default function VideosPage() {
   };
 
   const handleYoutubeInputChange = (raw: string) => {
-    setYoutubeId(extractYouTubeId(raw));
+    const extractedId = extractYouTubeId(raw);
+    setYoutubeId(extractedId);
+    if (raw.toLowerCase().includes('/shorts/')) {
+      setType('short');
+    }
   };
 
   // Fetch videos
@@ -159,7 +163,7 @@ export default function VideosPage() {
       const res = await fetch('/api/youtube-videos?type=video');
       const json = await res.json();
       setChannelVideos(json.data || []);
-    } catch {}
+    } catch { }
     finally { setChannelLoading(false); }
   };
 
@@ -179,7 +183,7 @@ export default function VideosPage() {
         setSavedIds(saved);
         setFeaturedIds(featured);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [activeTab]);
 
   // Open Import Modal for a Channel Video
@@ -354,6 +358,8 @@ export default function VideosPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to save video');
 
+      clearApiCache();
+
       setAddModalOpen(false);
       setTitle('');
       setTitleGu('');
@@ -430,6 +436,8 @@ export default function VideosPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update video');
 
+      clearApiCache();
+
       setVideos(prev => prev.map(v => v.id === selectedVideo.id ? json.data : v));
       setFeaturedIds(prev => {
         const next = new Map(prev);
@@ -490,7 +498,7 @@ export default function VideosPage() {
         </div>
         <button
           onClick={() => {
-              setAddModalOpen(true);
+            setAddModalOpen(true);
           }}
           className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shrink-0"
         >
@@ -503,22 +511,20 @@ export default function VideosPage() {
       <div className="flex gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900 w-fit">
         <button
           onClick={() => setActiveTab('saved')}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-            activeTab === 'saved'
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${activeTab === 'saved'
               ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
+            }`}
         >
           <VideoIcon className="h-4 w-4" />
           Saved Videos
         </button>
         <button
           onClick={() => setActiveTab('channel')}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${
-            activeTab === 'channel'
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${activeTab === 'channel'
               ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
-          }`}
+            }`}
         >
           <YoutubeIcon className="h-4 w-4 text-red-500" />
           Channel Videos
@@ -555,7 +561,11 @@ export default function VideosPage() {
                 }}
                 className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
               >
-                <option value="video">YouTube Videos Only</option>
+                <option value="ALL">All Video Types (બધા વીડિયો & શોર્ટ્સ)</option>
+                <option value="video">Standard Videos Only (માત્ર વીડિયો)</option>
+                <option value="short">YouTube Shorts Only (માત્ર શોર્ટ વીડિયો)</option>
+                <option value="podcast">Podcasts Only</option>
+                <option value="interview">Interviews Only</option>
               </select>
 
               <select
@@ -577,139 +587,138 @@ export default function VideosPage() {
           </div>
 
           {/* Videos Grid */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-          <Loader2 className="h-10 w-10 animate-spin text-zinc-400" />
-          <span className="mt-2 text-sm">Querying video feeds...</span>
-        </div>
-      ) : error ? (
-        <div className="text-center py-20 text-red-500">{error}</div>
-      ) : videos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 border rounded-2xl border-dashed bg-white dark:border-zinc-800 dark:bg-zinc-900 text-zinc-400">
-          <VideoIcon className="h-12 w-12 text-zinc-300 mb-2" />
-          <p className="text-sm font-semibold">No videos found</p>
-          <p className="text-xs text-zinc-500">Add a YouTube link to feature videos on the portal.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {videos.map((video) => (
-            <div 
-              key={video.id}
-              className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              {/* Thumbnail Container */}
-              <div 
-                className="relative aspect-video w-full overflow-hidden bg-zinc-900 cursor-pointer"
-                onClick={() => setPreviewVideo(video)}
-              >
-                <img 
-                  src={video.thumbnail} 
-                  alt={video.title}
-                  className="h-full w-full object-cover transition group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/35 flex items-center justify-center group-hover:bg-black/25 transition">
-                  <span className="h-12 w-12 bg-white/95 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300">
-                    <Play className="h-5 w-5 text-zinc-900 fill-current ml-0.5" />
-                  </span>
-                </div>
-                {/* Type Badge */}
-                <span className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider font-mono">
-                  {video.type}
-                </span>
-                {/* Duration */}
-                <span className="absolute bottom-2 left-2 rounded bg-zinc-900/85 px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {video.duration}
-                </span>
-                {/* Featured Badge */}
-                {video.isFeatured && (
-                  <span className="absolute top-2 left-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-black text-white flex items-center gap-1 uppercase tracking-wide">
-                    <Bookmark className="h-2.5 w-2.5 fill-current" /> Featured
-                  </span>
-                )}
-              </div>
-
-              {/* Text detail */}
-              <div className="flex-1 p-4 flex flex-col justify-between">
-                <div>
-                  {(video.categoryName || video.category?.name) && (
-                    <div className="mb-1.5">
-                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold bg-red-50 text-[#B3121B] dark:bg-red-950/40 dark:text-red-300">
-                        <FolderOpen className="h-3 w-3" />
-                        <span>{video.category?.nameGu || video.categoryName || video.category?.name}</span>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+              <Loader2 className="h-10 w-10 animate-spin text-zinc-400" />
+              <span className="mt-2 text-sm">Querying video feeds...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-20 text-red-500">{error}</div>
+          ) : videos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 border rounded-2xl border-dashed bg-white dark:border-zinc-800 dark:bg-zinc-900 text-zinc-400">
+              <VideoIcon className="h-12 w-12 text-zinc-300 mb-2" />
+              <p className="text-sm font-semibold">No videos found</p>
+              <p className="text-xs text-zinc-500">Add a YouTube link to feature videos on the portal.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {videos.map((video) => (
+                <div
+                  key={video.id}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  {/* Thumbnail Container */}
+                  <div
+                    className="relative aspect-video w-full overflow-hidden bg-zinc-900 cursor-pointer"
+                    onClick={() => setPreviewVideo(video)}
+                  >
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/35 flex items-center justify-center group-hover:bg-black/25 transition">
+                      <span className="h-12 w-12 bg-white/95 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition duration-300">
+                        <Play className="h-5 w-5 text-zinc-900 fill-current ml-0.5" />
                       </span>
                     </div>
-                  )}
-                  <p className="line-clamp-2 text-sm font-bold text-zinc-900 dark:text-white group-hover:text-accent transition-colors">
-                    {video.title}
-                  </p>
-                  <p className="text-[10px] text-zinc-400 font-mono mt-1">
-                    YT ID: {video.youtubeId}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between gap-1.5 mt-4 border-t pt-3 border-zinc-100 dark:border-zinc-800">
-                  <button
-                    onClick={() => handleToggleFeaturedSaved(video)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-                      video.isFeatured
-                        ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
-                        : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
-                    }`}
-                  >
-                    {video.isFeatured ? (
-                      <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
-                    ) : (
-                      <><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> Feature</>
+                    {/* Type Badge */}
+                    <span className="absolute bottom-2 right-2 rounded bg-black/80 px-2 py-0.5 text-[10px] font-black text-white uppercase tracking-wider font-mono">
+                      {video.type}
+                    </span>
+                    {/* Duration */}
+                    <span className="absolute bottom-2 left-2 rounded bg-zinc-900/85 px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {video.duration}
+                    </span>
+                    {/* Featured Badge */}
+                    {video.isFeatured && (
+                      <span className="absolute top-2 left-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-black text-white flex items-center gap-1 uppercase tracking-wide">
+                        <Bookmark className="h-2.5 w-2.5 fill-current" /> Featured
+                      </span>
                     )}
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => openEdit(video)}
-                      className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-white"
-                      title="Edit metadata"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(video.id)}
-                      className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-650 dark:hover:bg-red-950/20"
-                      title="Delete video"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                  </div>
+
+                  {/* Text detail */}
+                  <div className="flex-1 p-4 flex flex-col justify-between">
+                    <div>
+                      {(video.categoryName || video.category?.name) && (
+                        <div className="mb-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-extrabold bg-red-50 text-[#B3121B] dark:bg-red-950/40 dark:text-red-300">
+                            <FolderOpen className="h-3 w-3" />
+                            <span>{video.category?.nameGu || video.categoryName || video.category?.name}</span>
+                          </span>
+                        </div>
+                      )}
+                      <p className="line-clamp-2 text-sm font-bold text-zinc-900 dark:text-white group-hover:text-accent transition-colors">
+                        {video.title}
+                      </p>
+                      <p className="text-[10px] text-zinc-400 font-mono mt-1">
+                        YT ID: {video.youtubeId}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-1.5 mt-4 border-t pt-3 border-zinc-100 dark:border-zinc-800">
+                      <button
+                        onClick={() => handleToggleFeaturedSaved(video)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${video.isFeatured
+                            ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                            : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
+                          }`}
+                      >
+                        {video.isFeatured ? (
+                          <><StarOff className="h-3.5 w-3.5" /> Unfeature</>
+                        ) : (
+                          <><Star className="h-3.5 w-3.5 text-yellow-500 fill-yellow-500" /> Feature</>
+                        )}
+                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => openEdit(video)}
+                          className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-white"
+                          title="Edit metadata"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(video.id)}
+                          className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-650 dark:hover:bg-red-950/20"
+                          title="Delete video"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && !error && videos.length > 0 && totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <span className="text-xs font-semibold text-zinc-500">
+                Showing Page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-55 disabled:opacity-40 disabled:pointer-events-none dark:border-zinc-850"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-55 disabled:opacity-40 disabled:pointer-events-none dark:border-zinc-850"
+                >
+                  Next
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {!loading && !error && videos.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-800">
-          <span className="text-xs font-semibold text-zinc-500">
-            Showing Page {page} of {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-55 disabled:opacity-40 disabled:pointer-events-none dark:border-zinc-850"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-500 hover:bg-zinc-55 disabled:opacity-40 disabled:pointer-events-none dark:border-zinc-850"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+          )}
         </>
       )}
 
@@ -757,8 +766,8 @@ export default function VideosPage() {
                   ? (cv.publishedAt.includes('ago') || cv.publishedAt.includes('day') || cv.publishedAt.includes('month') || cv.publishedAt.includes('year') || cv.publishedAt.includes('hour'))
                     ? cv.publishedAt
                     : !isNaN(Date.parse(cv.publishedAt))
-                    ? new Date(cv.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                    : cv.publishedAt
+                      ? new Date(cv.publishedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : cv.publishedAt
                   : '';
                 return (
                   <div key={cv.youtubeId} className={`group relative flex flex-col rounded-2xl border bg-white overflow-hidden shadow-sm transition-all hover:shadow-md dark:bg-zinc-900 ${isFeat ? 'border-yellow-400 dark:border-yellow-500' : 'border-zinc-200 dark:border-zinc-800'}`}>
@@ -807,11 +816,10 @@ export default function VideosPage() {
                           <button
                             onClick={() => toggleFeatured(cv)}
                             disabled={isFeaturing}
-                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${
-                              isFeat
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${isFeat
                                 ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
                                 : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
-                            }`}
+                              }`}
                           >
                             {isFeaturing ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -856,7 +864,7 @@ export default function VideosPage() {
                 <Download className="h-5 w-5 text-red-500" />
                 Import & Categorize Video
               </h3>
-              <button 
+              <button
                 onClick={() => { setImportModalOpen(false); setImportingCv(null); }}
                 className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
@@ -934,7 +942,7 @@ export default function VideosPage() {
                 <VideoIcon className="h-5 w-5 text-zinc-500" />
                 Add Video Embed
               </h3>
-              <button 
+              <button
                 onClick={() => setAddModalOpen(false)}
                 className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
@@ -1095,7 +1103,7 @@ export default function VideosPage() {
                 <Edit2 className="h-5 w-5 text-zinc-500" />
                 Edit Video Details
               </h3>
-              <button 
+              <button
                 onClick={() => setEditModalOpen(false)}
                 className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
