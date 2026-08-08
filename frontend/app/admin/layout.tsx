@@ -19,6 +19,8 @@ import {
   Image as ImageIcon,
   Video,
   LayoutTemplate,
+  Smartphone,
+  BookOpen,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
@@ -57,12 +59,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
     { label: 'Videos', href: '/admin/videos', icon: Video },
+    { label: 'Reels', href: '/admin/reels', icon: Smartphone },
+    { label: 'Web Stories', href: '/admin/web-stories', icon: BookOpen },
     { label: 'Users', href: '/admin/users', icon: Users },
   ];
 
   const ROLE_PERMISSIONS: Record<string, string[]> = {
     SUPER_ADMIN: ["/admin"],
-    EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos"],
+    EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories"],
     REPORTER: ["/admin/articles"],
     SEO: ["/admin/articles", "/admin/categories"],
     ADVERTISEMENT: ["/admin/articles"],
