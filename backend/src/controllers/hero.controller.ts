@@ -375,9 +375,9 @@ export class HeroController {
       }
 
       let parsedHeroGridIds: string[] = [];
-      if (updatedSetting.heroGridIds) {
+      if ((updatedSetting as any)?.heroGridIds) {
         try {
-          parsedHeroGridIds = JSON.parse(updatedSetting.heroGridIds);
+          parsedHeroGridIds = JSON.parse((updatedSetting as any).heroGridIds);
         } catch {
           parsedHeroGridIds = [];
         }

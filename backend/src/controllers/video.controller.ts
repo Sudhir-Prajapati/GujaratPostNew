@@ -60,11 +60,6 @@ export class VideoController {
       const [videos, total] = await Promise.all([
         prisma.video.findMany({
           where,
-          include: {
-            category: {
-              select: { id: true, name: true, nameGu: true, nameHi: true, slug: true, color: true },
-            },
-          },
           orderBy: [
             { isFeatured: 'desc' },
             { createdAt: 'desc' },
@@ -135,10 +130,7 @@ export class VideoController {
           channel: channel ? channel.trim() : 'Gujarat Post News',
           categoryId: categoryId || null,
           categoryName: finalCategoryName,
-        },
-        include: {
-          category: true,
-        },
+        } as any,
       });
 
       return sendSuccess(res, video, 'Video added successfully.', 201);
@@ -213,9 +205,6 @@ export class VideoController {
       const updated = await prisma.video.update({
         where: { id },
         data: updateData,
-        include: {
-          category: true,
-        },
       });
 
       return sendSuccess(res, updated, 'Video updated successfully.');
