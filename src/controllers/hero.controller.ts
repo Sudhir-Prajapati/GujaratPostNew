@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
+import { withDbRetry } from '../utils/db.js';
 
 function formatPost(p: any) {
   if (!p) return null;
@@ -45,9 +46,11 @@ export class HeroController {
    */
   static async getHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      let heroSetting = await prisma.heroSetting.findUnique({
-        where: { id: 'default' },
-      });
+      let heroSetting = await withDbRetry(() =>
+        prisma.heroSetting.findUnique({
+          where: { id: 'default' },
+        })
+      );
 
       let slot1Id = heroSetting?.slot1Id;
       let slot2Id = heroSetting?.slot2Id;

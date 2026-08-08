@@ -1,38 +1,82 @@
 import { Router } from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { v2 as cloudinary } from 'cloudinary';
 
 const router = Router();
 
-// Configure Cloudinary with fallback credentials
+// Ensure local uploads directory exists
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Extract PDF total page count dynamically from PDF metadata catalog
+function getPdfPageCount(filePath: string): number {
+  try {
+    const data = fs.readFileSync(filePath);
+    const text = data.toString('latin1');
+    const matches = text.match(/\/Count\s+(\d+)/g);
+    if (matches && matches.length > 0) {
+      const counts = matches
+        .map((m) => parseInt(m.replace(/\/Count\s+/, ''), 10))
+        .filter((n) => !isNaN(n) && n > 0 && n < 1000);
+      if (counts.length > 0) {
+        return Math.max(...counts);
+      }
+    }
+  } catch (err) {
+    console.warn('PDF page count calculation error:', err);
+  }
+  return 24;
+}
+
+// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dvcffkyjz',
   api_key: process.env.CLOUDINARY_API_KEY || '495845865934762',
   api_secret: process.env.CLOUDINARY_API_SECRET || 'ea99jiIs2CS9jRYnPpTmF9PjNIM',
 });
 
-// Memory storage keeps file buffer in RAM for direct Cloudinary streaming
-const storage = multer.memoryStorage();
+// Disk storage for 100% reliable local file saving with correct extension
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.pdf';
+    const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
+    const uniqueName = `${cleanBase}_${Date.now()}_${Math.round(Math.random() * 1e4)}${ext}`;
+    cb(null, uniqueName);
+  },
+});
 
 const fileFilter = (req: any, file: any, cb: any) => {
   if (!file) return cb(null, false);
   const mimetype = (file.mimetype || '').toLowerCase();
   const originalName = (file.originalname || '').toLowerCase();
 
-  const isImageMime = mimetype.startsWith('image/') || mimetype.startsWith('video/') || mimetype === 'application/octet-stream';
-  const isImageExt = /\.(jpg|jpeg|png|gif|webp|jfif|pjpeg|avif|svg|bmp|mp4|webm|mov|mkv)$/i.test(originalName);
+  const isAllowedMime =
+    mimetype.startsWith('image/') ||
+    mimetype.startsWith('video/') ||
+    mimetype === 'application/pdf' ||
+    mimetype === 'application/x-pdf' ||
+    mimetype === 'application/octet-stream';
 
-  if (isImageMime || isImageExt) {
+  const isAllowedExt = /\.(jpg|jpeg|png|gif|webp|jfif|pjpeg|avif|svg|bmp|mp4|webm|mov|mkv|pdf)$/i.test(originalName);
+
+  if (isAllowedMime || isAllowedExt) {
     cb(null, true);
   } else {
-    cb(new Error('Only valid image and video files are allowed.'), false);
+    cb(new Error('Only valid image, video, and PDF files are allowed.'), false);
   }
 };
 
 const upload = multer({
-  storage,
+  storage: diskStorage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // Increased to 100MB for videos
+    fileSize: 100 * 1024 * 1024, // 100MB max limit
   },
   fileFilter,
 });
@@ -56,6 +100,7 @@ const handleUpload = (req: any, res: any) => {
       return res.status(400).json({ success: false, error: 'No file uploaded or file buffer empty.' });
     }
 
+    // For images, upload to Cloudinary or fallback to localUrl
     try {
       // Upload file buffer directly to Cloudinary
       const uploadStream = cloudinary.uploader.upload_stream(
