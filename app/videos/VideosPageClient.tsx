@@ -27,6 +27,7 @@ export default function VideosPageClient() {
   const [videoList, setVideoList] = useState<any[]>([]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     getPublicVideos().then((res) => {
       setVideoList(res || []);
     });

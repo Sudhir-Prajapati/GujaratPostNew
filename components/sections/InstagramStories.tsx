@@ -78,7 +78,7 @@ export default function InstagramStories() {
   if (reels.length === 0) return null;
 
   return (
-    <section className="mx-auto max-w-screen-xl px-4 mt-2 -mb-4 relative overflow-hidden">
+    <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden">
       <div className="relative">
         {/* Section Header */}
         <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-4">
@@ -149,8 +149,8 @@ export default function InstagramStories() {
                       )}
                     </div>
 
-                    {/* Bottom White Container Box */}
-                    <div className="absolute bottom-2 inset-x-2 bg-white dark:bg-slate-900 rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">
+                    {/* Bottom Title Container Box */}
+                    <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">
                       <div className="flex flex-col min-w-0 flex-1 pr-1">
                         <div className="flex items-center gap-1 mb-0.5">
                           <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />

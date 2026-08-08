@@ -34,15 +34,24 @@ type Article = {
 };
 
 const DEMO_IMAGES = [
-  '/assets/demo/3.jpg', '/assets/demo/4.jpg', '/assets/demo/1.jpg',
-  '/assets/demo/2.jpg', '/assets/demo/5.jpg', '/assets/demo/6.jpg',
-  '/assets/demo/7.jpg', '/assets/demo/8.jpg',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop&q=80',
 ];
 
 function getArticleImage(article?: Article | null): string {
   if (!article) return DEMO_IMAGES[0];
-  const rawImage = article.featuredImage || article.image;
-  if (rawImage && rawImage.trim() !== '') return rawImage;
+  const rawImage = (article as any).featuredImage || article.image || (article as any).thumbnail;
+  if (rawImage && typeof rawImage === 'string' && rawImage.trim() !== '') {
+    return rawImage.trim();
+  }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
   for (let i = 0; i < key.length; i++) { hash = (hash << 5) - hash + key.charCodeAt(i); hash |= 0; }
@@ -59,11 +68,13 @@ function ArticleSearchBox({
   onSelect,
   excluded = [],
   allArticles,
+  maxLimit,
 }: {
   placeholder?: string;
   onSelect: (a: Article) => void;
   excluded?: string[];
   allArticles: Article[];
+  maxLimit?: number;
 }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -77,7 +88,8 @@ function ArticleSearchBox({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const available = allArticles.filter((a) => !excluded.includes(a.id));
+  const sourcePool = maxLimit && maxLimit > 0 ? allArticles.slice(0, maxLimit) : allArticles;
+  const available = sourcePool.filter((a) => !excluded.includes(a.id));
   const results = q.trim()
     ? available.filter((a) => {
         const low = q.toLowerCase().replace(/^#/, '').trim();
@@ -87,8 +99,8 @@ function ArticleSearchBox({
           catName(a.category).toLowerCase().includes(low) ||
           numMatch
         );
-      }).slice(0, 150)
-    : available.slice(0, 150);
+      }).slice(0, 100)
+    : available.slice(0, 100);
 
   return (
     <div ref={ref} className="relative">
@@ -115,36 +127,45 @@ function ArticleSearchBox({
 
       {/* Dropdown */}
       {open && results.length > 0 && (
-        <div className="absolute top-full mt-1.5 left-0 right-0 z-50 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[0_8px_30px_rgba(0,0,0,0.12)] overflow-hidden max-h-64 overflow-y-auto">
+        <div className="absolute top-full mt-1.5 left-0 right-0 z-50 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-[0_12px_40px_rgba(0,0,0,0.2)] overflow-hidden flex flex-col">
           {/* Header */}
-          <div className="sticky top-0 flex items-center justify-between px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border-b border-zinc-100 dark:border-zinc-700 backdrop-blur-sm">
-            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
-              {q.trim() ? `${results.length} search results` : `Select from Published Articles (${available.length})`}
+          <div className="shrink-0 flex items-center justify-between px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700 z-20">
+            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-600 dark:text-zinc-300">
+              {q.trim() ? `${results.length} search results` : `Select from Latest ${available.length} Published Articles`}
             </span>
-            <button onClick={() => setOpen(false)} className="text-[9px] font-semibold text-zinc-400 hover:text-zinc-600 transition">Close ✕</button>
-          </div>
-          {results.map((a) => (
             <button
-              key={a.id}
               type="button"
-              onClick={() => { onSelect(a); setQ(''); setOpen(false); }}
-              className="group flex items-center gap-3 w-full px-3 py-2.5 text-left hover:bg-[#B3121B]/5 active:bg-[#B3121B]/10 transition-colors border-b border-zinc-50 dark:border-zinc-800 last:border-0"
+              onClick={() => setOpen(false)}
+              className="text-[10px] font-bold text-zinc-500 hover:text-red-600 dark:hover:text-red-400 transition flex items-center gap-1 cursor-pointer"
             >
-              <div className="relative h-9 w-14 shrink-0 rounded-lg overflow-hidden bg-zinc-100 shadow-sm">
-                <Image src={getArticleImage(a)} alt="" fill unoptimized className="object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 group-hover:text-[#B3121B] transition-colors">{getTitle(a)}</p>
-                <p className="text-[9px] text-zinc-400 mt-0.5">
-                  {a.articleNumber ? `#${a.articleNumber} • ` : ''}
-                  {catName(a.category)} {(a.publishedAt ?? a.createdAt) && `• ${fmtDate(a.publishedAt ?? a.createdAt)}`}
-                </p>
-              </div>
-              <div className="shrink-0 h-5 w-5 rounded-full border border-zinc-200 dark:border-zinc-700 group-hover:border-[#B3121B] group-hover:bg-[#B3121B] flex items-center justify-center transition-all">
-                <svg className="h-2.5 w-2.5 text-transparent group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              </div>
+              Close ✕
             </button>
-          ))}
+          </div>
+          {/* Scrollable list container */}
+          <div className="overflow-y-auto max-h-60 divide-y divide-zinc-100 dark:divide-zinc-800">
+            {results.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => { onSelect(a); setQ(''); setOpen(false); }}
+                className="group flex items-center gap-3 w-full px-3.5 py-2.5 text-left hover:bg-[#B3121B]/5 active:bg-[#B3121B]/10 transition-colors"
+              >
+                <div className="relative h-9 w-14 shrink-0 rounded-lg overflow-hidden bg-zinc-100 shadow-sm">
+                  <Image src={getArticleImage(a)} alt="" fill unoptimized className="object-cover" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 group-hover:text-[#B3121B] transition-colors">{getTitle(a)}</p>
+                  <p className="text-[9px] text-zinc-400 mt-0.5">
+                    {a.articleNumber ? `#${a.articleNumber} • ` : ''}
+                    {catName(a.category)} {(a.publishedAt ?? a.createdAt) && `• ${fmtDate(a.publishedAt ?? a.createdAt)}`}
+                  </p>
+                </div>
+                <div className="shrink-0 h-5 w-5 rounded-full border border-zinc-200 dark:border-zinc-700 group-hover:border-[#B3121B] group-hover:bg-[#B3121B] flex items-center justify-center transition-all">
+                  <svg className="h-2.5 w-2.5 text-transparent group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -306,9 +327,24 @@ export default function HeroManagerPage() {
   const [savingPopularNews, setSavingPopularNews] = useState(false);
   const [draggedPopularIndex, setDraggedPopularIndex] = useState<number | null>(null);
 
+  const [mostReadArticles, setMostReadArticles] = useState<Article[]>([]);
+  const [savingMostRead, setSavingMostRead] = useState(false);
+
+  const [heroGridArticles, setHeroGridArticles] = useState<Article[]>([]);
+  const [savingHeroGrid, setSavingHeroGrid] = useState(false);
+
   const showToast = (msg: string, ok: boolean) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3500);
+  };
+
+  const triggerOnDemandRevalidate = () => {
+    clearApiCache();
+    fetch('/api/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '/' }),
+    }).catch(() => {});
   };
 
   const fetchArticles = useCallback(async () => {
@@ -323,15 +359,27 @@ export default function HeroManagerPage() {
       const arts = (pubRes.articles || []) as unknown as Article[];
       setAllArticles(arts);
 
+      if (heroRes && Array.isArray((heroRes as any).heroGridArticles) && (heroRes as any).heroGridArticles.length > 0) {
+        setHeroGridArticles((heroRes as any).heroGridArticles as unknown as Article[]);
+      } else {
+        setHeroGridArticles(arts.slice(0, 13));
+      }
+
+      const featured = arts.filter((a) => a.isFeatured);
+      const defaultSlots = [
+        featured[0] || arts[0] || null,
+        featured[1] || arts[1] || null,
+        featured[2] || arts[2] || null,
+      ];
+
       if (heroRes && Array.isArray(heroRes.slots) && heroRes.slots.length > 0) {
         setSlots([
-          heroRes.slots[0] ? (heroRes.slots[0] as unknown as Article) : null,
-          heroRes.slots[1] ? (heroRes.slots[1] as unknown as Article) : null,
-          heroRes.slots[2] ? (heroRes.slots[2] as unknown as Article) : null,
+          heroRes.slots[0] ? (heroRes.slots[0] as unknown as Article) : defaultSlots[0],
+          heroRes.slots[1] ? (heroRes.slots[1] as unknown as Article) : defaultSlots[1],
+          heroRes.slots[2] ? (heroRes.slots[2] as unknown as Article) : defaultSlots[2],
         ]);
       } else {
-        const featured = arts.filter((a) => a.isFeatured);
-        setSlots([featured[0] || arts[0] || null, featured[1] || arts[1] || null, featured[2] || arts[2] || null]);
+        setSlots(defaultSlots);
       }
 
       if (heroRes && (heroRes as any).trendingTopics && Array.isArray((heroRes as any).trendingTopics)) {
@@ -350,6 +398,12 @@ export default function HeroManagerPage() {
         setPopularNewsArticles((heroRes as any).popularNewsArticles as unknown as Article[]);
       } else {
         setPopularNewsArticles(arts.slice(0, 12));
+      }
+
+      if (heroRes && Array.isArray((heroRes as any).mostReadArticles) && (heroRes as any).mostReadArticles.length > 0) {
+        setMostReadArticles((heroRes as any).mostReadArticles as unknown as Article[]);
+      } else {
+        setMostReadArticles(arts.slice(0, 5));
       }
     } catch {
       showToast('Failed to load hero section articles', false);
@@ -371,12 +425,14 @@ export default function HeroManagerPage() {
         slot3Id: slots[2]?.id || null,
         trendingTopics: trendingTopics,
         trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
       };
 
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Hero section cards & trending topics updated successfully.', true);
         if (res.data?.slots) {
           setSlots([
@@ -438,7 +494,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Trending topics updated live on user side.', true);
         if (res.data?.trendingTopics && Array.isArray(res.data.trendingTopics)) {
           setTrendingTopics(res.data.trendingTopics);
@@ -520,7 +576,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Trending News slider articles updated live on user side.', true);
         if (res.data?.trendingNewsArticles && Array.isArray(res.data.trendingNewsArticles)) {
           setTrendingNewsArticles(res.data.trendingNewsArticles as unknown as Article[]);
@@ -600,7 +656,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Popular News slider articles updated live on user side.', true);
         if (res.data?.popularNewsArticles && Array.isArray(res.data.popularNewsArticles)) {
           setPopularNewsArticles(res.data.popularNewsArticles as unknown as Article[]);
@@ -612,6 +668,158 @@ export default function HeroManagerPage() {
       showToast('Save failed. Please try again.', false);
     } finally {
       setSavingPopularNews(false);
+    }
+  };
+
+  const handleAddMostReadArticle = (art: Article) => {
+    if (mostReadArticles.some((a) => a.id === art.id)) {
+      showToast('Article already in Most Read list', false);
+      return;
+    }
+    if (mostReadArticles.length >= 5) {
+      showToast('⚠️ Limit reached (5 articles max for Most Read). Please remove one first.', false);
+      return;
+    }
+    setMostReadArticles((prev) => [...prev, art]);
+  };
+
+  const handleRemoveMostReadArticle = (id: string) => {
+    setMostReadArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const moveMostReadArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= mostReadArticles.length) return;
+    setMostReadArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
+  const handleSaveMostRead = async () => {
+    setSavingMostRead(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        mostReadIds: mostReadArticles.map((a) => a.id),
+        heroGridIds: JSON.stringify(heroGridArticles.map((a) => a.id)),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        triggerOnDemandRevalidate();
+        showToast('✅ Saved! Most Read (સૌથી વધુ વંચાયેલા) articles updated live on user side.', true);
+        if (res.data?.mostReadArticles && Array.isArray(res.data.mostReadArticles)) {
+          setMostReadArticles(res.data.mostReadArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Most Read articles. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingMostRead(false);
+    }
+  };
+
+  const moveHeroGridArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= heroGridArticles.length) return;
+    setHeroGridArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
+  const handleRemoveHeroGridArticle = (id: string) => {
+    setHeroGridArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleAddHeroGridArticle = (art: Article) => {
+    if (heroGridArticles.some((a) => a.id === art.id)) {
+      showToast('Article is already in Hero Grid list', false);
+      return;
+    }
+    setHeroGridArticles((prev) => [...prev, art]);
+  };
+
+  const handleSaveHeroGrid = async () => {
+    setSavingHeroGrid(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        triggerOnDemandRevalidate();
+        showToast('✅ Saved! Top Main Hero Grid positions updated live on user side.', true);
+        if (res.data?.heroGridArticles && Array.isArray(res.data.heroGridArticles)) {
+          setHeroGridArticles(res.data.heroGridArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Hero Grid positions. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingHeroGrid(false);
+    }
+  };
+
+  const [savingBottomSlots, setSavingBottomSlots] = useState(false);
+
+  const handleSaveBottomSlots = async () => {
+    setSavingBottomSlots(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        heroGridIds: heroGridArticles.map((a) => a.id),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        triggerOnDemandRevalidate();
+        showToast('✅ Saved! Bottom Row 3 Image Cards updated live on user side.', true);
+        if (res.data?.slots) {
+          setSlots([
+            res.data.slots[0] ? (res.data.slots[0] as unknown as Article) : null,
+            res.data.slots[1] ? (res.data.slots[1] as unknown as Article) : null,
+            res.data.slots[2] ? (res.data.slots[2] as unknown as Article) : null,
+          ]);
+        }
+      } else {
+        showToast('Failed to save Bottom Cards. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingBottomSlots(false);
     }
   };
 
@@ -640,17 +848,13 @@ export default function HeroManagerPage() {
             Hero Section Manager
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Pick the <strong>3 articles</strong> that appear as image cards in the <strong>bottom row</strong> of the homepage hero section.
+            Manage all hero sections, main grid positions, bottom image slots, and news sliders for the homepage.
           </p>
         </div>
         <div className="flex items-center gap-3 mt-3 sm:mt-0 shrink-0">
           <Link href="/" target="_blank" className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 transition">
             <Eye className="h-4 w-4" /> Preview Homepage <ArrowUpRight className="h-3.5 w-3.5" />
           </Link>
-          <button onClick={handleSave} disabled={saving || loading} className="inline-flex items-center gap-1.5 rounded-lg bg-[#B3121B] px-4 py-2 text-sm font-bold text-white hover:bg-[#8E0E15] transition disabled:opacity-60">
-            {saving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
         </div>
       </div>
 
@@ -673,39 +877,6 @@ export default function HeroManagerPage() {
         </div>
       </div>
 
-      {/* Homepage Layout Hint */}
-      <div className="mb-6 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 px-5 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-3">Homepage Layout Preview</p>
-        <div className="flex gap-2 items-stretch">
-          {/* Main hero (auto) */}
-          <div className="flex-[2] rounded-xl bg-zinc-200 dark:bg-zinc-700 p-3 flex flex-col gap-1 min-h-[80px]">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Main Hero</span>
-            <span className="text-[10px] text-zinc-400">Auto (latest article)</span>
-          </div>
-          {/* Right 2 (auto) */}
-          <div className="flex-1 flex flex-col gap-2">
-            {[1, 2].map((n) => (
-              <div key={n} className="flex-1 rounded-xl bg-zinc-200 dark:bg-zinc-700 p-2 flex flex-col gap-0.5">
-                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Right {n}</span>
-                <span className="text-[10px] text-zinc-400">Auto</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* Bottom 3 — admin controlled */}
-        <div className="grid grid-cols-3 gap-2 mt-2">
-          {['Slot 1 ✎', 'Slot 2 ✎', 'Slot 3 ✎'].map((label, i) => (
-            <div key={i} className={`rounded-xl p-3 flex flex-col gap-0.5 ${slots[i] ? 'bg-[#B3121B]/10 border border-[#B3121B]/30' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
-              <span className={`text-[9px] font-bold uppercase tracking-wide ${slots[i] ? 'text-[#B3121B]' : 'text-zinc-500'}`}>{label}</span>
-              <span className="text-[10px] text-zinc-400 line-clamp-1">
-                {slots[i] ? `${slots[i]?.articleNumber ? `#${slots[i]?.articleNumber} - ` : ''}${getTitle(slots[i])}` : 'Empty'}
-              </span>
-            </div>
-          ))}
-        </div>
-        <p className="text-[10px] text-zinc-400 mt-2">✎ = Admin-controlled slots (this page) &nbsp;|&nbsp; Auto = Latest published articles</p>
-      </div>
-
       {/* 3-Column Slot Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-32 text-zinc-400">
@@ -713,21 +884,435 @@ export default function HeroManagerPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[0, 1, 2].map((idx) => (
-              <SlotCard
-                key={idx}
-                slotNum={idx + 1}
-                article={slots[idx]}
-                onSelect={(a) => setSlot(idx, a)}
-                onRemove={() => removeSlot(idx)}
+          {/* ════════════════════════════════════════════════════════════════
+             MAIN HERO GRID (13 POSITIONS MANAGEMENT)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏆</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Top Main Hero Grid (13 Article Positions)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-red-50 text-[#B3121B] border-red-200 dark:bg-red-950/40 dark:border-red-800">
+                    {heroGridArticles.length} / 13 Positions
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Manage the exact positions of articles displayed in the top homepage Hero Grid: 
+                  <strong> Position #1 = Spotlight Banner</strong>, 
+                  <strong> Positions #2 & #3 = Top Middle Image Cards</strong>, 
+                  <strong> Positions #4 to #13 = Middle Headline List</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSaveHeroGrid}
+                  disabled={savingHeroGrid}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {savingHeroGrid ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  {savingHeroGrid ? 'Saving Hero Grid...' : 'Save Hero Grid Positions'}
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Article Search to Add Position */}
+            <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                ➕ Add Article to Hero Grid Positions
+              </p>
+              <ArticleSearchBox
                 allArticles={allArticles}
-                excluded={usedIds.filter((id) => id !== slots[idx]?.id)}
+                excluded={heroGridArticles.map((a) => a.id)}
+                maxLimit={100}
+                placeholder="Search latest 100 articles by title or #articleNumber to add to Hero Grid..."
+                onSelect={(art) => handleAddHeroGridArticle(art)}
               />
-            ))}
+            </div>
+
+            {/* Grid List of Positions */}
+            <div className="space-y-3">
+              {heroGridArticles.map((art, index) => {
+                const isSpotlight = index === 0;
+                const isTopCard = index === 1 || index === 2;
+                const slotTitle = isSpotlight
+                  ? '🌟 Main Hero Spotlight Banner (#1 Big Card)'
+                  : isTopCard
+                  ? `🖼️ Middle Column - Top Image Card #${index}`
+                  : `📰 Middle Column - Text Headline #${index - 2}`;
+
+                return (
+                  <div
+                    key={art.id}
+                    className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border transition-all ${
+                      isSpotlight
+                        ? 'border-[#B3121B]/40 bg-red-50/40 dark:bg-red-950/10'
+                        : isTopCard
+                        ? 'border-blue-200 bg-blue-50/20 dark:border-blue-900/40 dark:bg-blue-950/10'
+                        : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80'
+                    }`}
+                  >
+                    {/* Left Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white ${
+                        isSpotlight ? 'bg-[#B3121B]' : isTopCard ? 'bg-blue-600' : 'bg-zinc-700'
+                      }`}>
+                        #{index + 1}
+                      </span>
+
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                            isSpotlight ? 'bg-red-100 text-[#B3121B]' : isTopCard ? 'bg-blue-100 text-blue-700' : 'bg-zinc-100 text-zinc-600'
+                          }`}>
+                            {slotTitle}
+                          </span>
+                          {art.articleNumber && (
+                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                              #{art.articleNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                          {getTitle(art)}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => moveHeroGridArticle(index, -1)}
+                        disabled={index === 0}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Up 1 Position"
+                      >
+                        ⬆️ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveHeroGridArticle(index, 1)}
+                        disabled={index === heroGridArticles.length - 1}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Down 1 Position"
+                      >
+                        ⬇️ Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveHeroGridArticle(art.id)}
+                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                        title="Remove from Hero Grid"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* ════════════════════════════════════════════════════════════════
+             BOTTOM ROW 3 IMAGE CARDS MANAGEMENT
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📌</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Bottom Row 3 Image Cards (હરોળના 3 ઈમેજ કાર્ડ્સ)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300">
+                    {usedIds.length} / 3 Cards Selected
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Pick the 3 image cards displayed in the bottom row of the homepage hero section.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveBottomSlots}
+                disabled={savingBottomSlots}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                {savingBottomSlots ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {savingBottomSlots ? 'Saving Bottom Cards...' : 'Save Bottom 3 Cards'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[0, 1, 2].map((idx) => (
+                <SlotCard
+                  key={idx}
+                  slotNum={idx + 1}
+                  article={slots[idx]}
+                  onSelect={(a) => setSlot(idx, a)}
+                  onRemove={() => removeSlot(idx)}
+                  allArticles={allArticles}
+                  excluded={usedIds.filter((id) => id !== slots[idx]?.id)}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Managing Trending Topics Section */}
+          {/* ════════════════════════════════════════════════════════════════
+             POPULAR NEWS 12 POSITIONS MANAGEMENT (લોકપ્રિય સમાચાર)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔥</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Popular News Slider (લોકપ્રિય સમાચાર)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800">
+                    {popularNewsArticles.length} / 12 Positions
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Manage the 12 articles displayed in the "લોકપ્રિય સમાચાર" (Popular News) slider on the homepage. Use Move Up / Move Down or Drag & Drop to change exact rank #1 to #12.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSavePopularNews}
+                disabled={savingPopularNews}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                {savingPopularNews ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {savingPopularNews ? 'Saving Popular News...' : 'Save Popular News 12 Positions'}
+              </button>
+            </div>
+
+            {/* Quick Article Search to Add Position */}
+            <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                ➕ Add Article to Popular News Slider (લોકપ્રિય સમાચાર)
+              </p>
+              <ArticleSearchBox
+                allArticles={allArticles}
+                excluded={popularNewsArticles.map((a) => a.id)}
+                maxLimit={100}
+                placeholder={popularNewsArticles.length >= 12 ? '[ Limit 12 reached — remove an article to add new ]' : 'Search latest 100 articles by title or #articleNumber to add to Popular News...'}
+                onSelect={(art) => handleAddPopularNewsArticle(art)}
+              />
+            </div>
+
+            {/* List of 5 Most Read Positions */}
+            <div className="space-y-3">
+              {popularNewsArticles.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center text-xs text-zinc-400">
+                  No articles assigned. Default published articles will be displayed automatically.
+                </div>
+              ) : (
+                popularNewsArticles.map((art, idx) => (
+                  <div
+                    key={art.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40"
+                  >
+                    {/* Left Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
+                        #{idx + 1}
+                      </span>
+
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                            Most Read Rank #{idx + 1}
+                          </span>
+                          {art.articleNumber && (
+                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                              #{art.articleNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                          {getTitle(art)}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => movePopularArticle(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Up 1 Position"
+                      >
+                        ⬆️ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePopularArticle(idx, 1)}
+                        disabled={idx === popularNewsArticles.length - 1}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Down 1 Position"
+                      >
+                        ⬇️ Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePopularNewsArticle(art.id)}
+                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                        title="Remove from Most Read"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════════
+             MOST READ 5 POSITIONS MANAGEMENT (સૌથી વધુ વંચાયેલા)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔥</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Most Read 5 Positions (સૌથી વધુ વંચાયેલા)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800">
+                    {mostReadArticles.length} / 5 Positions
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Manage the 5 articles displayed in the "સૌથી વધુ વંચાયેલા" (Most Read) sidebar widget on the homepage. Move up / down to reorder rank #1 to #5.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveMostRead}
+                disabled={savingMostRead}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                {savingMostRead ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {savingMostRead ? 'Saving Most Read...' : 'Save Most Read 5 Positions'}
+              </button>
+            </div>
+
+            {/* Quick Article Search to Add Position */}
+            <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                ➕ Add Article to Most Read 5 Positions (સૌથી વધુ વંચાયેલા)
+              </p>
+              <ArticleSearchBox
+                allArticles={allArticles}
+                excluded={mostReadArticles.map((a) => a.id)}
+                maxLimit={100}
+                placeholder={mostReadArticles.length >= 5 ? '[ Limit 5 reached — remove an article to add new ]' : 'Search latest 100 articles by title or #articleNumber to add to Most Read...'}
+                onSelect={(art) => handleAddMostReadArticle(art)}
+              />
+            </div>
+
+            {/* List of 5 Most Read Positions */}
+            <div className="space-y-3">
+              {mostReadArticles.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center text-xs text-zinc-400">
+                  No articles assigned. Default published articles will be displayed automatically.
+                </div>
+              ) : (
+                mostReadArticles.map((art, idx) => (
+                  <div
+                    key={art.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40"
+                  >
+                    {/* Left Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
+                        #{idx + 1}
+                      </span>
+
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                            Most Read Rank #{idx + 1}
+                          </span>
+                          {art.articleNumber && (
+                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                              #{art.articleNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                          {getTitle(art)}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => moveMostReadArticle(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Up 1 Position"
+                      >
+                        ⬆️ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveMostReadArticle(idx, 1)}
+                        disabled={idx === mostReadArticles.length - 1}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Down 1 Position"
+                      >
+                        ⬇️ Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMostReadArticle(art.id)}
+                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                        title="Remove from Most Read"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
           <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800 mb-4">
               <div className="flex items-center gap-2">
@@ -939,143 +1524,10 @@ export default function HeroManagerPage() {
             )}
           </div>
 
-          {/* Managing Popular News Section (લોકપ્રિય સમાચાર Slider) */}
-          <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-zinc-100 pb-3 dark:border-zinc-800 mb-5 gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🌟</span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-black text-zinc-900 dark:text-white">Popular News Slider (લોકપ્રિય સમાચાર)</h3>
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${popularNewsArticles.length >= 12 ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-700' : 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300'}`}>
-                      {popularNewsArticles.length} / 12 Max
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5">Select up to 12 articles to feature in the Popular News (લોકપ્રિય સમાચાર) slider. Drag & drop or use &lt; / &gt; arrows to change number rank.</p>
-                </div>
-              </div>
-
-              {/* Dedicated Save Popular News Button */}
-              <button
-                type="button"
-                onClick={handleSavePopularNews}
-                disabled={savingPopularNews}
-                className="flex items-center gap-2 rounded-xl bg-[#B3121B] hover:bg-[#B3121B]/90 px-5 py-2.5 text-xs font-black text-white shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
-              >
-                {savingPopularNews ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                <span>Save Popular News</span>
-              </button>
-            </div>
-
-            {/* Article Search Box for Popular News */}
-            <div className="mb-5">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-600 dark:text-zinc-400 mb-1.5">
-                + Add Article to Popular News Slider
-              </label>
-              <ArticleSearchBox
-                placeholder={popularNewsArticles.length >= 12 ? '[ Limit 12 reached — remove an article to add new ]' : 'Search published articles by title, article #, or category to add to Popular News...'}
-                onSelect={(art) => handleAddPopularNewsArticle(art)}
-                excluded={popularNewsArticles.map((a) => a.id)}
-                allArticles={allArticles}
-              />
-            </div>
-
-            {/* Current Selected Popular News Articles Grid */}
-            {popularNewsArticles.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-8 text-center text-xs text-zinc-400">
-                No articles assigned. Default top popular articles will be displayed automatically.
-              </div>
-            ) : (
-              <>
-                <div className="mb-3 flex items-center justify-between text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                  <span className="flex items-center gap-1.5">
-                    <GripVertical className="h-3.5 w-3.5 text-[#B3121B]" />
-                    <span><strong>Drag & Drop</strong> cards to change rank (e.g. #12 to #1), or use <strong>&lt; / &gt; arrows</strong> below cards.</span>
-                  </span>
-                  <span className="text-[10px] text-zinc-400 font-medium">Order 1 to {popularNewsArticles.length}</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  {popularNewsArticles.map((art, idx) => (
-                    <div
-                      key={art.id}
-                      draggable
-                      onDragStart={(e) => handleDragStartPopular(e, idx)}
-                      onDragOver={(e) => handleDragOverPopular(e, idx)}
-                      onDragEnd={handleDragEndPopular}
-                      className={`relative flex flex-col justify-between overflow-hidden rounded-xl border p-2.5 transition-all duration-150 cursor-grab active:cursor-grabbing group ${
-                        draggedPopularIndex === idx
-                          ? 'border-[#B3121B] bg-[#B3121B]/10 shadow-xl scale-105 z-20 ring-2 ring-[#B3121B]/40'
-                          : 'border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-800/40 hover:border-[#B3121B]/50 hover:shadow-md'
-                      }`}
-                    >
-                      <div>
-                        {/* Thumbnail, Rank Badge & Drag Handle */}
-                        <div className="relative aspect-[16/10] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
-                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
-
-                          {/* Rank Badge */}
-                          <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-sm bg-black/80 text-white text-[11px] font-black shadow-md z-10 select-none">
-                            {idx + 1}
-                          </span>
-
-                          {/* Drag Handle Icon Indicator */}
-                          <div className="absolute top-1.5 left-8 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/80 backdrop-blur-xs opacity-70 group-hover:opacity-100 transition z-10" title="Click & Drag to reorder">
-                            <GripVertical className="h-3.5 w-3.5" />
-                          </div>
-
-                          {/* Remove Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleRemovePopularNewsArticle(art.id); }}
-                            className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-red-600 transition cursor-pointer z-10"
-                            title="Remove from Popular News"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <p className="text-[11px] font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-2 leading-snug select-none">
-                          {getTitle(art)}
-                        </p>
-                      </div>
-
-                      {/* Bottom Footer with Article Info & Left/Right Reorder Arrows */}
-                      <div className="mt-2 flex items-center justify-between text-[9px] font-bold text-zinc-400 pt-1.5 border-t border-zinc-100 dark:border-zinc-800">
-                        <span className="truncate max-w-[80px]">{art.articleNumber ? `#${art.articleNumber}` : catName(art.category)}</span>
-
-                        {/* Reorder Buttons (Move Left & Right) */}
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); movePopularArticle(idx, -1); }}
-                            disabled={idx === 0}
-                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
-                            title="Move left/up"
-                          >
-                            <ChevronLeft className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); movePopularArticle(idx, 1); }}
-                            disabled={idx === popularNewsArticles.length - 1}
-                            className="flex h-5 w-5 items-center justify-center rounded-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white disabled:opacity-30 disabled:hover:bg-zinc-200 disabled:hover:text-zinc-700 transition cursor-pointer"
-                            title="Move right/down"
-                          >
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-
           {/* Info note */}
           <div className="mt-6 rounded-xl border border-blue-200 dark:border-blue-800/40 bg-blue-50 dark:bg-blue-950/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300 flex items-start gap-2">
             <span className="mt-0.5 shrink-0 inline-flex h-4 w-4 items-center justify-center rounded-full border border-blue-400 text-[10px] font-black">i</span>
-            <span><strong>Note:</strong> Bottom row image cards, Trending Topics, Trending News slider, and Popular News slider articles can all be saved independently using their dedicated <strong>Save</strong> buttons.</span>
+            <span><strong>Note:</strong> Top Main Hero Grid, Bottom row image cards, Most Read 5 Positions, Trending Topics, and Trending News slider articles can all be saved independently using their dedicated <strong>Save</strong> buttons.</span>
           </div>
         </>
       )}

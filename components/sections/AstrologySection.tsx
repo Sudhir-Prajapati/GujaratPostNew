@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { getLocalized } from '@/data';
+import ZodiacDetailModal from '@/components/sections/ZodiacDetailModal';
 
 export interface ZodiacSign {
   id: string;
@@ -263,55 +264,11 @@ export default function AstrologySection() {
 
       {/* Daily Rashifal Horoscope Modal */}
       {selectedZodiac && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="absolute inset-0" onClick={() => setSelectedZodiac(null)} />
-          
-          <div className="relative w-full max-w-md rounded-3xl overflow-hidden bg-card border border-border p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200 text-center">
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setSelectedZodiac(null)}
-              className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted-foreground/10 transition"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            {/* Zodiac Header Illustration */}
-            <div className="mx-auto mt-4 rounded-full border border-border p-1 shadow-md w-24 h-24 overflow-hidden relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selectedZodiac.image}
-                alt={selectedZodiac.name}
-                className="rounded-full w-full h-full object-cover"
-                style={{ height: '100%', width: '100%', objectFit: 'cover' }}
-              />
-            </div>
-
-            {/* Zodiac Titles */}
-            <h3 className="mt-4 text-xl font-black text-foreground">
-              {selectedZodiac.nameGu} ({selectedZodiac.name})
-            </h3>
-            <p className="text-xs font-semibold text-accent uppercase tracking-wider mt-1">
-              {getLocalized(language, { en: 'Daily Horoscope', gu: 'આજનું રાશિફળ', hi: 'आज का राशिफल' })}
-            </p>
-
-            {/* Horoscope Prediction Text */}
-            <div className="mt-5 border-t border-border/80 pt-4 text-left">
-              <p className="text-sm font-black text-foreground leading-relaxed">
-                {language === 'gu' ? selectedZodiac.predictionGu : selectedZodiac.prediction}
-              </p>
-            </div>
-
-            {/* Dismiss Button */}
-            <button
-              type="button"
-              onClick={() => setSelectedZodiac(null)}
-              className="mt-6 w-full py-2.5 rounded-xl bg-[#c0392b] text-white text-sm font-bold shadow-md hover:bg-red-700 transition"
-            >
-              OK
-            </button>
-          </div>
-        </div>
+        <ZodiacDetailModal
+          sign={selectedZodiac}
+          onClose={() => setSelectedZodiac(null)}
+          language={language}
+        />
       )}
     </section>
   );

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles } from 'lucide-react';
+import { Clock, ArrowRight, Flame, Eye, Play, ChevronRight, ChevronLeft, Camera, X, Bookmark, Sun, Cloud, CloudRain, Shield, Trophy, TrendingUp, TrendingDown, Wind, ChevronDown, ArrowUpRight, Thermometer, Droplet, MoreVertical, Fuel, Megaphone, Radio, MapPin, Sparkles, Loader2 } from 'lucide-react';
 import {
   getArticleTitle,
   getArticleExcerpt,
@@ -19,18 +19,26 @@ import {
   getArticlesByCategory,
   PHOTOS,
 } from '@/data';
-import { getCategoryColor } from '@/lib/utils';
+import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories, getLiveCenterData, getPublicGallery } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
 import InstagramStories from '@/components/sections/InstagramStories';
 import WebStoriesSection from '@/components/sections/WebStoriesSection';
+import YouTubeShorts from '@/components/sections/YouTubeShorts';
 import { ZODIAC_SIGNS, ZodiacSign } from '@/components/sections/AstrologySection';
+import { ZodiacIcon, GUJARAT_ZODIAC_LETTERS } from '@/components/ui/ZodiacIcon';
+import ZodiacDetailModal from '@/components/sections/ZodiacDetailModal';
 import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
 import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
+import AdSectionBanner from '@/components/ads/AdSectionBanner';
+import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
+import CategorySection from '@/components/sections/CategorySection';
+
+const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 
 const CHANNEL_URL = 'https://www.youtube.com/@Gujaratpostnews';
 const CHANNEL_ID = 'UCqQ8YbFSZ4j8J4iVJOHurTw';
@@ -282,20 +290,23 @@ export const getMockRelativeTime = (timeStrGu: string | undefined, language: Lan
 };
 
 export const DEMO_IMAGES = [
-  '/assets/demo/3.jpg',
-  '/assets/demo/4.jpg',
-  '/assets/demo/1.jpg',
-  '/assets/demo/2.jpg',
-  '/assets/demo/5.jpg',
-  '/assets/demo/6.jpg',
-  '/assets/demo/7.jpg',
-  '/assets/demo/8.jpg',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop&q=80',
 ];
 
 export function getArticleImage(article?: Article | null): string {
   if (!article) return DEMO_IMAGES[0];
-  if (article.image && article.image.trim() !== '') {
-    return article.image;
+  const raw = article.image || (article as any).featuredImage || (article as any).thumbnail;
+  if (raw && typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim();
   }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
@@ -308,19 +319,11 @@ export function getArticleImage(article?: Article | null): string {
 }
 
 function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
-  const usedImages = new Set<string>();
-
   return sections.map((section) =>
     section.map((article) => {
       if (!article) return article;
-      let image = article.image;
-
-      if (!image || usedImages.has(image)) {
-        image = getArticleImage(article);
-      }
-
-      usedImages.add(image);
-      return image === article.image ? article : { ...article, image };
+      const image = getArticleImage(article);
+      return { ...article, image };
     })
   );
 }
@@ -359,10 +362,16 @@ export default function HeroSection({
   // DB-backed article state
   const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
   // topStories: auto-populated from latest articles (main hero, right 2, text articles)
-  const [topStories, setTopStories] = useState<Article[]>(initialArticles.slice(0, 16));
+  const initialSortedHeroPool = [...initialArticles].sort((a: Article, b: Article) => {
+    const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
+    const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
+    return bScore - aScore;
+  });
+  const [topStories, setTopStories] = useState<Article[]>(initialSortedHeroPool.slice(0, 16));
   // bottomFeatured: admin-selected 3 articles shown in the bottom image row
   const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
   const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
+  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialArticles.slice(0, 5));
   const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
   const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
   const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
@@ -370,15 +379,48 @@ export default function HeroSection({
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
   const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
+  const [marketRates, setMarketRates] = useState<any>({
+    gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
+    silver: { price: '₹84,200', change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
+  });
+  const [weatherData, setWeatherData] = useState<any>({
+    city: 'અમદાવાદ',
+    cityEn: 'Ahmedabad',
+    temp: 32,
+    humidity: 68,
+    windSpeed: 14,
+    conditionGu: 'આંશિક વાદળછાયું',
+    conditionEn: 'Partly cloudy',
+  });
+  const [astrologySignsDB, setAstrologySignsDB] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(['gujarat', 'national', 'world', 'politics', 'crime']);
+  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>([]);
 
   useEffect(() => {
-    // Fetch main articles pool AND hero slots settings in parallel
+    // Fetch main articles pool, hero slots settings, videos, market rates, weather, AND categories in parallel
     Promise.all([
       getPublicArticles({ limit: 60 }),
       getHeroSettings(),
       getPublicVideos('video'),
-    ]).then(([mainRes, heroRes, videoRes]: any[]) => {
+      getMarketRates(),
+      getPublicWeather('ahmedabad'),
+      getPublicCategories({ showInHome: true }),
+    ]).then(([mainRes, heroRes, videoRes, marketRes, weatherRes, categoriesRes]: any[]) => {
+      if (weatherRes) {
+        setWeatherData(weatherRes);
+      }
+      if (marketRes) {
+        setMarketRates(marketRes);
+      }
+      if (categoriesRes && Array.isArray(categoriesRes) && categoriesRes.length > 0) {
+        const sortedCats = [...categoriesRes]
+          .filter((c) => c.showInHome !== false && c.isActive !== false)
+          .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
+        setAllCategoriesDB(sortedCats);
+        const sortedSlugs = sortedCats.map((c) => c.slug?.toLowerCase()).filter(Boolean);
+        setOrderedCategorySlugs(sortedSlugs);
+      }
       if (heroRes && Array.isArray(heroRes.trendingTopics) && heroRes.trendingTopics.length > 0) {
         setDynamicTrendingTopics(heroRes.trendingTopics);
       } else if (heroRes?.setting?.trendingTopics && Array.isArray(heroRes.setting.trendingTopics)) {
@@ -399,18 +441,27 @@ export default function HeroSection({
         setArticlesList(arts);
         setTopNews(arts.slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
-        // Prioritize articles with BREAKING, TRENDING, or FEATURED flags for main hero spotlight
-        const heroPool = arts
+        // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
+        const customGridArts: Article[] = (heroRes?.heroGridArticles || []).filter(Boolean);
+        const autoHeroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
-            const aScore = (a.isBreaking ? 3 : 0) + (a.isTrending ? 2 : 0) + (a.isFeatured ? 1 : 0);
-            const bScore = (b.isBreaking ? 3 : 0) + (b.isTrending ? 2 : 0) + (b.isFeatured ? 1 : 0);
-            return bScore - aScore;
+            const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+            const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+            if (bScore !== aScore) return bScore - aScore;
+            return bTime - aTime;
           });
-        setTopStories(heroPool.slice(0, 16));
-
-        const trending = arts.filter((a: Article) => a.isTrending);
-        setTrendingArtDB(fillPool(trending, arts, 10));
+        const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
+        setTopStories(heroPool);
+        const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
+        const customMostReadArts: Article[] = (heroRes?.mostReadArticles || []).filter(Boolean);
+        const trendingArts = arts.filter((a: Article) => a.isTrending);
+        const popularPool = fillPool([...trendingArts, ...customPopularArts], arts, 10);
+        setTrendingArtDB(popularPool);
+        const mostReadPool = customMostReadArts.length > 0 ? customMostReadArts : arts.slice(0, 5);
+        setMostReadArtDB(mostReadPool);
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
         setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));
         setNationalArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
@@ -438,7 +489,10 @@ export default function HeroSection({
   }, []);
 
   // Sidebar auto-changing video state (cycles every 10s)
-  const sidebarVideos = videosList.filter(v => v.type === 'video').slice(0, 6);
+  const featuredSidebar = videosList.filter(v => v.isFeatured && (v.type === 'video' || !v.type));
+  const sidebarVideos = featuredSidebar.length > 0
+    ? featuredSidebar
+    : videosList.filter(v => v.type === 'video' || !v.type).slice(0, 6);
   const [activeSidebarVideoIndex, setActiveSidebarVideoIndex] = useState(0);
 
   useEffect(() => {
@@ -534,38 +588,7 @@ export default function HeroSection({
   }, [uniqueTopStories, articlesList, initialArticles]);
 
   if (isInitialLoading || !topStories.length) {
-    return (
-      <div className="relative min-h-[70vh] w-full">
-        {/* Branded loading overlay */}
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background/95 backdrop-blur-md text-foreground transition-all duration-500">
-          <div className="flex flex-col items-center gap-5 p-8 rounded-2xl bg-card/90 border border-border/50 shadow-2xl backdrop-blur-xl max-w-sm w-full mx-4 text-center">
-            {/* Branded Logo Emblem */}
-            <div className="relative flex items-center justify-center">
-              <div className="absolute h-20 w-20 rounded-full bg-[#B3121B]/20 animate-ping" />
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#B3121B] text-white font-black text-2xl shadow-lg shadow-[#B3121B]/40 border border-white/20">
-                GP
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-1">
-              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground">
-                {language === 'gu' ? 'ગુજરાત પોસ્ટ' : 'GUJARAT POST'}
-              </h2>
-              <p className="text-xs font-bold text-muted-foreground animate-pulse">
-                {language === 'gu' ? 'સમાચાર લોડ થઈ રહ્યા છે...' : 'Loading latest news...'}
-              </p>
-            </div>
-
-            {/* Spinner */}
-            <div className="flex items-center justify-center mt-1">
-              <div className="h-7 w-7 animate-spin rounded-full border-[3px] border-[#B3121B] border-t-transparent" />
-            </div>
-          </div>
-        </div>
-
-        <HeroSectionSkeleton language={language} />
-      </div>
-    );
+    return <HeroSectionSkeleton language={language} />;
   }
   return (
     <div className="mx-auto max-w-screen-xl px-2 py-0.5 space-y-1">
@@ -781,23 +804,18 @@ export default function HeroSection({
 
         {/* ═══ RIGHT SIDEBAR — Ad + YouTube Latest + Popular ═══════════════ */}
         <div className="flex flex-col gap-4">
-          {/* Advertisement banner */}
-          <div className="ad-slot">
-            <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-widest mb-1 text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </p>
-            <div className="ad-inner">
-              <div className="ad-creative rounded-sm p-4 text-white flex flex-col justify-between" style={{ background: 'linear-gradient(135deg,#FF6B35,#C81D25)', minHeight: 180 }}>
-                <div>
-                  <div className="ad-brand font-black text-lg uppercase tracking-wide">મેગા સેલ ડેઝ</div>
-                  <div className="ad-tag text-[12.5px] font-semibold mt-2 leading-snug">ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!</div>
-                </div>
-                <button className="ad-cta bg-white text-slate-900 rounded-sm px-4.5 py-1.5 text-[11px] font-black transition duration-200 hover:-translate-y-0.5 hover:shadow-lg w-max mt-4">
-                  હમણાં ખરીદો ↗
-                </button>
-              </div>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_HERO_TOP"
+            language={language}
+            fallbackTitleGu="મેગા સેલ ડેઝ"
+            fallbackTitleEn="Mega Sale Days"
+            fallbackTagGu="ફેશન અને ઈલેક્ટ્રોનિક્સ પર 70% સુધી છૂટ — ફક્ત આજે!"
+            fallbackTagEn="Up to 70% off on fashion and electronics — today only!"
+            fallbackCtaGu="હમણાં ખરીદો"
+            fallbackCtaEn="Shop Now"
+            fallbackGradient="linear-gradient(135deg,#FF6B35,#C81D25)"
+            minHeight={180}
+          />
 
           {/* YouTube Video Section */}
           <div className="w-full rounded-md border border-slate-200 bg-card p-4 shadow-sm flex flex-col gap-2.5">
@@ -870,7 +888,7 @@ export default function HeroSection({
             </div>
 
             <div className="flex flex-col divide-y divide-border">
-              {uniqueTrendingArt.slice(0, 5).map((art, idx) => (
+              {(mostReadArtDB.length > 0 ? mostReadArtDB : uniqueTrendingArt).slice(0, 5).map((art, idx) => (
                 <Link
                   key={art.id}
                   href={`/news/${art.slug}`}
@@ -891,14 +909,114 @@ export default function HeroSection({
 
 
 
-      <VideoDesk videos={videosList.length > 0 ? videosList : videos.slice(0, 7)} language={language} showShorts={false} />
+      <AdSectionBanner section="AFTER_HERO" />
 
-      <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
+      <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
 
+      {/* Dynamic home page category sections rendered in exact displayOrder sequence configured by Admin */}
+      {allCategoriesDB.map((cat) => {
+        const s = (cat.slug || '').toLowerCase();
+        if (s === 'gujarat') {
+          return <CityHyperlocalSection key={cat.id || 'gujarat'} language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />;
+        }
+        if (s === 'national' || s === 'india' || s === 'desh') {
+          return <NationalSection key={cat.id || 'national'} language={language} />;
+        }
+        if (s === 'world' || s === 'vishw') {
+          return <WorldSection key={cat.id || 'world'} language={language} />;
+        }
+        if (s === 'politics' || s === 'rajkaran') {
+          return <PoliticsSection key={cat.id || 'politics'} language={language} />;
+        }
+        if (s === 'crime') {
+          return (
+            <section key={cat.id || 'crime'} className="mx-auto max-w-screen-xl px-4 mt-10">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
+                {/* Left Column */}
+                <div className="flex flex-col gap-10 min-w-0">
+                  <CrimeSection language={language} view="content" />
+                </div>
 
-      <NationalSection language={language} />
+                {/* Right Column / Sidebar */}
+                <div className="flex flex-col gap-6 sticky top-20 select-none">
+                  {/* Gold & Silver Rates Widget */}
+                  <div>
+                    <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
+                      <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
+                      <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
+                        {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
+                      </h3>
+                    </div>
+
+                    <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
+                      {/* Gold Rate Row */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
+                            🏅
+                          </div>
+                          <div>
+                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                              {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
+                            </h4>
+                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                              {language === 'gu' ? '24 Karat' : '24 Karat'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                            {marketRates?.gold?.price || '₹74,850'}
+                          </p>
+                          <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
+                            {marketRates?.gold?.change || '▲ ₹450'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className="border-t border-border/40" />
+
+                      {/* Silver Rate Row */}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
+                            🥈
+                          </div>
+                          <div>
+                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                              {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
+                            </h4>
+                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                              {language === 'gu' ? 'Per Kg' : 'Per Kg'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                            {marketRates?.silver?.price || '₹84,200'}
+                          </p>
+                          <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
+                            {marketRates?.silver?.change || '— Stable'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Weather, WhatsApp, and Astrology */}
+                  <CrimeSection language={language} view="sidebar" />
+                </div>
+              </div>
+            </section>
+          );
+        }
+        return <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />;
+      })}
 
       <TrendingSection />
+
+      <AdSectionBanner section="AFTER_TRENDING" />
 
       {/* Big Horizontal Ad before Latest News */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
@@ -921,92 +1039,9 @@ export default function HeroSection({
 
       <InstagramStories />
 
-      <WorldSection language={language} />
-
-      <PoliticsSection language={language} />
-
       <WebStoriesSection />
 
-      {/* Main 2-Column Section: Crime (Left) + Sidebar (Right) */}
-      <section className="mx-auto max-w-screen-xl px-4 mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
-          {/* Left Column */}
-          <div className="flex flex-col gap-10 min-w-0">
-            <CrimeSection language={language} view="content" />
-          </div>
-
-          {/* Right Column / Sidebar */}
-          <div className="flex flex-col gap-6 sticky top-20 select-none">
-            {/* Gold & Silver Rates Widget */}
-            <div>
-              <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
-                <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
-                <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
-                  {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
-                </h3>
-              </div>
-
-              <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
-                {/* Gold Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
-                      🏅
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? '24 Karat' : '24 Karat'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      ₹73,450
-                    </p>
-                    <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
-                      ▲ ₹450
-                    </p>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border/40" />
-
-                {/* Silver Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
-                      🥈
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? 'Per Kg' : 'Per Kg'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      ₹82,800
-                    </p>
-                    <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
-                      — {language === 'gu' ? 'Stable' : 'Stable'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Weather, WhatsApp, and Astrology */}
-            <CrimeSection language={language} view="sidebar" />
-          </div>
-        </div>
-      </section>
+      <AdSectionBanner section="AFTER_WEBSTORIES" />
 
       {/* Horizontal Ad Section before EntertainTechLifeSection */}
       <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
@@ -1019,9 +1054,11 @@ export default function HeroSection({
 
       <PhotoGallerySection language={language} />
 
-
+      <AdSectionBanner section="AFTER_GALLERY" />
 
       <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
+
+      <AdSectionBanner section="AFTER_VIDEOS" />
 
       <WeatherDashboardSection language={language} />
 
@@ -3095,28 +3132,40 @@ function CityHyperlocalSection({
               <div className="group relative flex flex-col min-w-0">
                 {/* Image container */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
-                  <Image
-                    src={currentSlide.image}
-                    alt={currentSlide.titleGu}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 40vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                  />
+                  <Link href={`/news/${currentSlide.slug}`} className="block relative w-full h-full cursor-pointer">
+                    <Image
+                      src={currentSlide.image}
+                      alt={currentSlide.titleGu}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 40vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                  </Link>
                   {/* Left / Right Arrows */}
                   <button
-                    onClick={() => setSlideIdx((prev) => (prev - 1 + mockSlides.length) % mockSlides.length)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSlideIdx((prev) => (prev - 1 + mockSlides.length) % mockSlides.length);
+                    }}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 text-[18px] font-bold select-none cursor-pointer"
                   >
                     ‹
                   </button>
                   <button
-                    onClick={() => setSlideIdx((prev) => (prev + 1) % mockSlides.length)}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSlideIdx((prev) => (prev + 1) % mockSlides.length);
+                    }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/85 text-white flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 z-10 text-[18px] font-bold select-none cursor-pointer"
                   >
                     ›
                   </button>
                   {/* Counter Index */}
-                  <span className="absolute top-2.5 left-2.5 bg-black/70 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-sm z-10 select-none">
+                  <span className="absolute top-2.5 left-2.5 bg-black/70 text-white text-[11px] font-extrabold px-2 py-0.5 rounded-sm z-10 select-none pointer-events-none">
                     {language === 'gu'
                       ? `${toGuLocal(slideIdx + 1)} / ${toGuLocal(mockSlides.length)}`
                       : `${slideIdx + 1} / ${mockSlides.length}`}
@@ -3139,7 +3188,7 @@ function CityHyperlocalSection({
 
                   <div className="h-[38px] overflow-hidden mt-2">
                     <p className="text-muted-foreground text-[12.5px] leading-relaxed line-clamp-2 font-medium">
-                      {getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi })}
+                      {stripHtmlTags(getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi }))}
                     </p>
                   </div>
 
@@ -3218,26 +3267,18 @@ function CityHyperlocalSection({
         {/* Right Column: Sidebar Ads and widgets */}
         <div className="flex flex-col gap-6 sticky top-20 select-none">
 
-          {/* Ad widget banner */}
-          <div className="flex flex-col gap-1">
-            <span className="text-[9px] text-muted-foreground font-black uppercase tracking-widest text-center">
-              {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-            </span>
-            <div className="w-full rounded-sm bg-gradient-to-br from-[#0f3d70] to-[#001f3f] text-white p-6 flex flex-col items-center justify-center border border-border/10 shadow-sm text-center relative overflow-hidden" style={{ minHeight: 180 }}>
-              <h4 className="text-[20px] font-black tracking-tight select-none">
-                {language === 'gu' ? 'ઇઝી પર્સનલ લોન' : 'Easy Personal Loan'}
-              </h4>
-              <p className="text-[12px] text-white/90 font-bold mt-1.5 leading-snug">
-                {language === 'gu' ? 'ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી' : 'Just 10.5% interest, approval in 5 mins'}
-              </p>
-              <button
-                type="button"
-                className="mt-4 bg-white text-[#0f3d70] font-black text-[12px] px-5 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer border border-[#0f3d70]"
-              >
-                {language === 'gu' ? 'અરજી કરો ↗' : 'Apply Now ↗'}
-              </button>
-            </div>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_GUJARAT"
+            language={language}
+            fallbackTitleGu="ઇઝી પર્સનલ લોન"
+            fallbackTitleEn="Easy Personal Loan"
+            fallbackTagGu="ફક્ત 10.5% વ્યાજે, 5 મિનિટમાં મંજૂરી"
+            fallbackTagEn="Just 10.5% interest, approval in 5 mins"
+            fallbackCtaGu="અરજી કરો"
+            fallbackCtaEn="Apply Now"
+            fallbackGradient="linear-gradient(135deg,#0f3d70,#001f3f)"
+            minHeight={180}
+          />
 
           {/* WhatsApp Channel widget */}
           <div className="w-full rounded-sm border border-slate-200 bg-card p-5 shadow-sm">
@@ -3270,7 +3311,7 @@ function CityHyperlocalSection({
                   return (
                     <Link
                       key={tag}
-                      href={`/search?q=${encodeURIComponent(cleanTag)}`}
+                      href={getTrendingTopicHref(cleanTag)}
                       className="border border-neutral-300 dark:border-neutral-700 text-[11px] font-black px-2.5 py-2 rounded-full text-foreground hover:border-[#B3121B] hover:bg-[#B3121B]/5 hover:text-[#B3121B] transition-all bg-card shadow-sm cursor-pointer select-none"
                     >
                       <span className="text-[#B3121B] font-extrabold mr-0.5">#</span>
@@ -3301,11 +3342,25 @@ function CrimeSection({
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
   const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
+  const [weatherData, setWeatherData] = useState<any>({
+    city: 'અમદાવાદ',
+    cityEn: 'Ahmedabad',
+    temp: 32,
+    humidity: 68,
+    windSpeed: 14,
+    conditionGu: 'આંશિક વાદળછાયું',
+    conditionEn: 'Partly cloudy',
+  });
 
   useEffect(() => {
     getPublicArticles({ categorySlug: 'crime', limit: 25 }).then((crimeRes) => {
       if (crimeRes && crimeRes.articles && crimeRes.articles.length > 0) {
         setDbCrimeArticles(crimeRes.articles);
+      }
+    });
+    getPublicWeather('ahmedabad').then((wRes) => {
+      if (wRes) {
+        setWeatherData(wRes);
       }
     });
   }, []);
@@ -3853,17 +3908,17 @@ function CrimeSection({
         <div className="flex items-center gap-1.5 mb-4 select-none">
           <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse" />
           <span className="text-[12px] md:text-[13px] font-black uppercase tracking-wider text-white/90">
-            {language === 'gu' ? 'હવામાન - અમદાવાદ' : 'Weather - Ahmedabad'}
+            {language === 'gu' ? `હવામાન - ${weatherData.city || 'અમદાવાદ'}` : `Weather - ${weatherData.cityEn || 'Ahmedabad'}`}
           </span>
         </div>
 
         <div className="flex justify-between items-center">
           <div>
             <span className="text-4xl font-extrabold tracking-tight select-none">
-              {language === 'gu' ? toGuLocal('32') : '32'}°
+              {language === 'gu' ? toGuLocal(weatherData.temp ?? 32) : (weatherData.temp ?? 32)}°
             </span>
             <p className="text-[12px] text-white/70 font-bold mt-1.5 select-none">
-              {language === 'gu' ? 'આંશિક વાદળછાયું' : 'Partly cloudy'}
+              {language === 'gu' ? (weatherData.conditionGu || 'આંશિક વાદળછાયું') : (weatherData.conditionEn || 'Partly cloudy')}
             </p>
           </div>
 
@@ -3880,13 +3935,13 @@ function CrimeSection({
             <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 fill-none stroke-current stroke-2">
               <path d="M12 22a7 7 0 0 0 7-7c0-4.3-7-13-7-13S5 10.7 5 15a7 7 0 0 0 7 7z" />
             </svg>
-            {language === 'gu' ? `ભેજ 68%` : `Humidity 68%`}
+            {language === 'gu' ? `ભેજ ${toGuLocal(weatherData.humidity ?? 68)}%` : `Humidity ${weatherData.humidity ?? 68}%`}
           </span>
           <span className="flex items-center gap-1.5 select-none">
             <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 fill-none stroke-current stroke-2">
               <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.59-6.59A2 2 0 1 1 19 12H2" />
             </svg>
-            {language === 'gu' ? `પવન 14 કિમી` : `Wind 14 km/h`}
+            {language === 'gu' ? `પવન ${toGuLocal(weatherData.windSpeed ?? 14)} કિમી` : `Wind ${weatherData.windSpeed ?? 14} km/h`}
           </span>
         </div>
       </div>
@@ -3915,36 +3970,41 @@ function CrimeSection({
             {language === 'gu' ? '• આજનું રાશિફળ' : language === 'hi' ? '• आज का राशिफल' : '• Today\'s Horoscope'}
           </span>
         </div>
-        <div className="border border-purple-500/20 dark:border-purple-500/30 rounded-xl bg-gradient-to-b from-card via-card to-purple-950/5 p-3 sm:p-3.5 shadow-md">
-          <div className="grid grid-cols-4 gap-2 sm:gap-2.5">
-            {ZODIAC_SIGNS.map((sign, idx) => {
-              const symbol = getZodiacSymbol(sign.id);
+        <div className="border border-purple-500/20 dark:border-purple-500/30 rounded-xl bg-card p-2 sm:p-2.5 shadow-sm">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+            {ZODIAC_SIGNS.map((sign) => {
+              const isSelected = selectedZodiac?.id === sign.id;
+              const letters = GUJARAT_ZODIAC_LETTERS[sign.id] || `(${sign.name})`;
               const primaryName = language === 'gu' ? sign.nameGu : language === 'hi' ? sign.nameHi : sign.name;
-              const secondaryName = `(${sign.name})`;
+              const subName = language === 'gu' ? letters : language === 'hi' ? letters : `(${sign.name})`;
 
               return (
                 <div
                   key={sign.id}
                   onClick={() => setSelectedZodiac(sign)}
-                  style={{ animationDelay: `${idx * 40}ms` }}
-                  className="relative flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl border border-border/80 bg-background/80 hover:bg-gradient-to-b hover:from-purple-50/80 hover:to-indigo-50/50 dark:hover:from-purple-950/40 dark:hover:to-indigo-950/30 hover:border-purple-500/60 shadow-xs hover:shadow-xl hover:shadow-purple-500/15 transition-all duration-300 transform hover:-translate-y-1.5 hover:scale-[1.03] cursor-pointer select-none group text-center overflow-hidden animate-in fade-in zoom-in-95"
+                  className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg border transition-all duration-200 cursor-pointer select-none text-center overflow-hidden ${
+                    isSelected
+                      ? 'bg-[#FFF8F0] dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/60 shadow-xs'
+                      : 'bg-background hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-border/60 hover:border-amber-300/60'
+                  }`}
                 >
-                  {/* Shimmer sweep effect */}
-                  <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 dark:via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" aria-hidden="true" />
-
-                  {/* Glowing 3D Icon Box */}
-                  <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg bg-gradient-to-br from-[#4A329A] via-[#5A38C2] to-[#7342DC] text-white text-[14px] font-extrabold shadow-md shadow-purple-950/30 mb-1.5 transition-all duration-300 group-hover:scale-115 group-hover:rotate-[6deg] group-hover:shadow-purple-500/40 group-hover:ring-4 group-hover:ring-purple-500/25 select-none leading-none">
-                    {symbol}
+                  {/* SVG Illustration Icon */}
+                  <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center mb-1 select-none">
+                    <ZodiacIcon id={sign.id} className="h-7 w-7 sm:h-8 sm:w-8" />
                   </div>
 
-                  {/* Gujarati / Primary Name */}
-                  <span className="text-[11.5px] sm:text-[12px] font-black text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors select-none leading-tight">
+                  {/* Gujarati Name */}
+                  <span className={`text-[12px] sm:text-[12.5px] font-black leading-tight select-none ${
+                    isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
+                  }`}>
                     {primaryName}
                   </span>
 
-                  {/* Secondary English Name */}
-                  <span className="text-[9.5px] sm:text-[10px] font-bold text-muted-foreground/80 group-hover:text-purple-500/80 transition-colors select-none mt-0.5 leading-none">
-                    {secondaryName}
+                  {/* Gujarati Initial Letters (અ, લ, ઈ) */}
+                  <span className={`text-[9.5px] sm:text-[10px] font-semibold leading-tight select-none mt-0.5 ${
+                    isSelected ? 'text-amber-600 dark:text-amber-300 font-bold' : 'text-muted-foreground'
+                  }`}>
+                    {subName}
                   </span>
                 </div>
               );
@@ -3957,46 +4017,11 @@ function CrimeSection({
   );
 
   const zodiacModal = selectedZodiac && (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="absolute inset-0" onClick={() => setSelectedZodiac(null)} />
-
-      <div className="relative w-full max-w-md rounded-3xl overflow-hidden bg-card border border-purple-500/30 p-6 shadow-2xl z-10 animate-in zoom-in-95 duration-200 text-center">
-        <button
-          type="button"
-          onClick={() => setSelectedZodiac(null)}
-          className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted-foreground/10 transition cursor-pointer"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="relative mx-auto mt-2 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-[#4A329A] via-[#5A38C2] to-[#7342DC] text-white text-3xl font-extrabold shadow-xl shadow-purple-900/40 ring-4 ring-purple-500/30 animate-pulse">
-          {getZodiacSymbol(selectedZodiac.id)}
-        </div>
-
-        <h3 className="mt-4 text-2xl font-black text-foreground">
-          {language === 'gu' ? `${selectedZodiac.nameGu} (${selectedZodiac.name})` : language === 'hi' ? `${selectedZodiac.nameHi} (${selectedZodiac.name})` : selectedZodiac.name}
-        </h3>
-
-        <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-purple-500/10 px-3.5 py-1 text-xs font-black text-purple-600 dark:text-purple-400 border border-purple-500/20">
-          <Sparkles className="h-3.5 w-3.5" />
-          <span>{getLocalized(language, { en: 'Daily Horoscope', gu: 'આજનું રાશિફળ', hi: 'आज का राशिफल' })}</span>
-        </div>
-
-        <div className="mt-5 border-t border-border/80 pt-4 text-left">
-          <p className="text-sm font-black text-foreground leading-relaxed">
-            {language === 'gu' ? selectedZodiac.predictionGu : selectedZodiac.prediction}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSelectedZodiac(null)}
-          className="mt-6 w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-sm font-bold shadow-lg shadow-purple-900/30 active:scale-98 transition-all cursor-pointer"
-        >
-          {language === 'gu' ? 'સમજાયું' : language === 'hi' ? 'ठीक है' : 'Got it'}
-        </button>
-      </div>
-    </div>
+    <ZodiacDetailModal
+      sign={selectedZodiac}
+      onClose={() => setSelectedZodiac(null)}
+      language={language}
+    />
   );
 
   if (view === 'content') {
@@ -4037,21 +4062,35 @@ function PopularStoriesSection({
   const [popularList, setPopularList] = useState<any[]>([]);
 
   useEffect(() => {
-    getHeroSettings().then((res: any) => {
+    Promise.all([
+      getHeroSettings(),
+      getPublicArticles({ limit: 12 }),
+    ]).then(([res, pubRes]: any[]) => {
+      let customArts: any[] = [];
       if (res && Array.isArray(res.popularNewsArticles) && res.popularNewsArticles.length > 0) {
-        const mapped = res.popularNewsArticles.map((a: any, idx: number) => ({
-          id: a.id,
-          slug: a.slug,
-          image: a.image || a.featuredImage || '/assets/demo/3.jpg',
-          titleGu: a.titleGu || a.title,
-          title: a.title || a.titleGu,
-          relativeTimeGu: formatDate(a.publishedAt || a.createdAt),
-          relativeTime: formatDate(a.publishedAt || a.createdAt),
-          viewsGu: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
-          views: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
-        }));
-        setPopularList(mapped);
+        customArts = res.popularNewsArticles;
       }
+      const fallbackArts = pubRes?.articles || [];
+      const combined = [...customArts];
+      for (const item of fallbackArts) {
+        if (combined.length >= 12) break;
+        if (item && item.id && !combined.some((c: any) => c.id === item.id)) {
+          combined.push(item);
+        }
+      }
+
+      const mapped = combined.map((a: any, idx: number) => ({
+        id: a.id,
+        slug: a.slug,
+        image: a.featuredImage || a.image || DEMO_IMAGES[idx % DEMO_IMAGES.length],
+        titleGu: a.titleGu || a.title,
+        title: a.title || a.titleGu,
+        relativeTimeGu: formatDate(a.publishedAt || a.createdAt),
+        relativeTime: formatDate(a.publishedAt || a.createdAt),
+        viewsGu: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+        views: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+      }));
+      setPopularList(mapped);
     });
   }, []);
 
@@ -4305,26 +4344,18 @@ function PopularStoriesSection({
         <span className="text-[#B3121B] font-extrabold text-[15px] pr-1">→</span>
       </div>
 
-      {/* Recharge Plus Ad Widget */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <div className="bg-slate-100/95 border border-slate-200 border-b-0 text-[10px] text-slate-500 font-black py-1.5 text-center uppercase tracking-widest rounded-t-sm">
-          {language === 'gu' ? 'જાહેરાત' : 'ADVERTISEMENT'}
-        </div>
-        <div className="w-full rounded-b-sm bg-gradient-to-br from-[#5D3FD3] to-[#4A2CA8] text-white p-8 py-10 flex flex-col items-center justify-center relative overflow-hidden border border-slate-200 text-center flex-1 shadow-sm" style={{ minHeight: 265 }}>
-          <h4 className="text-[22px] font-black tracking-tight select-none">
-            {language === 'gu' ? 'રિચાર્જ પ્લસ' : 'Recharge Plus'}
-          </h4>
-          <p className="text-[13px] text-white/90 font-bold mt-2.5 leading-snug max-w-[220px]">
-            {language === 'gu' ? 'અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને' : 'Unlimited data + calling only ₹199/month'}
-          </p>
-          <button
-            type="button"
-            className="mt-6 bg-white text-[#5D3FD3] font-black text-[13px] px-7 py-3 rounded-full shadow-md hover:bg-white/95 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            {language === 'gu' ? 'રિચાર્જ કરો ›' : 'Recharge Now ›'}
-          </button>
-        </div>
-      </div>
+      <SidebarAdBanner
+        slot="SIDEBAR_POPULAR"
+        language={language}
+        fallbackTitleGu="રિચાર્જ પ્લસ"
+        fallbackTitleEn="Recharge Plus"
+        fallbackTagGu="અનલિમિટેડ ડેટા + કોલિંગ ફક્ત ₹199/મહિને"
+        fallbackTagEn="Unlimited data + calling only ₹199/month"
+        fallbackCtaGu="રિચાર્જ કરો"
+        fallbackCtaEn="Recharge Now"
+        fallbackGradient="linear-gradient(135deg,#5D3FD3,#4A2CA8)"
+        minHeight={265}
+      />
 
     </div>
   );
@@ -5643,7 +5674,7 @@ export function FactCheckSection({ language }: { language: Language }) {
       ? 'શું સરકારે ખરેખર બધા વિદ્યાર્થીઓને મફત લેપટોપ આપવાની જાહેરાત કરી? જાણો સત્ય'
       : 'Did government really announce free laptops for all students? Know truth'
   );
-  const featExcerpt = featArt ? getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt }) : (
+  const featExcerpt = featArt ? stripHtmlTags(getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt })) : (
     language === 'gu'
       ? 'ગુજરાત પોસ્ટની તપાસમાં જાણવા મળ્યું કે વાયરલ પરિપત્ર બનાવટી છે – શિક્ષણ વિભાગે આવી કોઈ જાહેરાત કરી નથી.'
       : 'Gujarat Post investigation revealed that the viral circular is fake – the education department has made no such announcement.'
@@ -6274,7 +6305,7 @@ export function WorldSection({ language }: { language: Language }) {
                 {featured.title}
               </h3>
               <p className="text-muted-foreground text-[13px] leading-relaxed mt-3.5 line-clamp-4 select-none">
-                {featured.excerpt}
+                {stripHtmlTags(featured.excerpt)}
               </p>
             </div>
 
@@ -6330,25 +6361,18 @@ export function WorldSection({ language }: { language: Language }) {
         {/* Right Column: Widgets */}
         <div className="flex flex-col gap-6">
 
-          {/* Green Dream Home Ad */}
-          <div className="w-full rounded-sm bg-[#0E8044] text-white p-6 py-6 flex flex-col items-center justify-center relative overflow-hidden border border-border/10 shadow-md text-center" style={{ minHeight: 180 }}>
-            {/* Small Ad Label at top */}
-            <span className="absolute top-2.5 left-3.5 text-[9.5px] text-white/50 font-black tracking-wider uppercase select-none">
-              {language === 'gu' ? 'જાહેરાત' : 'Advertisement'}
-            </span>
-            <h4 className="text-[22px] font-black tracking-tight select-none mt-2">
-              {language === 'gu' ? 'ડ્રીમ હોમ્સ' : 'Dream Homes'}
-            </h4>
-            <p className="text-[13px] text-white/95 font-bold mt-1.5 leading-snug max-w-[240px]">
-              {language === 'gu' ? 'તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે' : 'Your dream home — with 0% processing fee'}
-            </p>
-            <button
-              type="button"
-              className="mt-4 bg-white text-[#0E8044] font-black text-[12.5px] px-7 py-2.5 rounded-full shadow-sm hover:bg-white/90 active:scale-[0.98] transition-all cursor-pointer"
-            >
-              {language === 'gu' ? 'વધુ જાણો ›' : 'Learn More ›'}
-            </button>
-          </div>
+          <SidebarAdBanner
+            slot="SIDEBAR_WORLD"
+            language={language}
+            fallbackTitleGu="ડ્રીમ હોમ્સ"
+            fallbackTitleEn="Dream Homes"
+            fallbackTagGu="તમારું સપનાનું ઘર — 0% પ્રોસેસિંગ ફી સાથે"
+            fallbackTagEn="Your dream home — with 0% processing fee"
+            fallbackCtaGu="વધુ જાણો"
+            fallbackCtaEn="Learn More"
+            fallbackGradient="#0E8044"
+            minHeight={180}
+          />
 
           {/* Dynamic Foreign Currency Widget */}
           <CurrencyRatesWidget language={language} />
@@ -6538,6 +6562,7 @@ const FUEL_PRICE_CITY_MAP: Record<string, { petrol: string; diesel: string; cng:
 
 export function LiveCenterSection({ language }: { language: Language }) {
   const [fuelCity, setFuelCity] = useState('Ahmedabad');
+  const [fuelPrices, setFuelPrices] = useState(FUEL_PRICE_CITY_MAP);
 
   // Live Stock Market state
   const [stocks, setStocks] = useState([
@@ -6563,8 +6588,18 @@ export function LiveCenterSection({ language }: { language: Language }) {
     { league: 'La Liga', statusType: 'time', statusText: '23:00', homeTeam: 'Real Madrid', homeScore: '—', awayTeam: 'Barcelona', awayScore: '—' }
   ]);
 
-  // Fetch live Exchange rate and stock ticker updates
+  // Fetch live center data from API
   useEffect(() => {
+    getLiveCenterData().then((data) => {
+      if (data) {
+        if (data.fuelPrices) setFuelPrices(data.fuelPrices);
+        if (data.stocks) setStocks(data.stocks);
+        if (data.usdRate) setUsdRate(data.usdRate);
+        if (data.cricketMatches) setCricketMatches(data.cricketMatches);
+        if (data.footballMatches) setFootballMatches(data.footballMatches);
+      }
+    });
+
     // Live USD/INR Exchange Rate fetch
     fetch('https://open.er-api.com/v6/latest/USD')
       .then((res) => res.json())
@@ -6597,7 +6632,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
     return () => clearInterval(timer);
   }, []);
 
-  const activeFuel = FUEL_PRICE_CITY_MAP[fuelCity] || FUEL_PRICE_CITY_MAP.Ahmedabad;
+  const activeFuel = fuelPrices[fuelCity] || fuelPrices.Ahmedabad || FUEL_PRICE_CITY_MAP.Ahmedabad;
 
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8 relative">
@@ -7160,74 +7195,219 @@ function WeatherDashboardSection({ language }: { language: Language }) {
   );
 }
 
-/* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
-/* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
-export function EntertainTechLifeSection({ language }: { language: Language }) {
-  const [healthArticles, setHealthArticles] = useState<Article[]>([]);
-  const [entArticles, setEntArticles] = useState<Article[]>([]);
-  const [techArticles, setTechArticles] = useState<Article[]>([]);
+/* ─── Dynamic Generic Category Section ─────────────────────────────────── */
+export function DynamicCategorySection({ category, language }: { category: any; language: Language }) {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      getPublicArticles({ categorySlug: 'health', limit: 5 }),
-      getPublicArticles({ categorySlug: 'entertainment', limit: 5 }),
-      getPublicArticles({ categorySlug: 'technology', limit: 5 }),
-    ]).then(([healthRes, entRes, techRes]) => {
-      if (healthRes && healthRes.articles && healthRes.articles.length > 0) {
-        setHealthArticles(healthRes.articles);
-      }
-      if (entRes && entRes.articles && entRes.articles.length > 0) {
-        setEntArticles(entRes.articles);
-      }
-      if (techRes && techRes.articles && techRes.articles.length > 0) {
-        setTechArticles(techRes.articles);
-      }
-    });
+    if (!category?.slug) return;
+    getPublicArticles({ categorySlug: category.slug, limit: 5 })
+      .then((res) => {
+        if (res && res.articles) {
+          setArticles(res.articles);
+        }
+      })
+      .catch((e) => console.warn(`Error loading articles for category ${category.slug}:`, e))
+      .finally(() => setLoading(false));
+  }, [category?.slug]);
+
+  if (!loading && articles.length === 0) {
+    return null; // Don't render empty category sections
+  }
+
+  const categoryTitle = language === 'gu'
+    ? (category.nameGu || category.name)
+    : language === 'hi'
+      ? (category.nameHi || category.name)
+      : category.name;
+
+  const colorBadge = category.color || '#B3121B';
+  const lead = articles[0];
+  const sideArticles = articles.slice(1, 5);
+
+  return (
+    <section className="mx-auto max-w-screen-xl px-4 mt-10">
+      {/* Section Header */}
+      <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6 select-none">
+        <div className="flex items-center gap-2.5">
+          <span className="h-4 w-4 rounded-sm shadow-xs" style={{ backgroundColor: colorBadge }} />
+          <h2 className="text-[17px] md:text-[19px] font-black text-foreground leading-none">
+            {categoryTitle}
+          </h2>
+        </div>
+        <Link
+          href={`/category/${category.slug}`}
+          className="text-[12.5px] font-bold text-muted-foreground hover:text-[#B3121B] flex items-center gap-1 transition-colors"
+        >
+          <span>{language === 'gu' ? 'બધા જુઓ' : 'View All'}</span>
+          <ChevronRight className="h-4 w-4 text-[#B3121B]" />
+        </Link>
+      </div>
+
+      {/* Grid Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Featured Lead Card (7 cols) */}
+        {lead ? (
+          <div className="lg:col-span-7 bg-card border border-border/80 rounded-xl p-4 shadow-sm group">
+            <Link href={`/news/${lead.slug}`} className="flex flex-col gap-3">
+              <div className="relative h-[240px] md:h-[300px] w-full overflow-hidden rounded-lg bg-muted border border-border/20">
+                <Image
+                  src={lead.image || '/assets/demo/1.jpg'}
+                  alt={lead.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 60vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <div>
+                <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#B3121B] bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded">
+                  {categoryTitle}
+                </span>
+                <h3 className="text-lg md:text-xl font-black text-foreground mt-2 line-clamp-2 group-hover:text-[#B3121B] transition-colors leading-snug">
+                  {language === 'gu' ? (lead.titleGu || lead.title) : lead.title}
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground mt-1.5 line-clamp-2 font-medium">
+                  {language === 'gu' ? (lead.excerptGu || lead.excerpt) : lead.excerpt}
+                </p>
+                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground font-semibold">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span>{formatTime(lead.publishedAt)}</span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        ) : null}
+
+        {/* Side Cards List (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col divide-y divide-border/50 bg-card border border-border/80 rounded-xl p-4 shadow-sm">
+          {sideArticles.map((art) => (
+            <Link
+              key={art.id}
+              href={`/news/${art.slug}`}
+              className="group flex gap-3 py-3 first:pt-0 last:pb-0 hover:bg-muted/10 transition-colors"
+            >
+              <div className="relative h-[72px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
+                <Image
+                  src={art.image || '/assets/demo/2.jpg'}
+                  alt={art.title}
+                  fill
+                  sizes="95px"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                <h4 className="text-[13px] font-extrabold text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
+                  {language === 'gu' ? (art.titleGu || art.title) : art.title}
+                </h4>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-1">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span>{formatTime(art.publishedAt)}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Entertainment · Tech · Health 3-Column Section ─────────────────── */
+export function EntertainTechLifeSection({ language }: { language: Language }) {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [categoryArticlesMap, setCategoryArticlesMap] = useState<Record<string, Article[]>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getPublicCategories()
+      .then(async (cats) => {
+        const TARGET_SLUGS = ['health', 'entertainment', 'manoranjan', 'technology'];
+        let matchedCats = Array.isArray(cats)
+          ? cats.filter((c: any) => TARGET_SLUGS.includes((c.slug || '').toLowerCase()))
+          : [];
+
+        // Fallbacks if specific category records are missing in DB
+        const fallbackCats = [
+          { slug: 'health', name: 'Health', nameGu: 'હેલ્થ', nameHi: 'स्वास्थ्य' },
+          { slug: 'manoranjan', name: 'Entertainment', nameGu: 'મનોરંજન', nameHi: 'मनोरंजन' },
+          { slug: 'technology', name: 'Technology', nameGu: 'ટેકનોલોજી', nameHi: 'टेक्नोलॉजी' },
+        ];
+
+        // Combine to ensure we have exactly 3 target columns (Health, Entertainment, Technology)
+        const finalCats: any[] = [];
+        ['health', 'entertainment', 'technology'].forEach((target) => {
+          const match = matchedCats.find((c) => {
+            const s = (c.slug || '').toLowerCase();
+            return s === target || (target === 'entertainment' && s === 'manoranjan');
+          });
+          if (match) {
+            finalCats.push(match);
+          } else {
+            const fallback = fallbackCats.find((f) => f.slug === target || (target === 'entertainment' && f.slug === 'manoranjan'));
+            if (fallback) finalCats.push(fallback);
+          }
+        });
+
+        setCategories(finalCats);
+
+        // Fetch articles for each of the 3 target categories in parallel
+        const articlePromises = finalCats.map(async (cat: any) => {
+          try {
+            const res = await getPublicArticles({ categorySlug: cat.slug, limit: 4 });
+            return { slug: cat.slug, articles: res.articles || [] };
+          } catch (e) {
+            console.warn(`Error fetching articles for category ${cat.slug}:`, e);
+            return { slug: cat.slug, articles: [] };
+          }
+        });
+
+        const results = await Promise.all(articlePromises);
+        const map: Record<string, Article[]> = {};
+        results.forEach((r) => {
+          map[r.slug] = r.articles;
+        });
+        setCategoryArticlesMap(map);
+      })
+      .catch((err) => console.warn('Error loading 3-column dynamic section:', err))
+      .finally(() => setLoading(false));
   }, []);
 
   type DisplayItem = { id?: string; slug?: string; img: string; title: string; titleGu: string; age: string };
 
-  const mockHealth: DisplayItem[] = [
-    { img: '/assets/demo/2.jpg', titleGu: 'પોસ્ટમોર્ટમમાં ખતરાના ચરણના આધુનિક સ્ટોરનો શુભારંભ', title: 'Modern store launched at Post Mortem danger step', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/6.jpg', titleGu: 'મેઘરાજા સક્રિય : અનેક સ્થળોવરસાદ, હવામાન વિભાગની આગાહી', title: 'Rain active: Rainfall in many places, weather department forecast', age: '4 કલાક પહેલાં' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ડુંગળીના ભાવમાં નોંધપાત્ર વધારો, ખરીદદારોએ ચિંતા વધારી', title: 'Onion prices rise significantly, buyers worry', age: '5 કલાક પહેલાં' },
-    { img: '/assets/demo/3.jpg', titleGu: 'વધુશે ઉકળો માટે સરકારની નવી સહાય યોજના અને મોટો નિર્ણય', title: 'New government aid scheme and big decision for startups', age: '7 કલાક પહેલાં' },
-    { img: '/assets/demo/1.jpg', titleGu: 'આ મહિને OTP પર મળશે રિફંડ, જાણો RBIના નવા નિયમો', title: 'Get refund on OTP this month, know new RBI rules', age: '8 કલાક પહેલાં' },
-  ];
-
-  const mockManoranjan: DisplayItem[] = [
-    { img: '/assets/demo/6.jpg', titleGu: 'નવી ગુજરાતી ફિલ્મ \'લીસ્ચ\' ઓફિસ પર રેકોર્ડ તોડશે જૂનો કલાત્મક આંકડો', title: 'New Gujarati film to break box office records', age: '1 કલાક પહેલાં' },
-    { img: '/assets/demo/4.jpg', titleGu: 'લોકપ્રિય ગાયકપ્રિન્ટનો નવો સિંગલ કૂક આગામી, ચાહકોમાં ઉત્સાહ', title: 'Popular singer new single release soon, excitement among fans', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/1.jpg', titleGu: 'જાણીતા ગાયકનો નવો આલ્બમ રિલીઝ! ચાહકોમાં જબરદસ્ત ઉત્સાહ', title: 'Famous singer releases new album! Huge excitement among fans', age: '4 કલાક પહેલાં' },
-    { img: '/assets/demo/5.jpg', titleGu: 'આ વીકેન્ડ OTT પર ધમાકો: રિલીઝ થશે આ પાંચ મોસ્ટ ફિલ્મો અને શો', title: 'Weekend OTT blast: These five top movies and shows to release', age: '6 કલાક પહેલાં' },
-    { img: '/assets/demo/7.jpg', titleGu: 'બોક્સ ઓફિસ પર \'સ્ટાર ફિલ્મ\'ની ધમાકેદાર કમાણી, તોડ્યા રેકોર્ડ', title: 'Star movie hits box office with record earnings', age: '7 કલાક પહેલાં' },
-  ];
-
-  const mockTechnology: DisplayItem[] = [
-    { img: '/assets/demo/3.jpg', titleGu: 'નવી સ્માર્ટસિટી સાર્ગરની યોજના, શહેરો બનશે વધુ સ્માર્ટ', title: 'New smart city plan, cities to become smarter', age: '2 કલાક પહેલાં' },
-    { img: '/assets/demo/7.jpg', titleGu: 'ગુજરાતમાં ટેકનોલોજી આધારિત વિકાસના નવા પ્રોજેક્ટને મંજુરી', title: 'Approval for tech-based development projects in Gujarat', age: '3 કલાક પહેલાં' },
-    { img: '/assets/demo/5.jpg', titleGu: 'ભારતમાં 5G ટેકનોલોજીનો વ્યાપ ઝડપથી વધી રહ્યો છે', title: '5G technology footprint growing rapidly in India', age: '5 કલાક પહેલાં' },
-    { img: '/assets/demo/8.jpg', titleGu: 'ટેકનોલોજીની ખાતામાં બદલાવ, ખેડૂતની આવકમાં વધારો', title: 'Technology change in agriculture boosts farmer income', age: '7 કલાક પહેલાં' },
-    { img: '/assets/demo/2.jpg', titleGu: 'AI ટૂલ્સ હવે રોજિંદા જીવનમાં જરૂરી, જાણો લાભ અને ઉપયોગ', title: 'AI tools essential in daily life, know benefits & usage', age: '8 કલાક પહેલાં' },
-  ];
-
-  const mapToDisplayItems = (dbArticles: Article[], mockItems: DisplayItem[]): DisplayItem[] => {
-    if (dbArticles.length > 0) {
-      return dbArticles.slice(0, 5).map((art) => ({
-        id: art.id,
-        slug: art.slug,
-        img: art.image || '/assets/demo/2.jpg',
-        title: art.title,
-        titleGu: art.titleGu || art.title,
-        age: formatTime(art.publishedAt),
-      }));
+  const getCategoryIcon = (slug: string) => {
+    const s = slug.toLowerCase();
+    if (s === 'health') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+          <path d="M12 9v6m-3-3h6" />
+        </svg>
+      );
     }
-    return mockItems;
+    if (s === 'entertainment' || s === 'manoranjan') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M7 3v18M17 3v18M3 7.5h18M3 12h18M3 16.5h18" />
+        </svg>
+      );
+    }
+    if (s === 'technology') {
+      return (
+        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect width="16" height="16" x="4" y="4" rx="2" />
+          <rect width="6" height="6" x="9" y="9" rx="1" />
+          <path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z" />
+      </svg>
+    );
   };
-
-  const health = mapToDisplayItems(healthArticles, mockHealth);
-  const manoranjan = mapToDisplayItems(entArticles, mockManoranjan);
-  const technology = mapToDisplayItems(techArticles, mockTechnology);
 
   const col = (
     titleGu: string,
@@ -7240,7 +7420,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
   ) => (
     <div className="bg-card border border-border/80 rounded-xl p-5 shadow-sm flex flex-col justify-between min-w-0">
       <div>
-        {/* Column heading matching Image 1 */}
         <div className="flex flex-col mb-4 select-none">
           <div className="flex items-center gap-2.5">
             <div className="h-8 w-8 rounded-full border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 flex items-center justify-center shrink-0">
@@ -7255,7 +7434,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
           <div className="h-0.5 w-8 bg-[#B3121B] mt-2 rounded-full" />
         </div>
 
-        {/* Article rows */}
         <div className="flex flex-col divide-y divide-border/40">
           {items.map((a, i) => (
             <Link
@@ -7263,7 +7441,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
               href={a.slug ? `/news/${a.slug}` : href}
               className="group flex gap-3 py-3 hover:bg-muted/10 transition-colors"
             >
-              {/* Thumbnail */}
               <div className="relative h-[68px] w-[84px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
                 <Image
                   src={a.img}
@@ -7273,7 +7450,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
-              {/* Text */}
               <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
                 <h4 className="text-[12.5px] md:text-[13px] font-black text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
                   {language === 'gu' ? a.titleGu : a.title}
@@ -7288,7 +7464,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
         </div>
       </div>
 
-      {/* Bottom Button matching Image 1 */}
       <Link
         href={href}
         className="mt-4 w-full border border-red-200 dark:border-red-900/50 bg-red-50/40 dark:bg-red-950/20 text-[#B3121B] font-extrabold text-[12.5px] md:text-[13px] py-2.5 rounded-lg text-center hover:bg-[#B3121B] hover:text-white transition-all block select-none"
@@ -7298,58 +7473,57 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-screen-xl px-4 mt-8 py-10 flex justify-center items-center text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-[#B3121B] mr-2" />
+        <span>લોડ થઈ રહ્યું છે...</span>
+      </div>
+    );
+  }
+
+  if (categories.length === 0) return null;
+
   return (
     <div className="mx-auto max-w-screen-xl px-4 mt-8">
       {/* Section Header */}
       <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
         <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
           {language === 'gu'
-            ? 'હેલ્થ   •   મનોરંજન   •   ટેક્નોલોજી'
+            ? 'હેલ્થ   •   મનોરંજન   •   ટેકનોલોજી'
             : language === 'hi'
-              ? 'हेल्थ   •   मनोरंजन   •   टेक्नोलॉजी'
+              ? 'स्वास्थ्य   •   मनोरंजन   •   टेक्नोलॉजी'
               : 'Health   •   Entertainment   •   Technology'}
         </span>
       </div>
 
-      {/* 3-Column Grid with Cards matching Image 1 */}
+      {/* Dynamic 3-Column Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {col(
-          'હેલ્થ',
-          'Health',
-          '/category/health',
-          health,
-          'વધુ હેલ્થ સમાચાર જુઓ',
-          'More Health News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-            <path d="M12 9v6m-3-3h6" />
-          </svg>
-        )}
-        {col(
-          'મનોરંજન',
-          'Entertainment',
-          '/category/entertainment',
-          manoranjan,
-          'વધુ મનોરંજન સમાચાર જુઓ',
-          'More Entertainment News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect width="18" height="18" x="3" y="3" rx="2" />
-            <path d="M7 3v18M17 3v18M3 7.5h18M3 12h18M3 16.5h18" />
-          </svg>
-        )}
-        {col(
-          'ટેકનોલોજી',
-          'Technology',
-          '/category/technology',
-          technology,
-          'વધુ ટેકનોલોજી સમાચાર જુઓ',
-          'More Technology News',
-          <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <rect width="16" height="16" x="4" y="4" rx="2" />
-            <rect width="6" height="6" x="9" y="9" rx="1" />
-            <path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" />
-          </svg>
-        )}
+        {categories.map((cat) => {
+          const catArticles = categoryArticlesMap[cat.slug] || [];
+          const items = catArticles.map((art) => ({
+            id: art.id,
+            slug: art.slug,
+            img: art.image || '/assets/demo/2.jpg',
+            title: art.title,
+            titleGu: art.titleGu || art.title,
+            age: formatTime(art.publishedAt),
+          }));
+
+          return (
+            <div key={cat.id}>
+              {col(
+                cat.nameGu || cat.name,
+                cat.name,
+                `/category/${cat.slug}`,
+                items,
+                `વધુ ${cat.nameGu || cat.name} સમાચાર જુઓ`,
+                `More ${cat.name} News`,
+                getCategoryIcon(cat.slug)
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -7383,16 +7557,36 @@ const GALLERY_DATA = [
 function PhotoGallerySection({ language }: { language: Language }) {
   const CATS_GU = ['ગુજરાત', 'સંસ્કૃતિ', 'ધર્મ', 'પ્રવાસ', 'ખેલ', 'ઉત્સવ', 'શહેર', 'પ્રકૃતિ', 'ઐતિહાસ'];
   const CATS_EN = ['Gujarat', 'Culture', 'Religion', 'Travel', 'Sports', 'Festival', 'City', 'Nature', 'Heritage'];
+  
+  const [photos, setPhotos] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollPosRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(0);
   const isPausedRef = useRef<boolean>(false);
 
-  // Duplicate GALLERY_DATA to create an infinite scroll list
+  useEffect(() => {
+    getPublicGallery().then((res) => {
+      let items = res && res.length > 0 ? [...res] : [...PHOTOS];
+      if (items.length < 5) {
+        const existingIds = new Set(items.map((p: any) => p.id || p.src));
+        for (const defPhoto of PHOTOS) {
+          if (items.length >= 5) break;
+          if (!existingIds.has(defPhoto.id) && !existingIds.has(defPhoto.src)) {
+            items.push(defPhoto);
+          }
+        }
+      }
+      setPhotos(items.slice(0, 5));
+    });
+  }, []);
+
+  const galleryList = photos.length > 0 ? photos.slice(0, 5) : PHOTOS.slice(0, 5);
+
+  // Duplicate galleryList 3 times to create a seamless infinite scroll strip
   const repeatedGallery = [
-    ...GALLERY_DATA,
-    ...GALLERY_DATA,
-    ...GALLERY_DATA,
+    ...galleryList,
+    ...galleryList,
+    ...galleryList,
   ];
 
   useEffect(() => {
@@ -7432,91 +7626,96 @@ function PhotoGallerySection({ language }: { language: Language }) {
       cancelAnimationFrame(animId);
       el.removeEventListener('scroll', handleNativeScroll);
     };
-  }, []);
+  }, [photos]);
 
   return (
-    <section className="py-6 bg-background select-none">
-      <div className="mx-auto max-w-screen-xl px-4">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
-          <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
-            {language === 'gu' ? 'ફોટો   ગેલેરી' : language === 'hi' ? 'फोटो   गैलरी' : 'Photo   Gallery'}
-          </span>
-          <Link
-            href="/photos"
-            className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
+    <>
+      <section className="py-6 bg-background select-none">
+        <div className="mx-auto max-w-screen-xl px-4">
+          {/* Header */}
+          <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
+            <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
+              {language === 'gu' ? 'ફોટો   ગેલેરી' : language === 'hi' ? 'फोटो   गैलरी' : 'Photo   Gallery'}
+            </span>
+            <Link
+              href="/photos"
+              className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
+            >
+              {language === 'gu' ? 'વધુ ફોટો ગેલેરી →' : 'More Photo Gallery →'}
+            </Link>
+          </div>
+
+          {/* Scrollable Magazine Flex Strip */}
+          <div
+            ref={scrollRef}
+            onMouseEnter={() => { isPausedRef.current = true; }}
+            onMouseLeave={() => { isPausedRef.current = false; lastTimeRef.current = performance.now(); }}
+            className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
           >
-            {language === 'gu' ? 'વધુ ફોટો ગેલેરી →' : 'More Photo Gallery →'}
-          </Link>
-        </div>
+            {repeatedGallery.map((item, index) => {
+              const cat = item.category || (language === 'gu' ? CATS_GU[index % CATS_GU.length] : CATS_EN[index % CATS_EN.length]);
+              const title = getLocalized(language, { en: item.caption || item.alt, gu: item.captionGu || item.caption || item.alt, hi: item.captionHi || item.caption || item.alt });
 
-        {/* Scrollable Magazine Flex Strip */}
-        <div
-          ref={scrollRef}
-          onMouseEnter={() => { isPausedRef.current = true; }}
-          onMouseLeave={() => { isPausedRef.current = false; lastTimeRef.current = performance.now(); }}
-          className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
-        >
-          {repeatedGallery.map((item, index) => {
-            const cat = language === 'gu' ? CATS_GU[index % CATS_GU.length] : CATS_EN[index % CATS_EN.length];
-            const title = language === 'gu' ? item.titleGu : item.title;
+              return (
+                <Link
+                  key={item.id + '-' + index}
+                  href={`/photos/${item.id}`}
+                  className="group relative flex flex-shrink-0 w-[85vw] sm:w-[48vw] md:w-[350px] h-[280px] md:h-[350px] overflow-hidden rounded-2xl shadow-lg"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  {/* Image */}
+                  <Image
+                    src={item.src}
+                    alt={title}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 330px"
+                    className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
+                  />
 
-            return (
-              <Link
-                key={item.id + '-' + index}
-                href="/photos"
-                className="group relative flex flex-shrink-0 w-[85vw] sm:w-[48vw] md:w-[350px] h-[280px] md:h-[350px] overflow-hidden rounded-2xl shadow-lg"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                {/* Image */}
-                <Image
-                  src={item.src}
-                  alt={title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 330px"
-                  className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.07]"
-                />
+                  {/* Top gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
 
-                {/* Top gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+                  {/* Bottom strong gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-100" style={{ opacity: 0.85 }} />
 
-                {/* Bottom strong gradient */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-100" style={{ opacity: 0.85 }} />
-
-                {/* Category chip */}
-                <div className="absolute top-3 left-3 z-10">
-                  <span className="bg-[#B3121B] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
-                    {cat}
-                  </span>
-                </div>
-
-                {/* Caption */}
-                <div className="absolute inset-x-0 bottom-0 z-10 p-4 translate-y-0 group-hover:-translate-y-1 transition-transform duration-300">
-                  <p className="text-white font-bold leading-snug line-clamp-2 drop-shadow-lg text-[14px] md:text-[16px]">
-                    {title}
-                  </p>
-
-                  {/* View Photos — on hover */}
-                  <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="h-[1.5px] w-7 bg-[#B3121B] rounded-full" />
-                    <span className="text-white/75 text-[11px] font-semibold tracking-wider uppercase">
-                      {language === 'gu' ? 'ફોટો જુઓ' : 'View Photos'}
+                  {/* Category chip */}
+                  <div className="absolute top-3 left-3 z-10">
+                    <span className="bg-[#B3121B] text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
+                      {cat}
                     </span>
-                    <svg className="h-3 w-3 text-[#B3121B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
                   </div>
-                </div>
 
-                {/* Red border glow on hover */}
-                <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ boxShadow: 'inset 0 0 0 2px #B3121B' }} />
-              </Link>
-            );
-          })}
+                  {/* Caption */}
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-4 translate-y-0 group-hover:-translate-y-1 transition-transform duration-300">
+                    <p className="text-white font-bold leading-snug line-clamp-2 drop-shadow-lg text-[14px] md:text-[16px]">
+                      {title}
+                    </p>
+
+                    {/* View Photos — on hover */}
+                    <div className="flex items-center gap-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="h-[1.5px] w-7 bg-[#B3121B] rounded-full" />
+                      <span className="text-white/75 text-[11px] font-semibold tracking-wider uppercase">
+                        {language === 'gu' ? 'ફોટો જુઓ' : 'View Photos'}
+                      </span>
+                      <svg className="h-3 w-3 text-[#B3121B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Red border glow on hover */}
+                  <div className="absolute inset-0 rounded-2xl pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ boxShadow: 'inset 0 0 0 2px #B3121B' }} />
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Short Videos Section — Placed right after Photo Gallery */}
+      <YouTubeShorts />
+    </>
   );
 }
 
@@ -7547,7 +7746,22 @@ function TrendingNewsSection({ articles, language }: { articles: Article[]; lang
               style={{ aspectRatio: '4/3' }}
             >
               <Image
-                src={article.image || 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=400&q=80'}
+                src={
+                  article.image && !article.image.includes('photo-1599930113854') && !article.image.includes('photo-1589308078059')
+                    ? article.image
+                    : [
+                        'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
+                      ][index % 10]
+                }
                 alt={getArticleTitle(article, language)}
                 fill
                 sizes="(max-width: 768px) 50vw, 20vw"

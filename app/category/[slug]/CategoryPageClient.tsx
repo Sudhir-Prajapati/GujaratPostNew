@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, Clock } from 'lucide-react';
@@ -30,193 +30,8 @@ interface Props {
 type FilterTab = 'all' | 'latest' | 'analysis' | 'video' | 'photo';
 
 /* ── Gujarat category specific mockup data ─────────────────── */
-const GUJARAT_MOCK_ARTICLES = [
-  {
-    id: 'g-hero',
-    slug: 'anand-dairy-expansion-project-inauguration-349',
-    title: 'Anand Dairy Union new plant expansion! Farmers to benefit directly',
-    titleGu: 'આણંદ ડેરી સંઘનું નવું પ્લાન્ટ વિસ્તરણ! ખેડૂતોને સીધો ફાયદો થશે',
-    titleHi: 'आनंद डेयरी संघ का नया प्लांट विस्तार! किसानों को होगा सीधा फायदा',
-    excerpt: 'આણંદ ડેરી સંઘના નવા પ્લાન્ટ વિસ્તરણનું કામ પૂર્ણ થયું છે. આ પ્રોજેક્ટથી હજારો દૂધ ઉત્પાદક ખેડૂતોને સીધો લાભ મળશે.',
-    excerptGu: 'આણંદ ડેરી સંઘના નવા પ્લાન્ટ વિસ્તરણનું કામ પૂર્ણ થયું છે. આ પ્રોજેક્ટથી હજારો દૂધ ઉત્પાદક ખેડૂતોને સીધો લાભ મળશે.',
-    excerptHi: 'आनंद डेयरी संघ का नया प्लांट विस्तार! किसानों को होगा सीधा फायदा',
-    content: '', contentGu: '', contentHi: '',
-    image: '/assets/demo/1.jpg',
-    category: 'Anand',
-    categoryGu: 'આણંદ',
-    categoryHi: 'आनंद',
-    tags: ['આણંદ'], tagsGu: ['આણંદ'], tagsHi: ['आनंद'],
-    author: { id: 'a1', name: 'Rajesh Patel', nameGu: 'રાજેશ પટેલ', nameHi: 'રાજેશ પટેલ', image: '', designation: '', designationGu: '', designationHi: '', bio: '', bioGu: '', bioHi: '' },
-    publishedAt: '2026-07-15T09:00:00Z',
-    updatedAt: '',
-    readingTime: 2,
-    isTrending: true, isBreaking: false, isFeatured: true,
-    views: 71000,
-    relativeTimeGu: '6 કલાક પહેલાં',
-    relativeTime: '6 hours ago',
-    relativeTimeHi: '6 घंटे पहले',
-    viewsGu: '71K'
-  },
-  {
-    id: 'g-top1',
-    slug: 'state-cabinet-meeting-major-decisions-348',
-    title: 'Major decisions in state cabinet meeting, know what changed',
-    titleGu: 'રાજ્ય મંત્રીમંડળની બેઠકમાં મોટા નિર્ણય, જાણો શું-શું બદલાયું',
-    titleHi: 'राज्य मंत्रिमंडल की बैठक में बड़े फैसले, जानें क्या बदला',
-    excerpt: '', excerptGu: '', excerptHi: '',
-    content: '', contentGu: '', contentHi: '',
-    image: '/assets/demo/4.jpg',
-    category: 'Gandhinagar',
-    categoryGu: 'ગાંધીનગર',
-    categoryHi: 'गांधीनगर',
-    tags: ['ગાંધીનગર'], tagsGu: ['ગાંધીનગર'], tagsHi: ['गांधीनगर'],
-    author: { id: 'a1', name: 'Rajesh Patel', nameGu: 'રાજેશ પટેલ', nameHi: 'રાજેશ પટેલ', image: '', designation: '', designationGu: '', designationHi: '', bio: '', bioGu: '', bioHi: '' },
-    publishedAt: '2026-07-15T10:00:00Z',
-    updatedAt: '',
-    readingTime: 2,
-    isTrending: true, isBreaking: false, isFeatured: true,
-    views: 68000,
-    relativeTimeGu: '5 કલાક પહેલાં',
-    relativeTime: '5 hours ago',
-    relativeTimeHi: '5 घंटे पहले',
-    viewsGu: '68K'
-  },
-  {
-    id: 'g-top2',
-    slug: 'girnar-ropeway-tourist-rush-increases-tremendously-205',
-    title: 'Tourists flock to Girnar Ropeway! Tremendous increase in numbers',
-    titleGu: 'ગિરનાર રોપ-વે પર ઉમટ્યા પ્રવાસીઓ! સંખ્યામાં જોરદાર વધારો',
-    titleHi: 'गिरनार रोपवे पर उमड़े पर्यटक! संख्या में भारी बढ़ोतरी',
-    excerpt: '', excerptGu: '', excerptHi: '',
-    content: '', contentGu: '', contentHi: '',
-    image: '/assets/demo/3.jpg',
-    category: 'Junagadh',
-    categoryGu: 'જૂનાગઢ',
-    categoryHi: 'जूनागढ़',
-    tags: ['જૂનાગઢ'], tagsGu: ['જૂનાગઢ'], tagsHi: ['जूनागढ़'],
-    author: { id: 'a1', name: 'Rajesh Patel', nameGu: 'રાજેશ પટેલ', nameHi: 'રાજેશ પટેલ', image: '', designation: '', designationGu: '', designationHi: '', bio: '', bioGu: '', bioHi: '' },
-    publishedAt: '2026-07-15T11:00:00Z',
-    updatedAt: '',
-    readingTime: 2,
-    isTrending: true, isBreaking: false, isFeatured: true,
-    views: 52000,
-    relativeTimeGu: '4 કલાક પહેલાં',
-    relativeTime: '4 hours ago',
-    relativeTimeHi: '4 घंटे पहले',
-    viewsGu: '52K'
-  },
-  {
-    id: 'g-top3',
-    slug: 'bhavnagar-new-industrial-units-approved-347',
-    title: 'Bhavnagar gets big gift! New industrial unit approved, hope of jobs',
-    titleGu: 'ભાવનગરને મળી મોટી ભેટ! નવા ઔદ્યોગિક એકમને મંજૂરી, રોજગારીની આશા',
-    titleHi: 'भावनगर को मिला बड़ा तोहफा! नए औद्योगिक इकाई को मंजूरी',
-    excerpt: '', excerptGu: '', excerptHi: '',
-    content: '', contentGu: '', contentHi: '',
-    image: '/assets/demo/5.jpg',
-    category: 'Bhavnagar',
-    categoryGu: 'ભાવનગર',
-    categoryHi: 'भावनगर',
-    tags: ['ભાવનગર'], tagsGu: ['ભાવનગર'], tagsHi: ['भावनगर'],
-    author: { id: 'a1', name: 'Rajesh Patel', nameGu: 'રાજેશ પટેલ', nameHi: 'રાજેશ પટેલ', image: '', designation: '', designationGu: '', designationHi: '', bio: '', bioGu: '', bioHi: '' },
-    publishedAt: '2026-07-15T12:00:00Z',
-    updatedAt: '',
-    readingTime: 2,
-    isTrending: true, isBreaking: false, isFeatured: true,
-    views: 46000,
-    relativeTimeGu: '3 કલાક પહેલાં',
-    relativeTime: '3 hours ago',
-    relativeTimeHi: '3 घंटे पहले',
-    viewsGu: '46K'
-  },
-  {
-    id: 'g-top4',
-    slug: 'vadodara-municipal-budget-presented-202',
-    title: 'Vadodara municipal budget presented! Focus on water and roads',
-    titleGu: 'વડોદરા મ્યુનિ.નું નવું બજેટ રજૂ! પાણી અને રસ્તા પર સૌથી વધુ ભાર',
-    titleHi: 'वडोदरा नगर पालिका का नया बजट पेश! पानी और सड़कों पर जोर',
-    excerpt: '', excerptGu: '', excerptHi: '',
-    content: '', contentGu: '', contentHi: '',
-    image: '/assets/demo/2.jpg',
-    category: 'Vadodara',
-    categoryGu: 'વડોદરા',
-    categoryHi: 'वडोदरा',
-    tags: ['વડોદરા'], tagsGu: ['વડોદરા'], tagsHi: ['वडोदरा'],
-    author: { id: 'a1', name: 'Rajesh Patel', nameGu: 'રાજેશ પટેલ', nameHi: 'રાજેશ પટેલ', image: '', designation: '', designationGu: '', designationHi: '', bio: '', bioGu: '', bioHi: '' },
-    publishedAt: '2026-07-15T13:00:00Z',
-    updatedAt: '',
-    readingTime: 2,
-    isTrending: true, isBreaking: false, isFeatured: true,
-    views: 33000,
-    relativeTimeGu: '2 કલાક પહેલાં',
-    relativeTime: '2 hours ago',
-    relativeTimeHi: '2 घंटे पहले',
-    viewsGu: '33K'
-  }
-];
-
-const GUJARAT_MOCK_MOST_READ = [
-  {
-    id: 'g-mr1',
-    slug: 'rajkot-smart-city-roadwork-commenced-201',
-    titleGu: 'રાજકોટમાં મોટું કામ! સ્માર્ટ સીટી પ્રોજેક્ટ હેઠળ રસ્તાઓનું ધમધમાટ કામ શરૂ',
-    title: 'Rajkot smart city roadwork commenced under project',
-    titleHi: 'राजकोट स्मार्ट सिटी सड़क निर्माण कार्य शुरू',
-    categoryGu: 'રાજકોટ',
-    category: 'Rajkot',
-    categoryHi: 'राजकोट'
-  },
-  {
-    id: 'g-mr2',
-    slug: 'surat-diamond-bourse-allotment-started-203',
-    titleGu: 'સુરત ડાયમંડ બુર્સમાં ખુશીની લહેર! નવા યુનિટોની ફાળવણી શરૂ',
-    title: 'Surat Diamond Bourse allotment of new units started',
-    titleHi: 'सूरत डायमंड बुर्स आवंटन शुरू',
-    categoryGu: 'સુરત',
-    category: 'Surat',
-    categoryHi: 'सूरत'
-  },
-  {
-    id: 'g-mr3',
-    slug: 'vadodara-municipal-budget-presented-202',
-    titleGu: 'વડોદરા મ્યુનિ.નું નવું બજેટ રજૂ! પાણી અને રસ્તા પર સૌથી વધુ ભાર',
-    title: 'Vadodara municipal budget presented! Focus on water and roads',
-    titleHi: 'वडोदरा नगर पालिका का नया बजट पेश! पानी और सड़कों पर जोर',
-    categoryGu: 'વડોદરા',
-    category: 'Vadodara',
-    categoryHi: 'वडोदरा'
-  },
-  {
-    id: 'g-mr4',
-    slug: 'bhavnagar-new-industrial-units-approved-347',
-    titleGu: 'ભાવનગરને મળી મોટી ભેટ! નવા ઔદ્યોગિક એકમને મંજૂરી, રોજગારીની આશા',
-    title: 'Bhavnagar gets big gift! New industrial unit approved, hope of jobs',
-    titleHi: 'भावनगर को मिला बड़ा तोहफा! नए औद्योगिक इकाई को मंजूरी',
-    categoryGu: 'ભાવનગર',
-    category: 'Bhavnagar',
-    categoryHi: 'भावनगर'
-  },
-  {
-    id: 'g-mr5',
-    slug: 'girnar-ropeway-tourist-rush-increases-tremendously-205',
-    titleGu: 'ગિરનાર રોપ-વે પર ઉમટ્યા પ્રવાસીઓ! સંખ્યામાં જોરદાર વધારો',
-    title: 'Tourists flock to Girnar Ropeway! Tremendous increase in numbers',
-    titleHi: 'गिरनार रोपवे पर उमड़े पर्यटक! संख्या में भारी बढ़ोतरी',
-    categoryGu: 'જૂનાગઢ',
-    category: 'Junagadh',
-    categoryHi: 'जूनागढ़'
-  },
-  {
-    id: 'g-mr6',
-    slug: 'state-cabinet-meeting-major-decisions-348',
-    titleGu: 'રાજ્ય મંત્રીમંડળની બેઠકમાં મોટા નિર્ણય, જાણો શું-શું બદલાયું',
-    title: 'Major decisions in state cabinet meeting, know what changed',
-    titleHi: 'राज्य मंत्रिमंडल की बैठक में बड़े फैसले, जानें क्या बदला',
-    categoryGu: 'ગાંધીનગર',
-    category: 'Gandhinagar',
-    categoryHi: 'गांधीनगर'
-  }
-];
+const GUJARAT_MOCK_ARTICLES: any[] = [];
+const GUJARAT_MOCK_MOST_READ: any[] = [];
 
 const GUJARAT_MOCK_TAGS = {
   gu: ['ચૂંટણી 2027', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'],
@@ -232,6 +47,11 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
   const [visibleCount, setVisibleCount] = useState(9);
+
+  // Scroll page to top instantly whenever category page mounts or slug changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [slug]);
 
   const isGujarat = true; // Apply the premium mockup layout to all category pages
 
