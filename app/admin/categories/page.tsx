@@ -772,27 +772,8 @@ export default function CategoriesPage() {
                 />
               </div>
 
-              {/* Color picker and Display Order */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Display Color Badge
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="color"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="h-10 w-14 rounded-xl border border-zinc-200 p-1 dark:border-zinc-850 cursor-pointer bg-zinc-50"
-                    />
-                    <input
-                      type="text"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white font-mono"
-                    />
-                  </div>
-                </div>
+              {/* Display Order */}
+              <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
                     Display Order Index

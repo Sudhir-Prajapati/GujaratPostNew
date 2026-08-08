@@ -1,11 +1,11 @@
 import { Article, Video, Photo } from '@/types';
 import { PHOTOS } from '@/data';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gujaratpost.onrender.com/api/public';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/public';
 
 export const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
-  : 'https://gujaratpost.onrender.com/api';
+  : 'http://localhost:5000/api';
 
 export function getBackendApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
