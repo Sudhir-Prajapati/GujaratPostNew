@@ -589,7 +589,7 @@ router.get('/tickers', async (req, res, next) => {
 
     const breakingArticles = await prisma.post.findMany({
       where: { isBreaking: true, status: 'PUBLISHED' },
-      orderBy: { publishedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 10,
       select: {
         id: true,
