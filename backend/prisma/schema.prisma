@@ -90,7 +90,10 @@ model Category {
   color         String?
   displayOrder  Int      @default(0)
   isActive      Boolean  @default(true)
+  showInHome    Boolean  @default(true)
+  showInHeader  Boolean  @default(true)
   posts         Post[]
+  videos        Video[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -161,22 +164,25 @@ model PostTag {
 }
 
 model Video {
-  id          String   @id @default(uuid())
-  title       String
-  titleGu     String
-  titleHi     String
-  description String?  @db.Text
-  thumbnail   String   @db.Text
-  youtubeId   String
-  embedUrl    String   @db.Text
-  duration    String   @default("0:00")
-  type        String   @default("video") // video | short | podcast | interview
-  isFeatured  Boolean  @default(false)
-  channel     String?  @default("Gujarat Post News")
-  views       Int      @default(0)
-  publishedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(uuid())
+  title        String
+  titleGu      String
+  titleHi      String
+  description  String?   @db.Text
+  thumbnail    String    @db.Text
+  youtubeId    String
+  embedUrl     String    @db.Text
+  duration     String    @default("0:00")
+  type         String    @default("video") // video | short | podcast | interview
+  categoryId   String?
+  categoryName String?
+  category     Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isFeatured   Boolean   @default(false)
+  channel      String?   @default("Gujarat Post News")
+  views        Int       @default(0)
+  publishedAt  DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("videos")
 }
@@ -280,7 +286,6 @@ model HeroSetting {
   trendingTopics  String?  @db.Text
   trendingNewsIds String?  @db.Text
   popularNewsIds  String?  @db.Text
-  heroGridIds     String?  @db.Text
   updatedAt       DateTime @updatedAt
 
   @@map("hero_settings")
@@ -320,30 +325,30 @@ model Advertisement {
   @@map("advertisements")
 }
 
-model EPaperCity {
-  id        String   @id @default(uuid())
-  city      String   @unique
-  cityGu    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("epaper_cities")
-}
-
 model EPaperEdition {
   id           String   @id @default(uuid())
-  title        String?  // Sub-edition name e.g. "Ahmedabad City", "Ahmedabad East", "City Life"
+  title        String
   city         String
   cityGu       String?
-  date         String   // YYYY-MM-DD
+  date         String
   pages        Int      @default(24)
   fileUrl      String   @db.Text
-  thumbnailUrl String?  @db.Text
-  status       String   @default("PUBLISHED") // "DRAFT" | "PUBLISHED"
+  thumbnailUrl String   @db.Text
+  status       String   @default("PUBLISHED")
   publishTime  String?  @default("06:00 AM")
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@map("epaper_editions")
-}
+}
+
+model EPaperCity {
+  id        String   @id @default(uuid())
+  city      String
+  cityGu    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("epaper_cities")
+}

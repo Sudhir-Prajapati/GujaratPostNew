@@ -35,6 +35,7 @@ router.delete('/users/:id', requireAuth, requireRole(Role.SUPER_ADMIN), UserCont
 // ==========================================
 router.get('/categories', requireAuth, CategoryController.getAllCategories);
 router.post('/categories', requireAuth, CategoryController.createCategory);
+router.put('/categories/reorder', requireAuth, CategoryController.reorderCategories);
 router.put('/categories/:id', requireAuth, CategoryController.updateCategory);
 router.delete('/categories/:id', requireAuth, CategoryController.deleteCategory);
 

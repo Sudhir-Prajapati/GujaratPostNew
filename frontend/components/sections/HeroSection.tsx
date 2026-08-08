@@ -409,7 +409,7 @@ export default function HeroSection({
       getPublicVideos('video'),
       getMarketRates(),
       getPublicWeather('ahmedabad'),
-      getPublicCategories(),
+      getPublicCategories({ showInHome: true }),
     ]).then(([mainRes, heroRes, videoRes, marketRes, weatherRes, categoriesRes]: any[]) => {
       if (weatherRes) {
         setWeatherData(weatherRes);
@@ -418,7 +418,9 @@ export default function HeroSection({
         setMarketRates(marketRes);
       }
       if (categoriesRes && Array.isArray(categoriesRes) && categoriesRes.length > 0) {
-        const sortedCats = [...categoriesRes].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+        const sortedCats = [...categoriesRes]
+          .filter((c) => c.showInHome !== false && c.isActive !== false)
+          .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
         setAllCategoriesDB(sortedCats);
         const sortedSlugs = sortedCats.map((c) => c.slug?.toLowerCase()).filter(Boolean);
         setOrderedCategorySlugs(sortedSlugs);
@@ -912,24 +914,24 @@ export default function HeroSection({
 
       <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
 
-      {/* Dynamic category sections according to displayOrder (Gujarat, Crime, Vishw/World, Desh/National, Rajkaran/Politics) */}
-      {orderedCategorySlugs.map((slug) => {
-        const s = slug.toLowerCase();
+      {/* Dynamic home page category sections rendered in exact displayOrder sequence configured by Admin */}
+      {allCategoriesDB.map((cat) => {
+        const s = (cat.slug || '').toLowerCase();
         if (s === 'gujarat') {
-          return <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />;
+          return <CityHyperlocalSection key={cat.id || 'gujarat'} language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />;
         }
         if (s === 'national' || s === 'india' || s === 'desh') {
-          return <NationalSection key="national" language={language} />;
+          return <NationalSection key={cat.id || 'national'} language={language} />;
         }
         if (s === 'world' || s === 'vishw') {
-          return <WorldSection key="world" language={language} />;
+          return <WorldSection key={cat.id || 'world'} language={language} />;
         }
         if (s === 'politics' || s === 'rajkaran') {
-          return <PoliticsSection key="politics" language={language} />;
+          return <PoliticsSection key={cat.id || 'politics'} language={language} />;
         }
         if (s === 'crime') {
           return (
-            <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
+            <section key={cat.id || 'crime'} className="mx-auto max-w-screen-xl px-4 mt-10">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
                 {/* Left Column */}
                 <div className="flex flex-col gap-10 min-w-0">
@@ -1010,7 +1012,7 @@ export default function HeroSection({
             </section>
           );
         }
-        return null;
+        return <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />;
       })}
 
       <TrendingSection />
@@ -7180,8 +7182,125 @@ function WeatherDashboardSection({ language }: { language: Language }) {
   );
 }
 
-/* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
-/* ─── Entertainment · Tech · Lifestyle 3-Column Section ─────────────────── */
+/* ─── Dynamic Generic Category Section ─────────────────────────────────── */
+export function DynamicCategorySection({ category, language }: { category: any; language: Language }) {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!category?.slug) return;
+    getPublicArticles({ categorySlug: category.slug, limit: 5 })
+      .then((res) => {
+        if (res && res.articles) {
+          setArticles(res.articles);
+        }
+      })
+      .catch((e) => console.warn(`Error loading articles for category ${category.slug}:`, e))
+      .finally(() => setLoading(false));
+  }, [category?.slug]);
+
+  if (!loading && articles.length === 0) {
+    return null; // Don't render empty category sections
+  }
+
+  const categoryTitle = language === 'gu'
+    ? (category.nameGu || category.name)
+    : language === 'hi'
+      ? (category.nameHi || category.name)
+      : category.name;
+
+  const colorBadge = category.color || '#B3121B';
+  const lead = articles[0];
+  const sideArticles = articles.slice(1, 5);
+
+  return (
+    <section className="mx-auto max-w-screen-xl px-4 mt-10">
+      {/* Section Header */}
+      <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6 select-none">
+        <div className="flex items-center gap-2.5">
+          <span className="h-4 w-4 rounded-sm shadow-xs" style={{ backgroundColor: colorBadge }} />
+          <h2 className="text-[17px] md:text-[19px] font-black text-foreground leading-none">
+            {categoryTitle}
+          </h2>
+        </div>
+        <Link
+          href={`/category/${category.slug}`}
+          className="text-[12.5px] font-bold text-muted-foreground hover:text-[#B3121B] flex items-center gap-1 transition-colors"
+        >
+          <span>{language === 'gu' ? 'બધા જુઓ' : 'View All'}</span>
+          <ChevronRight className="h-4 w-4 text-[#B3121B]" />
+        </Link>
+      </div>
+
+      {/* Grid Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Featured Lead Card (7 cols) */}
+        {lead ? (
+          <div className="lg:col-span-7 bg-card border border-border/80 rounded-xl p-4 shadow-sm group">
+            <Link href={`/news/${lead.slug}`} className="flex flex-col gap-3">
+              <div className="relative h-[240px] md:h-[300px] w-full overflow-hidden rounded-lg bg-muted border border-border/20">
+                <Image
+                  src={lead.image || '/assets/demo/1.jpg'}
+                  alt={lead.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 60vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <div>
+                <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#B3121B] bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded">
+                  {categoryTitle}
+                </span>
+                <h3 className="text-lg md:text-xl font-black text-foreground mt-2 line-clamp-2 group-hover:text-[#B3121B] transition-colors leading-snug">
+                  {language === 'gu' ? (lead.titleGu || lead.title) : lead.title}
+                </h3>
+                <p className="text-xs md:text-sm text-muted-foreground mt-1.5 line-clamp-2 font-medium">
+                  {language === 'gu' ? (lead.excerptGu || lead.excerpt) : lead.excerpt}
+                </p>
+                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground font-semibold">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span>{formatTime(lead.publishedAt)}</span>
+                </div>
+              </div>
+            </Link>
+          </div>
+        ) : null}
+
+        {/* Side Cards List (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col divide-y divide-border/50 bg-card border border-border/80 rounded-xl p-4 shadow-sm">
+          {sideArticles.map((art) => (
+            <Link
+              key={art.id}
+              href={`/news/${art.slug}`}
+              className="group flex gap-3 py-3 first:pt-0 last:pb-0 hover:bg-muted/10 transition-colors"
+            >
+              <div className="relative h-[72px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
+                <Image
+                  src={art.image || '/assets/demo/2.jpg'}
+                  alt={art.title}
+                  fill
+                  sizes="95px"
+                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                />
+              </div>
+              <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                <h4 className="text-[13px] font-extrabold text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
+                  {language === 'gu' ? (art.titleGu || art.title) : art.title}
+                </h4>
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-1">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                  <span>{formatTime(art.publishedAt)}</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Entertainment · Tech · Health 3-Column Section ─────────────────── */
 export function EntertainTechLifeSection({ language }: { language: Language }) {
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryArticlesMap, setCategoryArticlesMap] = useState<Record<string, Article[]>>({});
@@ -7190,29 +7309,54 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
   useEffect(() => {
     getPublicCategories()
       .then(async (cats) => {
-        if (cats && Array.isArray(cats)) {
-          setCategories(cats);
-          
-          // Fetch articles for each category in parallel
-          const articlePromises = cats.map(async (cat: any) => {
-            try {
-              const res = await getPublicArticles({ categorySlug: cat.slug, limit: 5 });
-              return { slug: cat.slug, articles: res.articles || [] };
-            } catch (e) {
-              console.warn(`Error fetching articles for category ${cat.slug}:`, e);
-              return { slug: cat.slug, articles: [] };
-            }
+        const TARGET_SLUGS = ['health', 'entertainment', 'manoranjan', 'technology'];
+        let matchedCats = Array.isArray(cats)
+          ? cats.filter((c: any) => TARGET_SLUGS.includes((c.slug || '').toLowerCase()))
+          : [];
+
+        // Fallbacks if specific category records are missing in DB
+        const fallbackCats = [
+          { slug: 'health', name: 'Health', nameGu: 'હેલ્થ', nameHi: 'स्वास्थ्य' },
+          { slug: 'manoranjan', name: 'Entertainment', nameGu: 'મનોરંજન', nameHi: 'मनोरंजन' },
+          { slug: 'technology', name: 'Technology', nameGu: 'ટેકનોલોજી', nameHi: 'टेक्नोलॉजी' },
+        ];
+
+        // Combine to ensure we have exactly 3 target columns (Health, Entertainment, Technology)
+        const finalCats: any[] = [];
+        ['health', 'entertainment', 'technology'].forEach((target) => {
+          const match = matchedCats.find((c) => {
+            const s = (c.slug || '').toLowerCase();
+            return s === target || (target === 'entertainment' && s === 'manoranjan');
           });
-          
-          const results = await Promise.all(articlePromises);
-          const map: Record<string, Article[]> = {};
-          results.forEach((r) => {
-            map[r.slug] = r.articles;
-          });
-          setCategoryArticlesMap(map);
-        }
+          if (match) {
+            finalCats.push(match);
+          } else {
+            const fallback = fallbackCats.find((f) => f.slug === target || (target === 'entertainment' && f.slug === 'manoranjan'));
+            if (fallback) finalCats.push(fallback);
+          }
+        });
+
+        setCategories(finalCats);
+
+        // Fetch articles for each of the 3 target categories in parallel
+        const articlePromises = finalCats.map(async (cat: any) => {
+          try {
+            const res = await getPublicArticles({ categorySlug: cat.slug, limit: 4 });
+            return { slug: cat.slug, articles: res.articles || [] };
+          } catch (e) {
+            console.warn(`Error fetching articles for category ${cat.slug}:`, e);
+            return { slug: cat.slug, articles: [] };
+          }
+        });
+
+        const results = await Promise.all(articlePromises);
+        const map: Record<string, Article[]> = {};
+        results.forEach((r) => {
+          map[r.slug] = r.articles;
+        });
+        setCategoryArticlesMap(map);
       })
-      .catch((err) => console.warn('Error loading dynamic sections:', err))
+      .catch((err) => console.warn('Error loading 3-column dynamic section:', err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -7242,15 +7386,6 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
           <rect width="16" height="16" x="4" y="4" rx="2" />
           <rect width="6" height="6" x="9" y="9" rx="1" />
           <path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2" />
-        </svg>
-      );
-    }
-    if (s === 'sports' || s === 'khel') {
-      return (
-        <svg className="h-4 w-4 text-[#B3121B]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M6 12A6 6 0 0 1 18 12" />
-          <path d="M12 6A6 6 0 0 1 12 18" />
         </svg>
       );
     }
@@ -7342,14 +7477,14 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
       <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-6">
         <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
           {language === 'gu'
-            ? categories.map(c => c.nameGu || c.name).join('   •   ')
+            ? 'હેલ્થ   •   મનોરંજન   •   ટેકનોલોજી'
             : language === 'hi'
-              ? categories.map(c => c.nameHi || c.name).join('   •   ')
-              : categories.map(c => c.name).join('   •   ')}
+              ? 'स्वास्थ्य   •   मनोरंजन   •   टेक्नोलॉजी'
+              : 'Health   •   Entertainment   •   Technology'}
         </span>
       </div>
 
-      {/* Dynamic Grid with Cards */}
+      {/* Dynamic 3-Column Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {categories.map((cat) => {
           const catArticles = categoryArticlesMap[cat.slug] || [];

@@ -166,9 +166,14 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
 /**
  * Fetch list of categories from Express Backend API
  */
-export async function getPublicCategories(): Promise<any[]> {
+export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean }): Promise<any[]> {
   try {
-    const url = `${API_BASE_URL}/categories`;
+    const query = new URLSearchParams();
+    if (options?.showInHeader) query.set('showInHeader', 'true');
+    if (options?.showInHome) query.set('showInHome', 'true');
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+
+    const url = `${API_BASE_URL}/categories${queryString}`;
     const json = await fetchCachedJson<any>(url);
     if (json?.success && json.data?.categories) {
       return json.data.categories;
@@ -547,6 +552,17 @@ export async function getPublicAdBySection(section: string): Promise<any | null>
     console.warn(`Failed to fetch public ad for section ${section}:`, error?.message || error);
   }
   return null;
+}
+
+export async function updateAdminAstrologySign(id: string, data: any): Promise<any> {
+  const res = await authFetch(getBackendApiUrl(`/api/admin/astrology/${id}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Failed to update astrology sign');
+  return json.data;
 }
 
 

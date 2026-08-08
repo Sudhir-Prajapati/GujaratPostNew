@@ -9,8 +9,6 @@ import { AdController } from '../controllers/ad.controller.js';
 import { EPaperController } from '../controllers/epaper.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 
-import { autoPublishDueArticles } from '../controllers/article.controller.js';
-
 const router = Router();
 
 // Public E-Paper routes
@@ -29,6 +27,12 @@ router.get('/ads/:section', AdController.getAdBySection);
  * Get hero section settings and assigned articles in exact slot order
  */
 router.get('/hero-settings', HeroController.getHeroSettings);
+
+/**
+ * GET /api/public/reels
+ * Fetch public active Instagram reels
+ */
+router.get('/reels', InstagramReelController.getAllReels);
 
 
 /**
@@ -341,14 +345,22 @@ router.get('/authors', async (req, res, next) => {
  */
 router.get('/categories', async (req, res, next) => {
   try {
-    const categories = await prisma.category.findMany({
-      where: {
-        isActive: true,
-        slug: {
-          notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-        },
+    const showInHeader = req.query.showInHeader === 'true';
+    const showInHome = req.query.showInHome === 'true';
+
+    const where: any = {
+      isActive: true,
+      slug: {
+        notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
       },
-      orderBy: { displayOrder: 'asc' },
+    };
+
+    if (showInHeader) where.showInHeader = true;
+    if (showInHome) where.showInHome = true;
+
+    const categories = await prisma.category.findMany({
+      where,
+      orderBy: { displayOrder: 'desc' },
     });
     return sendSuccess(res, { categories }, 'Categories retrieved');
   } catch (error) {
