@@ -16,9 +16,15 @@ export function getBackendApiUrl(path: string): string {
 }
 
 export function getAccessTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+  }
+  if (typeof localStorage !== 'undefined') {
+    const localToken = localStorage.getItem('access_token');
+    if (localToken) return localToken;
+  }
+  return null;
 }
 
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -70,7 +76,7 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
     try {
       const res = await fetch(url, {
-        next: { revalidate: 60 },
+        next: { revalidate: 300 },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -303,13 +309,14 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
 export async function getPublicGallery(): Promise<any[]> {
   try {
     const url = `${API_BASE_URL}/gallery`;
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
     if (json?.success && json.data?.photos && json.data.photos.length > 0) {
       return json.data.photos;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for gallery:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for gallery:', error?.message || error);
+    }
   }
 
   return PHOTOS;
@@ -326,7 +333,9 @@ export async function getPublicStories(): Promise<any[]> {
       return json.data.stories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for stories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for stories:', error?.message || error);
+    }
   }
   return [];
 }
@@ -342,7 +351,9 @@ export async function getPublicWebStories(): Promise<any[]> {
       return json.data.webStories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for webstories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for webstories:', error?.message || error);
+    }
   }
   return [];
 }
@@ -353,13 +364,14 @@ export async function getPublicWebStories(): Promise<any[]> {
 export async function getLiveCenterData(): Promise<any> {
   try {
     const url = `${API_BASE_URL}/live-center`;
-    const res = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
     if (json?.success && json.data) {
       return json.data;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for live center:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for live center:', error?.message || error);
+    }
   }
   return null;
 }
@@ -395,6 +407,23 @@ export async function getPublicAstrology(): Promise<any[]> {
   }
   return [];
 }
+
+/**
+ * Update Astrology sign details (Admin)
+ */
+export async function updateAdminAstrologySign(slug: string, payload: any): Promise<any> {
+  const res = await authFetch(`/api/admin/astrology/${slug}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to update astrology sign');
+  }
+  clearApiCache();
+  return res.json();
+}
+
 
 /**
  * Fetch Hero section settings and slot articles from Express Backend API
@@ -524,17 +553,6 @@ export async function getPublicAdBySection(section: string): Promise<any | null>
     console.warn(`Failed to fetch public ad for section ${section}:`, error?.message || error);
   }
   return null;
-}
-
-export async function updateAdminAstrologySign(id: string, data: any): Promise<any> {
-  const res = await authFetch(getBackendApiUrl(`/api/admin/astrology/${id}`), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Failed to update astrology sign');
-  return json.data;
 }
 
 

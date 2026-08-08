@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Search,
   Upload,
+  UploadCloud,
   Trash2,
   Edit2,
   Loader2,
@@ -56,33 +57,49 @@ function CustomCategorySelect({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const getCategoryIcon = (cat: string) => {
+    if (cat.includes('ધર્મ')) return '🕌';
+    if (cat.includes('ઉત્સવ')) return '🎉';
+    if (cat.includes('પ્રવાસ')) return '✈️';
+    if (cat.includes('ખેલ')) return '🏏';
+    if (cat.includes('સંસ્કૃતિ')) return '🎭';
+    if (cat.includes('રાજકારણ')) return '🏛️';
+    return '📁';
+  };
+
   return (
     <div className="relative" ref={dropdownRef}>
-      <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-        કેટેગરી (Category)
+      <label className="block text-xs font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-1.5 flex items-center justify-between select-none">
+        <span>કેટેગરી (CATEGORY)</span>
+        {selectedCategory && (
+          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 lowercase">
+            સેલેક્ટેડ: {selectedCategory}
+          </span>
+        )}
       </label>
 
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-bold text-zinc-900 transition-all hover:bg-zinc-100 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white dark:hover:bg-zinc-900 cursor-pointer"
+        className="w-full flex items-center justify-between rounded-xl border border-zinc-200 bg-white dark:bg-zinc-900/90 px-4 py-3 text-sm font-extrabold text-zinc-900 transition-all hover:bg-zinc-50 hover:border-red-500/40 focus:outline-none focus:ring-2 focus:ring-red-500/20 dark:border-zinc-800 dark:text-white cursor-pointer shadow-sm"
       >
         <span className="flex items-center gap-2">
           {selectedCategory ? (
-            <span className="bg-[#B3121B]/10 text-[#B3121B] px-2.5 py-1 rounded-lg text-xs font-black">
-              {selectedCategory}
+            <span className="inline-flex items-center gap-1.5 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 px-3 py-1 rounded-lg text-xs font-black border border-red-200 dark:border-red-900/50">
+              <span>{getCategoryIcon(selectedCategory)}</span>
+              <span>{selectedCategory}</span>
             </span>
           ) : (
             <span className="text-zinc-400 text-sm font-semibold">કેટેગરી પસંદ કરો...</span>
           )}
         </span>
-        <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-red-600' : ''}`} />
       </button>
 
-      {/* Custom Dropdown Popup Menu */}
+      {/* Floating Absolute Dropdown Menu */}
       {isOpen && (
-        <div className="mt-2 w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-[100] max-h-60 overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2 shadow-2xl space-y-1 animate-in fade-in zoom-in-95 duration-150">
           {availableCategories.map((cat) => {
             const isSelected = selectedCategory === cat;
             return (
@@ -93,12 +110,16 @@ function CustomCategorySelect({
                   onSelectCategory(cat);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-bold text-left transition-all cursor-pointer ${isSelected
+                className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-extrabold text-left transition-all cursor-pointer ${
+                  isSelected
                     ? 'bg-[#B3121B] text-white shadow-md'
-                    : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
-                  }`}
+                    : 'text-zinc-800 hover:bg-red-50 hover:text-red-600 dark:text-zinc-200 dark:hover:bg-zinc-800/80 dark:hover:text-red-400'
+                }`}
               >
-                <span>{cat}</span>
+                <span className="flex items-center gap-2">
+                  <span>{getCategoryIcon(cat)}</span>
+                  <span>{cat}</span>
+                </span>
                 {isSelected && <Check className="h-4 w-4 text-white" />}
               </button>
             );
@@ -557,64 +578,110 @@ export default function GalleryPage() {
       {/* ─── UPLOAD IMAGE MODAL ─── */}
       {uploadModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4 cursor-pointer"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-200 cursor-pointer"
           onClick={() => setUploadModalOpen(false)}
         >
           <div
-            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 cursor-default"
+            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-7 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 space-y-5 cursor-default animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <ImageIcon className="h-5 w-5 text-zinc-500" />
-                Upload New Image
-              </h3>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b pb-4 border-zinc-150 dark:border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-100 dark:bg-red-950/50 text-[#B3121B] rounded-2xl">
+                  <ImageIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-zinc-900 dark:text-white">
+                    નવી ઈમેજ અપલોડ કરો (Upload Image)
+                  </h3>
+                  <p className="text-xs font-semibold text-zinc-500">
+                    ગેલેરીમાં નવી તસવીર ઉમેરો અથવા URL દાખલ કરો
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setUploadModalOpen(false)}
-                className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+                className="rounded-xl p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-700 transition cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleUploadSubmit} className="space-y-4">
-              {/* File Upload selector */}
+              {/* File Upload selector / Live Preview */}
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  કમ્પ્યુટરથી ઈમેજ અપલોડ કરો (Select Image File from PC)
+                <label className="block text-xs font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
+                  ૧. કમ્પ્યુટરથી ઈમેજ પસંદ કરો (Select Image File from PC)
                 </label>
-                <div className="flex gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleLocalFileUpload}
-                    className="flex-1 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950/20"
-                  />
-                  {uploading && (
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-semibold px-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> Uploading...
+                
+                {src ? (
+                  <div className="relative aspect-video w-full overflow-hidden rounded-2xl border-2 border-red-500/40 bg-zinc-950 shadow-md group">
+                    <img src={src} alt="Upload preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <span className="text-white text-xs font-black bg-black/70 px-3.5 py-1.5 rounded-full backdrop-blur">
+                        ઇમેજ તૈયાર છે (Image Ready)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSrc('')}
+                        className="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-full shadow-lg transition transform hover:scale-110 cursor-pointer"
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <label className="relative flex flex-col items-center justify-center w-full h-36 rounded-2xl border-2 border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-950/30 hover:bg-red-50/40 dark:hover:bg-red-950/20 hover:border-red-500/50 transition-all cursor-pointer group p-4 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <div className="p-3 bg-red-100 dark:bg-red-950/60 text-[#B3121B] dark:text-red-400 rounded-2xl group-hover:scale-110 transition-transform shadow-sm">
+                        {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <UploadCloud className="h-6 w-6" />}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-black text-zinc-800 dark:text-zinc-200">
+                          {uploading ? 'અપલોડ થઈ રહ્યું છે...' : 'અહીં ક્લિક કરીને ફાઈલ પસંદ કરો'}
+                        </p>
+                        <p className="text-xs font-bold text-zinc-400">
+                          PNG, JPG, WEBP (Max 10MB)
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLocalFileUpload}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Divider OR */}
+              <div className="relative flex items-center justify-center my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
                 </div>
+                <span className="relative bg-white dark:bg-zinc-900 px-3 text-[11px] font-black uppercase text-zinc-400 tracking-wider select-none">
+                  અથવા ઈમેજ URL લિંક (OR VIA IMAGE URL)
+                </span>
               </div>
 
               {/* Or manual URL */}
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  અથવા ઈમેજ URL લિંક (Or Image Source URL)
-                </label>
                 <input
                   type="text"
                   placeholder="https://images.unsplash.com/photo-..."
                   value={src}
                   onChange={(e) => setSrc(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/20 dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-white transition-all shadow-sm"
                 />
               </div>
 
               {/* Gujarati Title & Caption */}
               <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
                   ટાઇટલ / કેપ્શન (ગુજરાતી)
                 </label>
                 <input
@@ -626,7 +693,7 @@ export default function GalleryPage() {
                     setCaption(e.target.value);
                     setAlt(e.target.value);
                   }}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm font-bold text-foreground focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm font-bold text-zinc-900 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-white transition-all shadow-sm"
                 />
               </div>
 
@@ -640,18 +707,18 @@ export default function GalleryPage() {
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
                     Photographer
                   </label>
                   <input
                     type="text"
                     value={photographer}
                     onChange={(e) => setPhotographer(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-white transition-all shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-black text-zinc-600 dark:text-zinc-400 uppercase tracking-wider mb-2">
                     Copyright Holder
                   </label>
                   <input
@@ -659,25 +726,25 @@ export default function GalleryPage() {
                     placeholder="© Gujarat Post"
                     value={copyright}
                     onChange={(e) => setCopyright(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-white transition-all shadow-sm"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+              <div className="flex justify-end gap-3 pt-4 border-t border-zinc-150 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setUploadModalOpen(false)}
-                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-55 dark:border-zinc-800 cursor-pointer"
+                  className="rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-bold text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !src}
-                  className="rounded-xl bg-[#B3121B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#8e0e15] disabled:opacity-50 transition cursor-pointer"
+                  className="rounded-xl bg-[#B3121B] px-6 py-2.5 text-sm font-black text-white hover:bg-[#8e0e15] shadow-lg shadow-[#B3121B]/25 disabled:opacity-50 transition cursor-pointer active:scale-95"
                 >
-                  Save Photo
+                  {uploading ? 'અપલોડ થઈ રહ્યું છે...' : 'સેવ કરો (Save Photo)'}
                 </button>
               </div>
             </form>
