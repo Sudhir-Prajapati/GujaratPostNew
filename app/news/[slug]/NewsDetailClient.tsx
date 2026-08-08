@@ -157,8 +157,60 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   };
 
   const title = getArticleTitle(article, language);
-  const excerpt = getArticleExcerptHtml(article, language);
-  const body = getArticleContent(article, language);
+
+  const formatArticleContentHtml = useCallback((rawContent: string): string => {
+    if (!rawContent) return '';
+    let str = rawContent;
+
+    // 1. Decode HTML entities if string contains escaped HTML tags like &lt;p...&gt;
+    if (str.includes('&lt;') || str.includes('&gt;')) {
+      str = str
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ');
+    }
+
+    // 2. Remove AI / ChatGPT metadata attributes and unwanted anchor tags
+    str = str
+      .replace(/\s+data-start="[^"]*"/gi, '')
+      .replace(/\s+data-end="[^"]*"/gi, '')
+      .replace(/\s+data-content-reference-start="[^"]*"/gi, '')
+      .replace(/\s+data-content-reference-end="[^"]*"/gi, '')
+      .replace(/\s+data-state="[^"]*"/gi, '')
+      .replace(/\s+class="PDq2pG_[^"]*"/gi, '')
+      .replace(/<span\s+aria-hidden="true"[^>]*><\/span>/gi, '')
+      .replace(/<span\s+class="contents"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
+      .replace(/<span\s+class=""[^>]*>([\s\S]*?)<\/span>/gi, '$1');
+
+    // 3. Remove raw Key Highlights section markdown headers from body text
+    str = str
+      .replace(/##\s*📌?\s*(એક નજરમાં|एक नजर में|AT A GLANCE|KEY HIGHLIGHTS)[^\n]*/gi, '')
+      .replace(/-{5,}/g, '')
+      .replace(/\*{5,}/g, '');
+
+    // 4. Convert markdown images ![alt](url) into clean HTML figure tags
+    const photoLabel = language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'तस्वीर: गुजरात पोस्ट' : 'Photo: Gujarat Post';
+    str = str.replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi, (_, alt, url) => {
+      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || title}" class="w-full h-full object-cover rounded-xl" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${title}</span><span>${photoLabel}</span></figcaption></figure>`;
+    });
+
+    // 5. Convert raw <img> tags into clean responsive figure tags
+    str = str.replace(/<img\s+[^>]*src=["'](https?:\/\/[^"']+)["'][^>]*\/?>/gi, (_, url) => {
+      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${title}" class="w-full h-full object-cover rounded-xl" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${title}</span><span>${photoLabel}</span></figcaption></figure>`;
+    });
+
+    return str.trim();
+  }, [title, language]);
+
+  const rawExcerpt = getArticleExcerptHtml(article, language);
+  const excerpt = useMemo(() => formatArticleContentHtml(rawExcerpt), [rawExcerpt, formatArticleContentHtml]);
+
+  const rawBody = getArticleContent(article, language);
+  const body = useMemo(() => formatArticleContentHtml(rawBody), [rawBody, formatArticleContentHtml]);
+
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
   const authorDesignation = getLocalized(language, {
@@ -170,13 +222,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const tags = language === 'en' ? article.tags : language === 'hi' ? article.tagsHi : article.tagsGu;
   const isTrafficArticle = article.slug.includes('traffic-rules') || article.slug.includes('penalty-and-locations');
 
-  const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
+  const paragraphs = useMemo(() => body.split(/\n\n+|(?=<(?:p|figure|blockquote|h[1-6]|ul|ol)>)/i), [body]);
 
   const displayParagraphs = useMemo(() => {
-    let inlineImgIndex = 0;
     return paragraphs.filter((p: string) => {
       const trimmed = p.trim();
       if (
+        !trimmed ||
         trimmed.includes('## 📌') ||
         trimmed.includes('KEY HIGHLIGHTS') ||
         trimmed.includes('એક નજરમાં') ||
@@ -187,17 +239,6 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       ) {
         return false;
       }
-
-      // Check if this paragraph is an embedded markdown image
-      const imgMatch = trimmed.match(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
-      if (imgMatch) {
-        inlineImgIndex++;
-        // Show only the 1st inline gallery image (Image 2) in body; hide 3rd, 4th, 5th photos (they rotate in top slider)
-        if (inlineImgIndex > 1) {
-          return false;
-        }
-      }
-
       return true;
     });
   }, [paragraphs]);
