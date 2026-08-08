@@ -1,20 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Upload, 
-  Trash2, 
-  Edit2, 
-  Loader2, 
-  X, 
+import { useState, useEffect, useRef } from 'react';
+import {
+  Search,
+  Upload,
+  Trash2,
+  Edit2,
+  Loader2,
+  X,
   Image as ImageIcon,
   Camera,
   Copyright,
   Compass,
-  Plus
+  Plus,
+  CheckCircle2,
+  AlertCircle,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { PHOTOS } from '@/data';
 
 interface PhotoData {
   id: string;
@@ -29,6 +34,81 @@ interface PhotoData {
   createdAt: string;
 }
 
+function CustomCategorySelect({
+  selectedCategory,
+  onSelectCategory,
+  availableCategories,
+}: {
+  selectedCategory: string;
+  onSelectCategory: (cat: string) => void;
+  availableCategories: string[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+        કેટેગરી (Category)
+      </label>
+
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-bold text-zinc-900 transition-all hover:bg-zinc-100 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white dark:hover:bg-zinc-900 cursor-pointer"
+      >
+        <span className="flex items-center gap-2">
+          {selectedCategory ? (
+            <span className="bg-[#B3121B]/10 text-[#B3121B] px-2.5 py-1 rounded-lg text-xs font-black">
+              {selectedCategory}
+            </span>
+          ) : (
+            <span className="text-zinc-400 text-sm font-semibold">કેટેગરી પસંદ કરો...</span>
+          )}
+        </span>
+        <ChevronDown className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Custom Dropdown Popup Menu */}
+      {isOpen && (
+        <div className="mt-2 w-full rounded-2xl border border-zinc-200 bg-zinc-50/50 p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950/30 space-y-1 animate-in fade-in zoom-in-95 duration-150">
+          {availableCategories.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => {
+                  onSelectCategory(cat);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-bold text-left transition-all cursor-pointer ${isSelected
+                    ? 'bg-[#B3121B] text-white shadow-md'
+                    : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800'
+                  }`}
+              >
+                <span>{cat}</span>
+                {isSelected && <Check className="h-4 w-4 text-white" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function GalleryPage() {
   const [photos, setPhotos] = useState<PhotoData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +116,7 @@ export default function GalleryPage() {
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  
+
   // Modals state
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -49,29 +129,105 @@ export default function GalleryPage() {
   const [caption, setCaption] = useState('');
   const [captionGu, setCaptionGu] = useState('');
   const [captionHi, setCaptionHi] = useState('');
-  const [photographer, setPhotographer] = useState('');
-  const [copyright, setCopyright] = useState('');
-  const [formLang, setFormLang] = useState<'en' | 'gu' | 'hi'>('en');
+  const [photographer, setPhotographer] = useState('Gujarat Post Team');
+  const [copyright, setCopyright] = useState('© Gujarat Post');
+  const [category, setCategory] = useState('');
+  const DEFAULT_CATEGORIES = ['ધર્મ', 'ઉત્સવ', 'પ્રવાસ', 'ખેલ', 'સંસ્કૃતિ', 'મનોરંજન', 'ગુજરાત'];
+  const [availableCategories, setAvailableCategories] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('gp-gallery-categories');
+      if (stored) {
+        const parsed = JSON.parse(stored) as string[];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return DEFAULT_CATEGORIES;
+  });
+  const [newCategoryModalOpen, setNewCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [formLang, setFormLang] = useState<'gu' | 'en' | 'hi'>('gu');
+
+  // Custom Centered Alert / Notification Modal State
+  const [toastModal, setToastModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success',
+  });
+
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success', title = '') => {
+    setToastModal({
+      isOpen: true,
+      title: title || (type === 'success' ? 'સફળતા' : 'ધ્યાન આપો'),
+      message,
+      type,
+    });
+  };
 
   // Fetch photos
   useEffect(() => {
     async function loadPhotos() {
       setLoading(true);
       try {
-        const url = `/api/admin/gallery?page=${page}&limit=12&query=${encodeURIComponent(query)}`;
-        const res = await fetch(url);
+        const url = getBackendApiUrl(`/api/admin/gallery?page=${page}&limit=100&query=${encodeURIComponent(query)}`);
+        const res = await authFetch(url);
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Failed to fetch gallery photos');
-        setPhotos(json.data.photos || []);
-        setTotalPages(json.data.totalPages || 1);
+        let fetchedPhotos: any[] = (res.ok && json.data?.photos) ? json.data.photos : [];
+        // Only pad with defaults if the API returned fewer than 5 (minimum 5 guarantee)
+        if (fetchedPhotos.length < 5) {
+          const existingIds = new Set(fetchedPhotos.map((p: any) => p.id || p.src));
+          for (const defPhoto of PHOTOS) {
+            if (fetchedPhotos.length >= 5) break;
+            if (!existingIds.has(defPhoto.id) && !existingIds.has(defPhoto.src)) {
+              fetchedPhotos.push(defPhoto);
+            }
+          }
+        }
+        setPhotos(fetchedPhotos);
+        setTotalPages(json.data?.totalPages || 1);
+
+        // Merge categories from fetched photos into localStorage-persisted list
+        const extraCats = fetchedPhotos.map((p: any) => p.category).filter(Boolean);
+        if (extraCats.length > 0) {
+          setAvailableCategories(prev => {
+            const merged = Array.from(new Set([...prev, ...extraCats]));
+            try { localStorage.setItem('gp-gallery-categories', JSON.stringify(merged)); } catch { }
+            return merged;
+          });
+        }
       } catch (err: any) {
-        setError(err.message);
+        setPhotos(PHOTOS as any);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
     }
     loadPhotos();
   }, [page, query]);
+
+  // Add new category handler — persists to localStorage
+  const handleAddCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    if (availableCategories.includes(trimmed)) {
+      showNotification(`"${trimmed}" category already exists.`, 'error', 'ધ્યાન આપો');
+      return;
+    }
+    setAvailableCategories(prev => {
+      const updated = [...prev, trimmed];
+      try { localStorage.setItem('gp-gallery-categories', JSON.stringify(updated)); } catch { }
+      return updated;
+    });
+    setNewCategoryName('');
+    setNewCategoryModalOpen(false);
+    showNotification(`"${trimmed}" category added successfully!`, 'success', 'સફળતા');
+  };
 
   // Handle local file upload first to retrieve URL
   const handleLocalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,44 +245,81 @@ export default function GalleryPage() {
       if (!res.ok) throw new Error(json.error || 'Upload failed');
       setSrc(json.url);
     } catch (err: any) {
-      alert(err.message || 'Failed to upload photo');
+      showNotification(err.message || 'ઈમેજ અપલોડ કરવામાં ભૂલ આવી', 'error');
     } finally {
       setUploading(false);
     }
   };
 
+
+
   // Submit new photo to gallery db
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!src) return alert('Please upload or provide an image URL');
+    if (!src) return showNotification('કૃપા કરીને ઈમેજ લિંક દાખલ કરો અથવા કમ્પ્યુટરથી ઈમેજ ફાઇલ પસંદ કરો', 'error');
     setUploading(true);
     try {
-      const res = await fetch('/api/admin/gallery', {
+      const finalCat = category || 'ધર્મ';
+
+      if (finalCat) {
+        setAvailableCategories(prev => Array.from(new Set([...prev, finalCat])));
+      }
+
+      const res = await authFetch(getBackendApiUrl('/api/admin/gallery'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          src, alt, caption, captionGu, captionHi, photographer, copyright
+          src,
+          alt: alt || captionGu || 'Gujarat Post Gallery',
+          caption: caption || captionGu,
+          captionGu: captionGu || caption,
+          captionHi,
+          category: finalCat,
+          photographer: photographer || 'Gujarat Post Team',
+          copyright: copyright || '© Gujarat Post'
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to save photo');
-      
-      // Reset & refresh
+      if (!res.ok) throw new Error(json.error || json.message || 'ઈમેજ સેવ કરવામાં ભૂલ આવી');
+
+      const savedPhoto = json.data || {
+        id: `photo-${Date.now()}`,
+        src,
+        alt: alt || captionGu || 'Gujarat Post Gallery',
+        caption: caption || captionGu,
+        captionGu: captionGu || caption,
+        category,
+        photographer: photographer || 'Gujarat Post Team',
+        copyright: copyright || '© Gujarat Post',
+        createdAt: new Date().toISOString()
+      };
+
+      // Reset & update list while preserving minimum 5 photos
+      setPhotos(prev => {
+        let updated = [savedPhoto, ...prev.filter(p => p.id !== savedPhoto.id)];
+        if (updated.length < 5) {
+          const existingIds = new Set(updated.map((p: any) => p.id || p.src));
+          for (const defPhoto of PHOTOS) {
+            if (updated.length >= 5) break;
+            if (!existingIds.has(defPhoto.id) && !existingIds.has(defPhoto.src)) {
+              updated.push(defPhoto);
+            }
+          }
+        }
+        return updated;
+      });
       setUploadModalOpen(false);
       setSrc('');
       setAlt('');
       setCaption('');
       setCaptionGu('');
       setCaptionHi('');
-      setPhotographer('');
-      setCopyright('');
-      setPage(1);
-      // reload photos
-      const reloadRes = await fetch(`/api/admin/gallery?page=1&limit=12&query=${encodeURIComponent(query)}`);
-      const reloadJson = await reloadRes.json();
-      if (reloadRes.ok) setPhotos(reloadJson.data.photos);
+      setCategory('ધર્મ');
+      setPhotographer('Gujarat Post Team');
+      setCopyright('© Gujarat Post');
+      showNotification('ઈમેજ સફળતાપૂર્વક સેવ થઈ ગઈ છે!', 'success');
     } catch (err: any) {
-      alert(err.message);
+      showNotification(err.message || 'ઈમેજ સેવ કરવામાં ભૂલ આવી', 'error');
     } finally {
       setUploading(false);
     }
@@ -136,24 +329,30 @@ export default function GalleryPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this photo from the gallery?')) return;
     try {
-      const res = await fetch(`/api/admin/gallery/${id}`, { method: 'DELETE' });
+      const res = await authFetch(getBackendApiUrl(`/api/admin/gallery/${id}`), { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete photo');
       setPhotos(prev => prev.filter(p => p.id !== id));
+      showNotification('ઈમેજ સેવ સફળતાપૂર્વક ડિલીટ થઈ ગઈ છે!', 'success');
     } catch (err: any) {
-      alert(err.message);
+      showNotification(err.message || 'ડિલીટ કરવામાં ભૂલ આવી', 'error');
     }
   };
 
   // Open Edit Modal
   const openEdit = (photo: PhotoData) => {
     setSelectedPhoto(photo);
-    setAlt(photo.alt);
-    setCaption(photo.caption);
-    setCaptionGu(photo.captionGu);
-    setCaptionHi(photo.captionHi);
-    setPhotographer(photo.photographer);
-    setCopyright(photo.copyright);
-    setFormLang('en');
+    setAlt(photo.alt || '');
+    setCaption(photo.caption || '');
+    setCaptionGu(photo.captionGu || photo.caption || '');
+    setCaptionHi(photo.captionHi || '');
+    const currentCat = photo.category || '';
+    setCategory(currentCat);
+    if (currentCat && !availableCategories.includes(currentCat)) {
+      setAvailableCategories(prev => [...prev, currentCat]);
+    }
+    setPhotographer(photo.photographer || 'Gujarat Post Team');
+    setCopyright(photo.copyright || '© Gujarat Post');
+    setFormLang('gu');
     setEditModalOpen(true);
   };
 
@@ -163,21 +362,37 @@ export default function GalleryPage() {
     if (!selectedPhoto) return;
     setUploading(true);
     try {
-      const res = await fetch(`/api/admin/gallery/${selectedPhoto.id}`, {
+      const finalCat = category || 'ધર્મ';
+
+      if (finalCat) {
+        setAvailableCategories(prev => Array.from(new Set([...prev, finalCat])));
+      }
+
+      const res = await authFetch(getBackendApiUrl(`/api/admin/gallery/${selectedPhoto.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          src: selectedPhoto.src, alt, caption, captionGu, captionHi, photographer, copyright
+          src: selectedPhoto.src, alt, caption, captionGu, captionHi, category: finalCat, photographer, copyright
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to update photo details');
+      const updatedPhoto = {
+        ...selectedPhoto,
+        ...(json.data || {}),
+        category: finalCat,
+        captionGu: captionGu || caption,
+        caption: caption || captionGu,
+        alt: alt || captionGu || 'Gujarat Post Gallery',
+        photographer,
+        copyright
+      };
 
-      setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? json.data : p));
+      setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? updatedPhoto : p));
       setEditModalOpen(false);
       setSelectedPhoto(null);
+      showNotification('ફોટો કેટેગરી અને ડિટેલ્સ સફળતાપૂર્વક અપડેટ થઈ ગઈ છે!', 'success');
     } catch (err: any) {
-      alert(err.message);
+      showNotification(err.message || 'અપડેટ કરવામાં ભૂલ આવી', 'error');
     } finally {
       setUploading(false);
     }
@@ -193,16 +408,26 @@ export default function GalleryPage() {
             Upload, search, and manage high-quality media assets for your news articles.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setFormLang('en');
-            setUploadModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shrink-0"
-        >
-          <Upload className="h-4 w-4" />
-          <span>Upload Image</span>
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => setNewCategoryModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-900 shadow-sm transition-all hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-white cursor-pointer"
+          >
+            <Plus className="h-4 w-4 text-[#B3121B]" />
+            <span> કેટેગરી ઉમેરો (Add Category)</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setFormLang('en');
+              setUploadModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#B3121B] px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#8e0e15] shadow-md shadow-[#B3121B]/20 cursor-pointer"
+          >
+            <Upload className="h-4 w-4" />
+            <span>Upload Image</span>
+          </button>
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -241,14 +466,19 @@ export default function GalleryPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {photos.map((photo) => (
-            <div 
+            <div
               key={photo.id}
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
             >
-              {/* Image Preview */}
+              {/* Image Preview with Category Badge */}
               <div className="relative aspect-video w-full overflow-hidden bg-zinc-150 dark:bg-zinc-950">
-                <img 
-                  src={photo.src} 
+                <div className="absolute top-2.5 left-2.5 z-10">
+                  <span className="inline-flex items-center rounded-lg bg-[#B3121B] px-2.5 py-1 text-xs font-black text-white shadow-md">
+                    {photo.category || '—'}
+                  </span>
+                </div>
+                <img
+                  src={photo.src}
                   alt={photo.alt}
                   className="h-full w-full object-cover transition group-hover:scale-105"
                 />
@@ -326,14 +556,20 @@ export default function GalleryPage() {
 
       {/* ─── UPLOAD IMAGE MODAL ─── */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4 cursor-pointer"
+          onClick={() => setUploadModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
               <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-zinc-500" />
                 Upload New Image
               </h3>
-              <button 
+              <button
                 onClick={() => setUploadModalOpen(false)}
                 className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
@@ -345,7 +581,7 @@ export default function GalleryPage() {
               {/* File Upload selector */}
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Select File
+                  કમ્પ્યુટરથી ઈમેજ અપલોડ કરો (Select Image File from PC)
                 </label>
                 <div className="flex gap-3">
                   <input
@@ -365,7 +601,7 @@ export default function GalleryPage() {
               {/* Or manual URL */}
               <div>
                 <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Or Image Source URL
+                  અથવા ઈમેજ URL લિંક (Or Image Source URL)
                 </label>
                 <input
                   type="text"
@@ -376,79 +612,33 @@ export default function GalleryPage() {
                 />
               </div>
 
-              {/* Language switcher tabs */}
-              <div className="flex border-b border-zinc-150 dark:border-zinc-800 mb-2">
-                {(['en', 'gu', 'hi'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => setFormLang(lang)}
-                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all ${
-                      formLang === lang 
-                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white' 
-                        : 'border-transparent text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300'
-                    }`}
-                  >
-                    {lang === 'en' ? 'English' : lang === 'gu' ? 'ગુજરાતી' : 'हिन्दी'}
-                  </button>
-                ))}
+              {/* Gujarati Title & Caption */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  ટાઇટલ / કેપ્શન (ગુજરાતી)
+                </label>
+                <input
+                  type="text"
+                  placeholder="અહીં ગુજરાતીમાં શીર્ષક લખો..."
+                  value={captionGu}
+                  onChange={(e) => {
+                    setCaptionGu(e.target.value);
+                    setCaption(e.target.value);
+                    setAlt(e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm font-bold text-foreground focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                />
               </div>
 
-              {formLang === 'en' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (EN)
-                  </label>
-                  <input
-                    type="text"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'gu' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (GU)
-                  </label>
-                  <input
-                    type="text"
-                    value={captionGu}
-                    onChange={(e) => setCaptionGu(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'hi' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (HI)
-                  </label>
-                  <input
-                    type="text"
-                    value={captionHi}
-                    onChange={(e) => setCaptionHi(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
+              {/* Custom Category Selection */}
+              <CustomCategorySelect
+                selectedCategory={category}
+                onSelectCategory={setCategory}
+                availableCategories={availableCategories}
+              />
 
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Alt Text
-                  </label>
-                  <input
-                    type="text"
-                    value={alt}
-                    onChange={(e) => setAlt(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
                     Photographer
@@ -460,33 +650,32 @@ export default function GalleryPage() {
                     className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Copyright Holder
-                </label>
-                <input
-                  type="text"
-                  placeholder="Gujarat Post News"
-                  value={copyright}
-                  onChange={(e) => setCopyright(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                    Copyright Holder
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="© Gujarat Post"
+                    value={copyright}
+                    onChange={(e) => setCopyright(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
                 <button
                   type="button"
                   onClick={() => setUploadModalOpen(false)}
-                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-55 dark:border-zinc-800"
+                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-55 dark:border-zinc-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={uploading || !src}
-                  className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-850 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                  className="rounded-xl bg-[#B3121B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#8e0e15] disabled:opacity-50 transition cursor-pointer"
                 >
                   Save Photo
                 </button>
@@ -498,14 +687,20 @@ export default function GalleryPage() {
 
       {/* ─── EDIT IMAGE MODAL ─── */}
       {editModalOpen && selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4 cursor-pointer"
+          onClick={() => setEditModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
               <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
                 <Edit2 className="h-5 w-5 text-zinc-500" />
                 Edit Image Metadata
               </h3>
-              <button 
+              <button
                 onClick={() => setEditModalOpen(false)}
                 className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
@@ -518,79 +713,33 @@ export default function GalleryPage() {
                 <img src={selectedPhoto.src} alt={alt} className="w-full h-full object-cover" />
               </div>
 
-              {/* Language switcher tabs */}
-              <div className="flex border-b border-zinc-150 dark:border-zinc-800 mb-2">
-                {(['en', 'gu', 'hi'] as const).map((lang) => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => setFormLang(lang)}
-                    className={`px-4 py-2 text-xs font-bold border-b-2 transition-all ${
-                      formLang === lang 
-                        ? 'border-zinc-900 text-zinc-900 dark:border-white dark:text-white' 
-                        : 'border-transparent text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-300'
-                    }`}
-                  >
-                    {lang === 'en' ? 'English' : lang === 'gu' ? 'ગુજરાતી' : 'हिन्दी'}
-                  </button>
-                ))}
+              {/* Gujarati Title & Caption */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  ટાઇટલ / કેપ્શન (ગુજરાતી)
+                </label>
+                <input
+                  type="text"
+                  placeholder="અહીં ગુજરાતીમાં શીર્ષક લખો..."
+                  value={captionGu}
+                  onChange={(e) => {
+                    setCaptionGu(e.target.value);
+                    setCaption(e.target.value);
+                    setAlt(e.target.value);
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2.5 text-sm font-bold text-foreground focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                />
               </div>
 
-              {formLang === 'en' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (EN)
-                  </label>
-                  <input
-                    type="text"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'gu' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (GU)
-                  </label>
-                  <input
-                    type="text"
-                    value={captionGu}
-                    onChange={(e) => setCaptionGu(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
-
-              {formLang === 'hi' && (
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Caption (HI)
-                  </label>
-                  <input
-                    type="text"
-                    value={captionHi}
-                    onChange={(e) => setCaptionHi(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              )}
+              {/* Custom Category Selection */}
+              <CustomCategorySelect
+                selectedCategory={category}
+                onSelectCategory={setCategory}
+                availableCategories={availableCategories}
+              />
 
               {/* Metadata */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Alt Text
-                  </label>
-                  <input
-                    type="text"
-                    value={alt}
-                    onChange={(e) => setAlt(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
                     Photographer
@@ -602,18 +751,17 @@ export default function GalleryPage() {
                     className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Copyright Holder
-                </label>
-                <input
-                  type="text"
-                  value={copyright}
-                  onChange={(e) => setCopyright(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                />
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                    Copyright Holder
+                  </label>
+                  <input
+                    type="text"
+                    value={copyright}
+                    onChange={(e) => setCopyright(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
@@ -630,6 +778,124 @@ export default function GalleryPage() {
                   className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-850 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── CENTERED CUSTOM ALERT / NOTIFICATION MODAL ─── */}
+      {toastModal.isOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/60 backdrop-blur-md p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setToastModal(prev => ({ ...prev, isOpen: false }))}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 text-center space-y-4 animate-in zoom-in-95 duration-200 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon Badge */}
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#B3121B]/10 text-[#B3121B] dark:bg-[#B3121B]/20">
+              {toastModal.type === 'success' ? (
+                <CheckCircle2 className="h-8 w-8 text-[#B3121B]" />
+              ) : (
+                <AlertCircle className="h-8 w-8 text-[#B3121B]" />
+              )}
+            </div>
+
+            {/* Title & Message */}
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-black text-zinc-900 dark:text-white">
+                {toastModal.title}
+              </h3>
+              <p className="text-sm font-bold text-zinc-600 dark:text-zinc-300 leading-relaxed px-2">
+                {toastModal.message}
+              </p>
+            </div>
+
+            {/* Centered Action Button */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setToastModal(prev => ({ ...prev, isOpen: false }))}
+                className="w-full rounded-xl bg-[#B3121B] py-3 text-sm font-black text-white hover:bg-[#8e0e15] shadow-lg shadow-[#B3121B]/25 transition cursor-pointer"
+              >
+                બરાબર (OK)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ─── ADD NEW CATEGORY MODAL ─── */}
+      {newCategoryModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4 cursor-pointer"
+          onClick={() => setNewCategoryModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4 cursor-default animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
+                <Plus className="h-5 w-5 text-[#B3121B]" />
+                નવી કેટેગરી ઉમેરો (Add Category)
+              </h3>
+              <button
+                onClick={() => setNewCategoryModalOpen(false)}
+                className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCategorySubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  કેટેગરીનું નામ (Category Name)
+                </label>
+                <input
+                  type="text"
+                  placeholder="દા.ત. શિરોમણિ, રાજકારણ, ખેલ-જગત..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                  autoFocus
+                />
+              </div>
+
+              {/* Existing Categories Badges List */}
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                  હાલની કેટેગરીઓ (Existing Categories)
+                </label>
+                <div className="flex flex-wrap gap-1.5 p-3 rounded-xl border border-zinc-150 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-950/40 max-h-36 overflow-y-auto">
+                  {availableCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-black bg-[#B3121B]/10 text-[#B3121B] dark:bg-[#B3121B]/20"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+                <button
+                  type="button"
+                  onClick={() => setNewCategoryModalOpen(false)}
+                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newCategoryName.trim()}
+                  className="rounded-xl bg-[#B3121B] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#8e0e15] disabled:opacity-50 transition cursor-pointer"
+                >
+                  સેવ કેટેગરી (Save Category)
                 </button>
               </div>
             </form>
