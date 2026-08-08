@@ -160,11 +160,12 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
 /**
  * Fetch list of categories from Express Backend API
  */
-export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean }): Promise<any[]> {
+export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean; headerType?: string }): Promise<any[]> {
   try {
     const query = new URLSearchParams();
     if (options?.showInHeader) query.set('showInHeader', 'true');
     if (options?.showInHome) query.set('showInHome', 'true');
+    if (options?.headerType) query.set('headerType', options.headerType);
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
     const url = `${API_BASE_URL}/categories${queryString}`;
