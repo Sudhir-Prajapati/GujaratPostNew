@@ -88,7 +88,7 @@ export class CategoryController {
           isActive: isActive !== undefined ? isActive : true,
           showInHome: showInHome !== undefined ? showInHome : true,
           showInHeader: showInHeader !== undefined ? showInHeader : true,
-        },
+        } as any,
       });
 
       return sendSuccess(res, category, 'Category created successfully.', 201);
