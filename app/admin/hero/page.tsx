@@ -34,15 +34,28 @@ type Article = {
 };
 
 const DEMO_IMAGES = [
-  '/assets/demo/3.jpg', '/assets/demo/4.jpg', '/assets/demo/1.jpg',
-  '/assets/demo/2.jpg', '/assets/demo/5.jpg', '/assets/demo/6.jpg',
-  '/assets/demo/7.jpg', '/assets/demo/8.jpg',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
 ];
 
 function getArticleImage(article?: Article | null): string {
   if (!article) return DEMO_IMAGES[0];
   const rawImage = article.featuredImage || article.image;
-  if (rawImage && rawImage.trim() !== '') return rawImage;
+  if (
+    rawImage &&
+    rawImage.trim() !== '' &&
+    !rawImage.includes('photo-1599930113854') &&
+    !rawImage.includes('photo-1589308078059') &&
+    !rawImage.includes('placehold.co')
+  ) {
+    return rawImage;
+  }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
   for (let i = 0; i < key.length; i++) { hash = (hash << 5) - hash + key.charCodeAt(i); hash |= 0; }

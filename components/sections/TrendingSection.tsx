@@ -60,18 +60,25 @@ export default function TrendingSection() {
     });
   }, []);
 
-  // Auto-scroll effect
+  // Auto-scroll effect - starting cleanly from 0
   useEffect(() => {
     if (!trending.length) return;
-    const interval = setInterval(() => {
-      const el = scrollContainerRef.current;
-      if (!el || isPaused.current) return;
-      el.scrollLeft += 1;
-      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) {
-        el.scrollLeft = 0;
-      }
-    }, 25);
-    return () => clearInterval(interval);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = 0;
+    }
+    const timer = setTimeout(() => {
+      const interval = setInterval(() => {
+        const el = scrollContainerRef.current;
+        if (!el || isPaused.current) return;
+        el.scrollLeft += 1;
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) {
+          el.scrollLeft = 0;
+        }
+      }, 35);
+      return () => clearInterval(interval);
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, [trending]);
 
   const updateArrows = () => {
