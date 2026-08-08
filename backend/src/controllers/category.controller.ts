@@ -5,7 +5,7 @@ import { BadRequestError, ConflictError } from '../utils/errors.js';
 
 export class CategoryController {
   /**
-   * Get all categories.
+   * Get all categories sorted by displayOrder DESC (large number first, low number last).
    */
   static async getAllCategories(req: Request, res: Response, next: NextFunction) {
     try {
@@ -16,7 +16,7 @@ export class CategoryController {
           },
         },
         orderBy: {
-          name: 'asc',
+          displayOrder: 'desc',
         },
       });
       return sendSuccess(res, categories, 'Categories list retrieved successfully.');
@@ -30,17 +30,20 @@ export class CategoryController {
    */
   static async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, nameGu, nameHi, slug } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader } = req.body;
 
       if (!name || typeof name !== 'string' || name.trim() === '') {
         throw new BadRequestError('Category name is required.');
       }
 
+      const nameClean = name.trim();
+      const nameGuClean = nameGu && typeof nameGu === 'string' && nameGu.trim() ? nameGu.trim() : nameClean;
+      const nameHiClean = nameHi && typeof nameHi === 'string' && nameHi.trim() ? nameHi.trim() : nameClean;
+
       // Generate a slug if not provided
       let categorySlug = slug;
       if (!categorySlug || typeof categorySlug !== 'string' || categorySlug.trim() === '') {
-        categorySlug = name
-          .trim()
+        categorySlug = nameClean
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)+/g, '');
@@ -48,21 +51,44 @@ export class CategoryController {
         categorySlug = categorySlug.trim().toLowerCase();
       }
 
-      // Check if category with this slug already exists
-      const existing = await prisma.category.findUnique({
-        where: { slug: categorySlug },
+      if (!categorySlug) {
+        categorySlug = `cat-${Date.now()}`;
+      }
+
+      // Check displayOrder is positive/non-negative
+      const parsedOrder = displayOrder !== undefined ? (typeof displayOrder === 'number' ? displayOrder : parseInt(displayOrder)) : 0;
+      if (isNaN(parsedOrder) || parsedOrder < 0) {
+        throw new BadRequestError('Category order must be a positive number or zero (0 કે તેથી વધુ ધન સંખ્યા હોવી જોઈએ).');
+      }
+
+      // Check duplicate category name or slug (case-insensitive)
+      const existingList = await prisma.category.findMany({
+        where: {
+          OR: [
+            { slug: categorySlug },
+            { name: { equals: nameClean } },
+            { nameGu: { equals: nameGuClean } },
+          ],
+        },
       });
-      if (existing) {
-        throw new ConflictError('A category with this slug already exists.');
+
+      if (existingList.length > 0) {
+        throw new ConflictError(`Category with name "${nameClean}" or slug "${categorySlug}" already exists! (આ નામ અથવા સ્લગ ધરાવતી કૅટેગરી પહેલાથી જ હયાત છે)`);
       }
 
       const category = await prisma.category.create({
         data: {
-          name: name.trim(),
-          nameGu: nameGu ? nameGu.trim() : name.trim(),
-          nameHi: nameHi ? nameHi.trim() : name.trim(),
+          name: nameClean,
+          nameGu: nameGuClean,
+          nameHi: nameHiClean,
           slug: categorySlug,
-        },
+          icon: icon || null,
+          color: color || null,
+          displayOrder: parsedOrder,
+          isActive: isActive !== undefined ? isActive : true,
+          showInHome: showInHome !== undefined ? showInHome : true,
+          showInHeader: showInHeader !== undefined ? showInHeader : true,
+        } as any,
       });
 
       return sendSuccess(res, category, 'Category created successfully.', 201);
@@ -77,7 +103,7 @@ export class CategoryController {
   static async updateCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { name, nameGu, nameHi, slug } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader } = req.body;
 
       const category = await prisma.category.findUnique({
         where: { id },
@@ -87,21 +113,51 @@ export class CategoryController {
       }
 
       const updateData: any = {};
-      if (name && typeof name === 'string') updateData.name = name.trim();
-      if (nameGu && typeof nameGu === 'string') updateData.nameGu = nameGu.trim();
-      if (nameHi && typeof nameHi === 'string') updateData.nameHi = nameHi.trim();
+
+      if (name !== undefined) {
+        if (!name || typeof name !== 'string' || name.trim() === '') {
+          throw new BadRequestError('Category name cannot be empty.');
+        }
+        updateData.name = name.trim();
+      }
+      if (nameGu !== undefined) updateData.nameGu = typeof nameGu === 'string' ? nameGu.trim() : category.nameGu;
+      if (nameHi !== undefined) updateData.nameHi = typeof nameHi === 'string' ? nameHi.trim() : category.nameHi;
+      if (icon !== undefined) updateData.icon = icon || null;
+      if (color !== undefined) updateData.color = color || null;
+
+      if (displayOrder !== undefined) {
+        const parsedOrder = typeof displayOrder === 'number' ? displayOrder : parseInt(displayOrder);
+        if (isNaN(parsedOrder) || parsedOrder < 0) {
+          throw new BadRequestError('Category order must be a positive number or zero (0 કે તેથી વધુ ધન સંખ્યા હોવી જોઈએ).');
+        }
+        updateData.displayOrder = parsedOrder;
+      }
+
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (showInHome !== undefined) updateData.showInHome = showInHome;
+      if (showInHeader !== undefined) updateData.showInHeader = showInHeader;
+
+      const checkName = updateData.name || category.name;
+      const checkNameGu = updateData.nameGu || category.nameGu;
+      const checkSlug = slug && typeof slug === 'string' ? slug.trim().toLowerCase() : category.slug;
+
+      // Duplicate check against other categories
+      const duplicateList = await prisma.category.findMany({
+        where: {
+          id: { not: id },
+          OR: [
+            { slug: checkSlug },
+            { name: { equals: checkName } },
+            { nameGu: { equals: checkNameGu } },
+          ],
+        },
+      });
+
+      if (duplicateList.length > 0) {
+        throw new ConflictError(`Category with name "${checkName}" or slug "${checkSlug}" already exists! (આ નામ અથવા સ્લગ ધરાવતી કૅટેગરી પહેલાથી જ હયાત છે)`);
+      }
 
       if (slug && typeof slug === 'string') {
-        const checkSlug = slug.trim().toLowerCase();
-        // Check duplicate slug if changed
-        if (checkSlug !== category.slug) {
-          const duplicate = await prisma.category.findUnique({
-            where: { slug: checkSlug },
-          });
-          if (duplicate) {
-            throw new ConflictError('A category with this slug already exists.');
-          }
-        }
         updateData.slug = checkSlug;
       }
 
@@ -111,6 +167,43 @@ export class CategoryController {
       });
 
       return sendSuccess(res, updated, 'Category updated successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reorder categories batch update.
+   */
+  static async reorderCategories(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items)) {
+        throw new BadRequestError('Items array is required.');
+      }
+
+      // Check all display orders are non-negative
+      for (const item of items) {
+        const orderVal = typeof item.displayOrder === 'number' ? item.displayOrder : parseInt(item.displayOrder);
+        if (isNaN(orderVal) || orderVal < 0) {
+          throw new BadRequestError('Category order must be a positive number or zero (0 કે તેથી વધુ ધન સંખ્યા હોવી જોઈએ).');
+        }
+      }
+
+      await prisma.$transaction(
+        items.map((item: { id: string; displayOrder: number }) =>
+          prisma.category.update({
+            where: { id: item.id },
+            data: { displayOrder: typeof item.displayOrder === 'number' ? item.displayOrder : (parseInt(item.displayOrder) || 0) },
+          })
+        )
+      );
+
+      const categories = await prisma.category.findMany({
+        orderBy: { displayOrder: 'desc' },
+      });
+
+      return sendSuccess(res, categories, 'Categories reordered successfully.');
     } catch (error) {
       next(error);
     }

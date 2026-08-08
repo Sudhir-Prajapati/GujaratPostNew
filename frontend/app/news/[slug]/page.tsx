@@ -4,41 +4,52 @@ import { SITE_URL } from "@/data";
 import { getPublicArticleBySlug, getPublicArticles } from "@/lib/api";
 import NewsDetailClient from "./NewsDetailClient";
 
+export const revalidate = 300;
+
 export async function generateStaticParams() {
-  const { articles } = await getPublicArticles({ limit: 50 });
-  return (articles || []).map((article) => ({ slug: article.slug }));
+  try {
+    const { articles } = await getPublicArticles({ limit: 50 });
+    return (articles || []).map((article) => ({ slug: article.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const article = await getPublicArticleBySlug(slug);
-  if (!article) return {};
-  const url = `/news/${article.slug}`;
+  try {
+    const article = await getPublicArticleBySlug(slug);
+    if (!article) return {};
+    const url = `/news/${article.slug}`;
+    const authorName = typeof article.author === 'string' ? article.author : article.author?.name || 'Gujarat Post';
 
-  return {
-    title: article.title,
-    description: article.excerpt,
-    alternates: { canonical: url },
-    authors: [{ name: article.author.name }],
-    openGraph: {
+    return {
       title: article.title,
       description: article.excerpt,
-      url,
-      siteName: "Gujarat Post",
-      images: [{ url: article.image, width: 1200, height: 630, alt: article.title }],
-      type: "article",
-      publishedTime: article.publishedAt,
-      modifiedTime: article.updatedAt,
-      authors: [article.author.name],
-      tags: article.tags,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: article.title,
-      description: article.excerpt,
-      images: [article.image],
-    },
-  };
+      alternates: { canonical: url },
+      authors: [{ name: authorName }],
+      openGraph: {
+        title: article.title,
+        description: article.excerpt,
+        url,
+        siteName: "Gujarat Post",
+        images: [{ url: article.image || '', width: 1200, height: 630, alt: article.title }],
+        type: "article",
+        publishedTime: article.publishedAt,
+        modifiedTime: article.updatedAt,
+        authors: [authorName],
+        tags: article.tags || [],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: article.title,
+        description: article.excerpt,
+        images: [article.image || ''],
+      },
+    };
+  } catch {
+    return {};
+  }
 }
 
 export default async function NewsDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -47,8 +58,16 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
 
   if (!article) notFound();
 
-  // Fetch related & trending articles from dynamic API
-  const { articles: related } = await getPublicArticles({ limit: 9 });
+  // Dynamically fetch related articles matching this article's categorySlug
+  const categorySlug = (article.category || '').toLowerCase().replace(/\s+/g, '-');
+  const { articles: categoryArticles } = await getPublicArticles({ categorySlug, limit: 12 });
+  const { articles: fallbackArticles } = await getPublicArticles({ limit: 12 });
+
+  // Filter out current article and deduplicate
+  const related = [...(categoryArticles || []), ...(fallbackArticles || [])]
+    .filter((a, idx, self) => a.id !== article.id && self.findIndex((t) => t.id === a.id) === idx)
+    .slice(0, 10);
+
   const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 11 });
 
   const articleUrl = `${SITE_URL}/news/${article.slug}`;

@@ -11,10 +11,11 @@ import { InstagramReelController } from '../controllers/instagramReel.controller
 import { WebStoryController } from '../controllers/webStory.controller.js';
 import uploadRoutes from './upload.routes.js';
 
-
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 import { Role } from '@prisma/client';
+import { prisma } from '../config/prisma.js';
+import { sendSuccess } from '../utils/response.js';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.delete('/users/:id', requireAuth, requireRole(Role.SUPER_ADMIN), UserCont
 // ==========================================
 router.get('/categories', requireAuth, CategoryController.getAllCategories);
 router.post('/categories', requireAuth, CategoryController.createCategory);
+router.put('/categories/reorder', requireAuth, CategoryController.reorderCategories);
 router.put('/categories/:id', requireAuth, CategoryController.updateCategory);
 router.delete('/categories/:id', requireAuth, CategoryController.deleteCategory);
 
@@ -54,6 +56,7 @@ router.delete('/articles/:id', requireAuth, ArticleController.deleteArticle);
 // ==========================================
 router.get('/videos', requireAuth, VideoController.getAllVideos);
 router.post('/videos', requireAuth, VideoController.createVideo);
+router.delete('/videos/all-shorts', requireAuth, VideoController.deleteAllShorts);
 router.put('/videos/:id', requireAuth, VideoController.updateVideo);
 router.delete('/videos/:id', requireAuth, VideoController.deleteVideo);
 

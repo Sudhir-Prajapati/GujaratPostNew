@@ -23,7 +23,6 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
-import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -41,21 +40,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     authFetch(getBackendApiUrl('/api/auth/me'))
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401) {
+          router.push('/login');
+          return null;
+        }
+        return res.json();
+      })
       .then((json) => {
-        if (json.success && json.data?.user) {
+        if (json?.success && json.data?.user) {
           setUserRole(json.data.user.role);
           setUserEmail(json.data.user.email);
           setUserName(json.data.user.authorName || json.data.user.email?.split('@')[0]);
+        } else if (json && !json.success) {
+          router.push('/login');
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        router.push('/login');
+      });
+  }, [router]);
 
   const menuItems = [
     { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { label: 'Articles', href: '/admin/articles', icon: FileText },
     { label: 'Hero Section', href: '/admin/hero', icon: LayoutTemplate },
+    { label: 'Advertisements', href: '/admin/ads', icon: Megaphone },
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
     { label: 'Videos', href: '/admin/videos', icon: Video },
@@ -69,7 +79,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories"],
     REPORTER: ["/admin/articles"],
     SEO: ["/admin/articles", "/admin/categories"],
-    ADVERTISEMENT: ["/admin/articles"],
+    ADVERTISEMENT: ["/admin/articles", "/admin/ads"],
     PHOTOGRAPHER: ["/admin/gallery"],
   };
 
@@ -122,7 +132,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <a href="/admin" className="flex items-center gap-2">
             <div className="relative h-10 w-40 overflow-hidden rounded">
               <Image
-                src={gpLogo}
+                src="/assets/gujarat-post-logo-chip.png"
                 alt="Gujarat Post"
                 fill
                 priority
@@ -138,8 +148,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </button>
         </div>
 
-        {/* Navigation Menu */}
-        <nav className="flex-1 space-y-1.5 p-4">
+        {/* Navigation Menu (Scrollable) */}
+        <nav className="flex-1 overflow-y-auto min-h-0 space-y-1.5 p-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
           {filteredMenuItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;

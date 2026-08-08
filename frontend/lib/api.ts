@@ -1,4 +1,5 @@
 import { Article, Video, Photo } from '@/types';
+import { PHOTOS } from '@/data';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gujaratpost.onrender.com/api/public';
 
@@ -15,9 +16,15 @@ export function getBackendApiUrl(path: string): string {
 }
 
 export function getAccessTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  if (typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
+    if (match && match[1]) return decodeURIComponent(match[1]);
+  }
+  if (typeof localStorage !== 'undefined') {
+    const localToken = localStorage.getItem('access_token');
+    if (localToken) return localToken;
+  }
+  return null;
 }
 
 export async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -64,11 +71,12 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    // Increase timeout to 30s to allow remote cloud database queries to complete smoothly without premature aborts
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     try {
       const res = await fetch(url, {
-        next: { revalidate: 60 },
+        next: { revalidate: 300 },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -158,9 +166,14 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
 /**
  * Fetch list of categories from Express Backend API
  */
-export async function getPublicCategories(): Promise<any[]> {
+export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean }): Promise<any[]> {
   try {
-    const url = `${API_BASE_URL}/categories`;
+    const query = new URLSearchParams();
+    if (options?.showInHeader) query.set('showInHeader', 'true');
+    if (options?.showInHome) query.set('showInHome', 'true');
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+
+    const url = `${API_BASE_URL}/categories${queryString}`;
     const json = await fetchCachedJson<any>(url);
     if (json?.success && json.data?.categories) {
       return json.data.categories;
@@ -225,30 +238,61 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
   try {
     // 1. Fetch live YouTube channel uploads from @Gujaratpostnews RSS feed
     const liveYt = await fetchLiveYouTubeChannelVideos();
-    let liveList =
+    const liveList =
       type === 'short'
         ? liveYt.shorts
         : type === 'video'
           ? liveYt.videos
           : [...liveYt.videos, ...liveYt.shorts];
 
-    for (const v of liveList) {
-      if (v.youtubeId && !seenIds.has(v.youtubeId)) {
-        seenIds.add(v.youtubeId);
-        combined.push(v);
-      }
-    }
-
     // 2. Fetch backend database videos
     const url = type ? `${API_BASE_URL}/videos?type=${type}` : `${API_BASE_URL}/videos`;
     const json = await fetchCachedJson<any>(url);
-    if (json?.success && Array.isArray(json.data?.videos)) {
-      for (const v of json.data.videos) {
-        const idKey = v.youtubeId || v.id;
+    const dbVideos: Video[] = (json?.success && Array.isArray(json.data?.videos)) ? json.data.videos : [];
+
+    // Create lookup map for DB videos by youtubeId or id
+    const dbMap = new Map<string, Video>();
+    for (const dbv of dbVideos) {
+      const key = dbv.youtubeId || dbv.id;
+      if (key) dbMap.set(key, dbv);
+    }
+
+    // 3. FIRST: Add all DB videos that are marked as isFeatured: true
+    for (const dbv of dbVideos) {
+      if (dbv.isFeatured) {
+        const idKey = dbv.youtubeId || dbv.id;
         if (idKey && !seenIds.has(idKey)) {
           seenIds.add(idKey);
+          combined.push(dbv);
+        }
+      }
+    }
+
+    // 4. SECOND: Add live RSS videos, merging isFeatured and localized titles from DB if available
+    for (const v of liveList) {
+      if (v.youtubeId && !seenIds.has(v.youtubeId)) {
+        seenIds.add(v.youtubeId);
+        const dbMatch = dbMap.get(v.youtubeId);
+        if (dbMatch) {
+          combined.push({
+            ...v,
+            ...dbMatch,
+            isFeatured: dbMatch.isFeatured ?? v.isFeatured,
+            titleGu: dbMatch.titleGu || v.titleGu,
+            titleHi: dbMatch.titleHi || v.titleHi,
+          });
+        } else {
           combined.push(v);
         }
+      }
+    }
+
+    // 5. THIRD: Add remaining DB videos
+    for (const dbv of dbVideos) {
+      const idKey = dbv.youtubeId || dbv.id;
+      if (idKey && !seenIds.has(idKey)) {
+        seenIds.add(idKey);
+        combined.push(dbv);
       }
     }
   } catch (error: any) {
@@ -261,18 +305,20 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
 /**
  * Fetch photo gallery items from Express Backend API
  */
-export async function getPublicGallery(): Promise<Photo[]> {
+export async function getPublicGallery(): Promise<any[]> {
   try {
     const url = `${API_BASE_URL}/gallery`;
-    const json = await fetchCachedJson<any>(url);
-    if (json?.success && json.data?.photos) {
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
+    if (json?.success && json.data?.photos && json.data.photos.length > 0) {
       return json.data.photos;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for gallery:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for gallery:', error?.message || error);
+    }
   }
 
-  return [];
+  return PHOTOS;
 }
 
 /**
@@ -286,7 +332,9 @@ export async function getPublicStories(): Promise<any[]> {
       return json.data.stories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for stories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for stories:', error?.message || error);
+    }
   }
   return [];
 }
@@ -302,9 +350,29 @@ export async function getPublicWebStories(): Promise<any[]> {
       return json.data.webStories;
     }
   } catch (error: any) {
-    console.warn('Backend API fetch error for webstories:', error?.message || error);
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for webstories:', error?.message || error);
+    }
   }
   return [];
+}
+
+/**
+ * Fetch Live Center data (Fuel, Market, Cricket, Football) from Express Backend API
+ */
+export async function getLiveCenterData(): Promise<any> {
+  try {
+    const url = `${API_BASE_URL}/live-center`;
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
+    if (json?.success && json.data) {
+      return json.data;
+    }
+  } catch (error: any) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Backend API fetch error for live center:', error?.message || error);
+    }
+  }
+  return null;
 }
 
 /**
@@ -338,6 +406,23 @@ export async function getPublicAstrology(): Promise<any[]> {
   }
   return [];
 }
+
+/**
+ * Update Astrology sign details (Admin)
+ */
+export async function updateAdminAstrologySign(slug: string, payload: any): Promise<any> {
+  const res = await authFetch(`/api/admin/astrology/${slug}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error('Failed to update astrology sign');
+  }
+  clearApiCache();
+  return res.json();
+}
+
 
 /**
  * Fetch Hero section settings and slot articles from Express Backend API

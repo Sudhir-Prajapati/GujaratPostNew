@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
+import RichTextArea from '@/components/ui/RichTextArea';
 
 interface ArticleFormProps {
   articleId?: string; // If present, we are in Edit mode
@@ -155,6 +156,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [location, setLocation] = useState('');
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED'>('DRAFT');
+  const [scheduledAt, setScheduledAt] = useState('');
   const [priority, setPriority] = useState(0);
   const [readingTime, setReadingTime] = useState(3);
 
@@ -493,6 +495,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
         setStatus(art.status || 'PUBLISHED');
+        const rawSched = art.scheduledAt || (art.status === 'SCHEDULED' ? art.publishedAt : null);
+        if (rawSched) {
+          const d = new Date(rawSched);
+          if (!isNaN(d.getTime())) {
+            const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            setScheduledAt(localIso);
+          } else {
+            setScheduledAt('');
+          }
+        } else {
+          setScheduledAt('');
+        }
         setPriority(art.priority || 0);
         setReadingTime(art.readingTime || 3);
         setIsTrending(art.isTrending || false);
@@ -506,7 +520,12 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setMetaRobots(art.metaRobots || 'index, follow');
 
         if (art.tags && art.tags.length > 0) {
-          setTagsString(art.tags.map((t: any) => t.name).join(', '));
+          const names = art.tags
+            .map((t: any) => (t.tag?.name || t.name || '').trim())
+            .filter((name: string) => name.length > 0);
+          setTagsString(names.join(', '));
+        } else {
+          setTagsString('');
         }
       } catch (err: any) {
         console.error('Error loading article in edit mode:', err);
@@ -633,6 +652,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       location: location || null,
       authorId,
       status,
+      scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
       priority: Number(priority),
       readingTime: Number(readingTime),
       isTrending,
@@ -662,6 +682,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       if (!response.ok) throw new Error(result.error || 'Failed to save article.');
 
       clearApiCache();
+      fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: result.article?.slug || result.slug || slug }),
+      }).catch(() => {});
 
       // Route back to list
       router.push('/admin/articles');
@@ -905,52 +930,119 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
-        {/* Placement Badges */}
-        <div className="flex flex-wrap gap-4 rounded-xl border border-zinc-100 bg-zinc-50/60 p-3.5 dark:border-zinc-800 dark:bg-zinc-950/30">
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isBreaking}
-              onChange={(e) => setIsBreaking(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-amber-500 text-white font-black px-2 py-0.5 rounded text-[10px]">BREAKING NEWS</span>
-          </label>
+        {/* Placement Badges & Website Location Info */}
+        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+          <div className="flex items-center justify-between border-b border-zinc-200/80 pb-2 dark:border-zinc-800">
+            <span className="text-xs font-black uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <span>Article Display Placement & Badges (તમારું આર્ટીકલ ક્યાં દેખાશે)</span>
+            </span>
+            <span className="text-[11px] font-medium text-zinc-400">Select where this article should appear on Gujarat Post homepage</span>
+          </div>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isTrending}
-              onChange={(e) => setIsTrending(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded text-[10px]">TRENDING STORY</span>
-          </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {/* BREAKING NEWS */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isBreaking 
+                ? 'border-amber-400 bg-amber-50/80 dark:border-amber-800/80 dark:bg-amber-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-amber-500 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    ⚡ BREAKING NEWS
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isBreaking}
+                    onChange={(e) => setIsBreaking(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Top Breaking Ticker Bar</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Shows in red ticker bar at the top of homepage and adds urgent "તાજા સમાચાર" tag.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Header & Top Flashes
+              </span>
+            </label>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-zinc-700 dark:text-zinc-300">
-            <input
-              type="checkbox"
-              checked={isFeatured}
-              onChange={(e) => setIsFeatured(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500"
-            />
-            <span className="bg-emerald-600 text-white font-black px-2 py-0.5 rounded text-[10px]">FEATURED COVERAGE</span>
-          </label>
+            {/* TRENDING STORY */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isTrending 
+                ? 'border-blue-400 bg-blue-50/80 dark:border-blue-800/80 dark:bg-blue-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-blue-600 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    🔥 TRENDING STORY
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isTrending}
+                    onChange={(e) => setIsTrending(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Trending Sidebar & List</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Appears in "ટ્રેન્ડિંગ સમાચાર" sidebar widget and top read news lists across pages.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-blue-700 dark:text-blue-400 bg-blue-100/70 dark:bg-blue-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Right Sidebar & Feed
+              </span>
+            </label>
+
+            {/* FEATURED COVERAGE */}
+            <label className={`flex flex-col justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+              isFeatured 
+                ? 'border-emerald-400 bg-emerald-50/80 dark:border-emerald-800/80 dark:bg-emerald-950/30 shadow-sm' 
+                : 'border-zinc-200 bg-white hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900'
+            }`}>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="bg-emerald-600 text-white font-black px-2 py-0.5 rounded text-[10px] tracking-wide shadow-sm">
+                    ⭐ FEATURED COVERAGE
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={isFeatured}
+                    onChange={(e) => setIsFeatured(e.target.checked)}
+                    className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">Main Hero Grid Banner</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
+                    Promotes article to main homepage Hero Big Banner cards and category top feature spots.
+                  </p>
+                </div>
+              </div>
+              <span className="mt-2 text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-100/70 dark:bg-emerald-950/60 px-2 py-0.5 rounded w-fit">
+                📍 Location: Main Hero Grid
+              </span>
+            </label>
+          </div>
         </div>
         <div>
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Short Description / Subtitle Excerpt
-          </label>
-          <textarea
+          <RichTextArea
+            label="Short Description / Subtitle Excerpt"
             value={(contentLang === 'gu' ? excerptGu : contentLang === 'hi' ? excerptHi : excerpt) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setExcerpt(e.target.value);
-              else if (contentLang === 'gu') setExcerptGu(e.target.value);
-              else if (contentLang === 'hi') setExcerptHi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setExcerpt(val);
+              else if (contentLang === 'gu') setExcerptGu(val);
+              else if (contentLang === 'hi') setExcerptHi(val);
             }}
             placeholder="Brief news hook overview summary..."
-            rows={2}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+            rows={3}
           />
         </div>
 
@@ -1052,21 +1144,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         </div>
 
         {/* 📰 DISTINCT SECTION 3: Description 1 (*) / Main Content Body */}
-        <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Description 1 (*) / Main Content Body <span className="text-red-500">*</span>
-          </label>
-          <textarea
+        <div>
+          <RichTextArea
+            label="Description 1 (*) / Main Content Body"
+            required
             value={(contentLang === 'gu' ? desc1Gu : contentLang === 'hi' ? desc1Hi : desc1) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setDesc1(e.target.value);
-              else if (contentLang === 'gu') setDesc1Gu(e.target.value);
-              else if (contentLang === 'hi') setDesc1Hi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setDesc1(val);
+              else if (contentLang === 'gu') setDesc1Gu(val);
+              else if (contentLang === 'hi') setDesc1Hi(val);
             }}
             placeholder="Write main story lead paragraphs..."
             rows={8}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 font-sans"
-            required
           />
         </div>
 
@@ -1213,20 +1302,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
 
 
         {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
-        <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Description 2 (Optional) / Additional Paragraphs
-          </label>
-          <textarea
+        {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
+        <div>
+          <RichTextArea
+            label="Description 2 (Optional) / Additional Paragraphs"
             value={(contentLang === 'gu' ? desc2Gu : contentLang === 'hi' ? desc2Hi : desc2) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setDesc2(e.target.value);
-              else if (contentLang === 'gu') setDesc2Gu(e.target.value);
-              else if (contentLang === 'hi') setDesc2Hi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setDesc2(val);
+              else if (contentLang === 'gu') setDesc2Gu(val);
+              else if (contentLang === 'hi') setDesc2Hi(val);
             }}
             placeholder="Write concluding story paragraphs..."
             rows={5}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 font-sans"
           />
         </div>
 
@@ -1260,7 +1347,14 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               ) : (
                 <CustomSelect
                   value={status || 'DRAFT'}
-                  onChange={(val) => setStatus(val as any)}
+                  onChange={(val) => {
+                    setStatus(val as any);
+                    if (val === 'SCHEDULED' && !scheduledAt) {
+                      const nextHour = new Date(Date.now() + 3600000);
+                      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                      setScheduledAt(localIso);
+                    }
+                  }}
                   options={[
                     { value: 'PUBLISHED', label: 'Publish' },
                     { value: 'DRAFT', label: 'Draft' },
@@ -1272,6 +1366,28 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                 />
               )}
             </div>
+
+            {status !== 'PUBLISHED' && (
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                  Scheduled Publish Date & Time ⏰
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => {
+                    setScheduledAt(e.target.value);
+                    if (e.target.value && status !== 'SCHEDULED') {
+                      setStatus('SCHEDULED');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                />
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Article will automatically become visible on the public website when this time arrives.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">

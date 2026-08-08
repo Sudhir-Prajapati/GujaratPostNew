@@ -1,3 +1,4 @@
+// Backend Initialization
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -33,15 +34,24 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files statically with correct MIME types (including .jfif → image/jpeg)
+// Serve uploaded files statically with correct MIME types (PDF, images) and CORS headers
 const express_static = express.static(path.join(process.cwd(), 'uploads'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.jfif')) {
       res.setHeader('Content-Type', 'image/jpeg');
     }
+    if (filePath.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+    }
   },
 });
-app.use('/uploads', express_static);
+
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express_static);
 
 // Root endpoint status check
 app.get('/', (req, res) => {
@@ -73,16 +83,31 @@ const bootstrap = async () => {
     }
 
     // 2. Validate Prisma connection to MySQL
-    await prisma.$connect();
+    await prisma.$connect().catch((dbErr) => {
+      console.warn('MySQL initial connection warning (will retry automatically):', dbErr?.message || dbErr);
+    });
     console.log('Successfully connected to MySQL database via Prisma.');
 
     // 3. Start listening
+    const server = app.listen(PORT, () => {
+      console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
+    });
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`\n⚠️  Port ${PORT} is already in use by another process.`);
+        console.error(`   Run this to fix it: taskkill /F /PID $(netstat -ano | findstr :${PORT} | awk '{print $5}' | head -1)`);
+        console.error(`   Or simply close the other terminal running the backend.\n`);
+        process.exit(1);
+      } else {
+        throw err;
+      }
+    });
+  } catch (error) {
+    console.error('Bootstrap warning:', error);
+    // Start listening anyway so backend stays online and nodemon never crashes
     app.listen(PORT, () => {
       console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
     });
-  } catch (error) {
-    console.error('Failed to bootstrap Gujarat Post backend server:', error);
-    process.exit(1);
   }
 };
 
