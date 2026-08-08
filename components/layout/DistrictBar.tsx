@@ -50,6 +50,7 @@ export default function DistrictBar() {
   const { language } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [gujaratCategories, setGujaratCategories] = useState<any[]>([]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -59,6 +60,18 @@ export default function DistrictBar() {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    import('@/lib/api').then(({ getPublicCategories }) => {
+      getPublicCategories({ showInHeader: true, headerType: 'GUJARAT' })
+        .then((cats) => {
+          if (cats && Array.isArray(cats)) {
+            setGujaratCategories(cats.sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0)));
+          }
+        })
+        .catch(() => {});
+    });
   }, []);
 
   return (
@@ -89,17 +102,21 @@ export default function DistrictBar() {
                 </Link>
               );
             })}
-
-            {/* More / અન્ય Dropdown Trigger (Placed inside the scroll list right after Dang) */}
-            {/* <span
-              className="text-[14.5px] md:text-[15.5px] font-semibold text-foreground whitespace-nowrap flex items-center gap-0.5 select-none"
-            >
-              <span>{language === 'gu' ? 'અન્ય શહેરો' : language === 'hi' ? 'अन्य शहर' : 'Other Cities'}</span>
-            </span> */}
+            
+            {gujaratCategories.map((cat) => {
+              const label = language === 'hi' ? (cat.nameHi || cat.name) : language === 'gu' ? (cat.nameGu || cat.name) : cat.name;
+              return (
+                <Link
+                  key={cat.id}
+                  href={`/category/${cat.slug}`}
+                  className="text-[14.5px] md:text-[15.5px] font-semibold text-foreground hover:text-[#B3121B] transition-colors duration-150 whitespace-nowrap"
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </div>
         </div>
-
-        {/* Dropdown Menu - Disabled */}
       </div>
     </div>
   );

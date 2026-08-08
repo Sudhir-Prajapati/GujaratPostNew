@@ -33,6 +33,7 @@ interface CategoryData {
   isActive: boolean;
   showInHome?: boolean;
   showInHeader?: boolean;
+  headerType?: string;
   createdAt: string;
 }
 
@@ -60,6 +61,7 @@ export default function CategoriesPage() {
   const [isActive, setIsActive] = useState(true);
   const [showInHome, setShowInHome] = useState(true);
   const [showInHeader, setShowInHeader] = useState(true);
+  const [headerType, setHeaderType] = useState('GLOBAL');
   const [formLang, setFormLang] = useState<'en' | 'gu' | 'hi'>('en');
 
   // Temporary list state for Reorder Modal
@@ -108,6 +110,7 @@ export default function CategoriesPage() {
     setIsActive(true);
     setShowInHome(true);
     setShowInHeader(true);
+    setHeaderType('GLOBAL');
     setFormLang('en');
     setModalOpen(true);
   };
@@ -125,6 +128,7 @@ export default function CategoriesPage() {
     setIsActive(cat.isActive ?? true);
     setShowInHome(cat.showInHome !== undefined ? cat.showInHome : true);
     setShowInHeader(cat.showInHeader !== undefined ? cat.showInHeader : true);
+    setHeaderType(cat.headerType || 'GLOBAL');
     setFormLang('en');
     setModalOpen(true);
   };
@@ -208,6 +212,7 @@ export default function CategoriesPage() {
       isActive,
       showInHome,
       showInHeader,
+      headerType,
     };
 
     try {
@@ -806,6 +811,38 @@ export default function CategoriesPage() {
 
               {/* Visibility and Active Toggles */}
               <div className="space-y-2.5 border-t border-zinc-150 dark:border-zinc-800 pt-3">
+                
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                    Heading Placement
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="headerType" 
+                        value="GLOBAL" 
+                        checked={headerType === 'GLOBAL'} 
+                        onChange={() => setHeaderType('GLOBAL')} 
+                        className="accent-red-600"
+                      />
+                      <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Global (First Heading)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="radio" 
+                        name="headerType" 
+                        value="GUJARAT" 
+                        checked={headerType === 'GUJARAT'} 
+                        onChange={() => setHeaderType('GUJARAT')} 
+                        className="accent-red-600"
+                      />
+                      <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Gujarat (Second Heading)</span>
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-1">Select where this category should appear in the navigation bar.</p>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
@@ -816,7 +853,7 @@ export default function CategoriesPage() {
                   />
                   <label htmlFor="showInHeaderCheck" className="text-sm font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer flex items-center gap-1.5">
                     <Layers className="h-4 w-4 text-blue-600" />
-                    Show in Navigation Header (Top Menu)
+                    Show in Navigation Header
                   </label>
                 </div>
 
