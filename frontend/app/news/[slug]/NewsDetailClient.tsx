@@ -1225,12 +1225,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                           {language === 'gu' ? 'ટોપિક્સ:' : language === 'hi' ? 'विषय:' : 'Topics:'}
                         </span>
                         {getStreamTags(streamArticle).map((tag, tIdx) => (
-                          <span
+                          <Link
                             key={tIdx}
+                            href={`/search?q=${encodeURIComponent(tag)}`}
                             className="topic-pill cursor-pointer bg-neutral-100 dark:bg-neutral-800/80 hover:bg-[#B3121B] dark:hover:bg-[#B3121B] text-neutral-800 dark:text-neutral-200 hover:text-white dark:hover:text-white rounded-full px-4 py-1.5 text-xs font-bold border border-neutral-300 dark:border-neutral-700 hover:border-[#B3121B] dark:hover:border-[#B3121B] shadow-sm transition-all duration-200"
                           >
                             {tag}
-                          </span>
+                          </Link>
                         ))}
                       </div>
                     </div>
@@ -1283,13 +1284,14 @@ export default function NewsDetailClient({ article, related, trending, articleUr
               <span className="topics-title font-extrabold text-neutral-900 dark:text-white mr-2 text-[14.5px] tracking-wide uppercase border-b-2 border-[#B3121B] pb-0.5">
                 {language === 'gu' ? 'ટોપિક્સ:' : language === 'hi' ? 'विषय:' : 'Topics:'}
               </span>
-              {article.tags.map((tag, tIdx) => (
-                <span
+              {(language === 'en' ? article.tags : language === 'hi' ? (article.tagsHi?.length ? article.tagsHi : article.tags) : (article.tagsGu?.length ? article.tagsGu : article.tags)).map((tag, tIdx) => (
+                <Link
                   key={tIdx}
+                  href={`/search?q=${encodeURIComponent(tag)}`}
                   className="topic-pill cursor-pointer bg-neutral-100 dark:bg-neutral-800/80 hover:bg-[#B3121B] dark:hover:bg-[#B3121B] text-neutral-800 dark:text-neutral-200 hover:text-white dark:hover:text-white rounded-full px-4 py-1.5 text-xs font-bold border border-neutral-300 dark:border-neutral-700 hover:border-[#B3121B] dark:hover:border-[#B3121B] shadow-sm transition-all duration-200"
                 >
                   {tag}
-                </span>
+                </Link>
               ))}
             </div>
           </article>
