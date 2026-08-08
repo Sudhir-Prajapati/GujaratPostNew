@@ -226,7 +226,7 @@ export default function Header() {
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
   useEffect(() => {
-    getPublicCategories({ showInHeader: true })
+    getPublicCategories({ showInHeader: true, headerType: 'GLOBAL' })
       .then((cats) => {
         if (cats && Array.isArray(cats) && cats.length > 0) {
           setDbCategories(cats);

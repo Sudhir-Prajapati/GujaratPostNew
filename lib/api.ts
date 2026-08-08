@@ -1,11 +1,11 @@
 import { Article, Video, Photo } from '@/types';
 import { PHOTOS } from '@/data';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://gujaratpost.onrender.com/api/public';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/public';
 
 export const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL
   ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
-  : 'https://gujaratpost.onrender.com/api';
+  : 'http://localhost:5000/api';
 
 export function getBackendApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -71,8 +71,8 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    // Increase timeout to 30s to allow remote cloud database queries to complete smoothly without premature aborts
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // Increase timeout to 120s to allow remote cloud database queries (and cold starts on Render) to complete smoothly
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
     try {
       const res = await fetch(url, {
@@ -166,11 +166,12 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
 /**
  * Fetch list of categories from Express Backend API
  */
-export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean }): Promise<any[]> {
+export async function getPublicCategories(options?: { showInHeader?: boolean; showInHome?: boolean; headerType?: string }): Promise<any[]> {
   try {
     const query = new URLSearchParams();
     if (options?.showInHeader) query.set('showInHeader', 'true');
     if (options?.showInHome) query.set('showInHome', 'true');
+    if (options?.headerType) query.set('headerType', options.headerType);
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
     const url = `${API_BASE_URL}/categories${queryString}`;
