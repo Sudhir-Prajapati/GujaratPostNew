@@ -23,6 +23,75 @@ import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
 import { getBackendApiUrl } from '@/lib/api';
 
+const CATEGORY_SLUG_MAP: Record<string, string> = {
+  'gujarat': 'gujarat',
+  'ahmedabad': 'ahmedabad',
+  'gandhinagar': 'gandhinagar',
+  'surat': 'surat',
+  'vadodara': 'vadodara',
+  'rajkot': 'rajkot',
+  'state': 'state',
+  'india': 'india',
+  'world': 'world',
+  'business': 'business',
+  'sports': 'sports',
+  'entertainment': 'entertainment',
+  'technology': 'technology',
+  'education': 'education',
+  'fact-check': 'fact-check',
+  'factcheck': 'fact-check',
+  'election': 'election',
+  'trending': 'trending',
+
+  'ગુજરાત': 'gujarat',
+  'અમદાવાદ': 'ahmedabad',
+  'અહમદાબાદ': 'ahmedabad',
+  'ગાંધીનગર': 'gandhinagar',
+  'સુરત': 'surat',
+  'વડોદરા': 'vadodara',
+  'રાજકોટ': 'rajkot',
+  'ભારત': 'india',
+  'વિશ્વ': 'world',
+  'બિઝનેસ': 'business',
+  'ગોલ્ડ - સિલ્વર': 'business',
+  'સ્પોર્ટ્સ': 'sports',
+  'રમત-ગમત': 'sports',
+  'મનોરંજન': 'entertainment',
+  'ટેકનોલોજી': 'technology',
+  'શિક્ષણ': 'education',
+  'ફેક્ટ ચેક': 'fact-check',
+  'ચૂંટણી 2027': 'election',
+  'ટ્રેન્ડિંગ': 'trending',
+
+  'गुजरात': 'gujarat',
+  'अहमदाबाद': 'ahmedabad',
+  'गांधीनगर': 'gandhinagar',
+  'सूरत': 'surat',
+  'वडोदरा': 'vadodara',
+  'राजकोट': 'rajkot',
+  'भारत': 'india',
+  'विश्व': 'world',
+  'बिजनेस': 'business',
+  'खेल': 'sports',
+  'मनोरंजन': 'entertainment',
+  'टेक्नोलॉजी': 'technology',
+  'शिक्षा': 'education',
+  'फैक्ट चेक': 'fact-check',
+  'चुनाव २०२७': 'election',
+  'ट्रेंडिंग': 'trending',
+};
+
+function getTopicHref(tag: string): string {
+  if (!tag) return '/search';
+  const trimmed = tag.trim();
+  const lower = trimmed.toLowerCase();
+  const catSlug = CATEGORY_SLUG_MAP[trimmed] || CATEGORY_SLUG_MAP[lower];
+  if (catSlug) {
+    return `/category/${catSlug}`;
+  }
+  return `/search?q=${encodeURIComponent(trimmed)}`;
+}
+
 const DEMO_THUMBNAILS = [
   'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=400&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&auto=format&fit=crop&q=80',
@@ -1227,7 +1296,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         {getStreamTags(streamArticle).map((tag, tIdx) => (
                           <Link
                             key={tIdx}
-                            href={`/search?q=${encodeURIComponent(tag)}`}
+                            href={getTopicHref(tag)}
                             className="topic-pill cursor-pointer bg-neutral-100 dark:bg-neutral-800/80 hover:bg-[#B3121B] dark:hover:bg-[#B3121B] text-neutral-800 dark:text-neutral-200 hover:text-white dark:hover:text-white rounded-full px-4 py-1.5 text-xs font-bold border border-neutral-300 dark:border-neutral-700 hover:border-[#B3121B] dark:hover:border-[#B3121B] shadow-sm transition-all duration-200"
                           >
                             {tag}
@@ -1287,7 +1356,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
               {(language === 'en' ? article.tags : language === 'hi' ? (article.tagsHi?.length ? article.tagsHi : article.tags) : (article.tagsGu?.length ? article.tagsGu : article.tags)).map((tag, tIdx) => (
                 <Link
                   key={tIdx}
-                  href={`/search?q=${encodeURIComponent(tag)}`}
+                  href={getTopicHref(tag)}
                   className="topic-pill cursor-pointer bg-neutral-100 dark:bg-neutral-800/80 hover:bg-[#B3121B] dark:hover:bg-[#B3121B] text-neutral-800 dark:text-neutral-200 hover:text-white dark:hover:text-white rounded-full px-4 py-1.5 text-xs font-bold border border-neutral-300 dark:border-neutral-700 hover:border-[#B3121B] dark:hover:border-[#B3121B] shadow-sm transition-all duration-200"
                 >
                   {tag}
