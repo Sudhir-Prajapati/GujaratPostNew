@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Mail, Lock, Eye, EyeOff, Loader2, Newspaper, ArrowRight, AlertCircle } from 'lucide-react';
-import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
 
 function LoginForm() {
   const router = useRouter();
@@ -53,12 +52,15 @@ function LoginForm() {
         throw new Error(result.error || result.message || 'Invalid credentials. Please try again.');
       }
 
-      // Store access_token cookie for Next.js proxy middleware
+      // Store access_token cookie for Next.js proxy middleware & localStorage for authFetch
       const token = result.data?.accessToken || result.accessToken;
       if (token) {
         const maxAge = rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60;
         const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         document.cookie = `access_token=${token}; path=/; max-age=${maxAge}; ${isHttps ? 'Secure;' : ''} SameSite=Lax`;
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('access_token', token);
+        }
       }
 
       // Success! Redirect to target page
@@ -76,7 +78,7 @@ function LoginForm() {
       <div className="mb-8 text-center">
         <div className="relative mx-auto mb-4 h-16 w-44">
           <Image
-            src={gpLogo}
+            src="/assets/gujarat-post-logo-chip.png"
             alt="Gujarat Post"
             fill
             priority

@@ -38,6 +38,8 @@ import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 
+const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
+
 const CHANNEL_URL = 'https://www.youtube.com/@Gujaratpostnews';
 const CHANNEL_ID = 'UCqQ8YbFSZ4j8J4iVJOHurTw';
 const LATEST_VIDEO_ID = 'A_5vL-ngK4M';
@@ -365,7 +367,12 @@ export default function HeroSection({
   // DB-backed article state
   const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
   // topStories: auto-populated from latest articles (main hero, right 2, text articles)
-  const [topStories, setTopStories] = useState<Article[]>(initialArticles.slice(0, 16));
+  const initialSortedHeroPool = [...initialArticles].sort((a: Article, b: Article) => {
+    const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
+    const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
+    return bScore - aScore;
+  });
+  const [topStories, setTopStories] = useState<Article[]>(initialSortedHeroPool.slice(0, 16));
   // bottomFeatured: admin-selected 3 articles shown in the bottom image row
   const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
   const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
@@ -438,18 +445,24 @@ export default function HeroSection({
         setArticlesList(arts);
         setTopNews(arts.slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
-        // Prioritize articles with BREAKING, TRENDING, or FEATURED flags for main hero spotlight
-        const heroPool = arts
+        // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
+        const customGridArts: Article[] = (heroRes?.heroGridArticles || []).filter(Boolean);
+        const autoHeroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
-            const aScore = (a.isBreaking ? 3 : 0) + (a.isTrending ? 2 : 0) + (a.isFeatured ? 1 : 0);
-            const bScore = (b.isBreaking ? 3 : 0) + (b.isTrending ? 2 : 0) + (b.isFeatured ? 1 : 0);
-            return bScore - aScore;
+            const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+            const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+            if (bScore !== aScore) return bScore - aScore;
+            return bTime - aTime;
           });
-        setTopStories(heroPool.slice(0, 16));
-
-        const trending = arts.filter((a: Article) => a.isTrending);
-        setTrendingArtDB(fillPool(trending, arts, 10));
+        const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
+        setTopStories(heroPool);
+        const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
+        const trendingArts = arts.filter((a: Article) => a.isTrending);
+        const popularPool = fillPool([...trendingArts, ...customPopularArts], arts, 10);
+        setTrendingArtDB(popularPool);
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
         setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));
         setNationalArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
@@ -3176,7 +3189,7 @@ function CityHyperlocalSection({
 
                   <div className="h-[38px] overflow-hidden mt-2">
                     <p className="text-muted-foreground text-[12.5px] leading-relaxed line-clamp-2 font-medium">
-                      {getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi })}
+                      {stripHtmlTags(getLocalized(language, { en: currentSlide.excerpt, gu: currentSlide.excerptGu, hi: currentSlide.excerptHi }))}
                     </p>
                   </div>
 
@@ -5648,7 +5661,7 @@ export function FactCheckSection({ language }: { language: Language }) {
       ? 'શું સરકારે ખરેખર બધા વિદ્યાર્થીઓને મફત લેપટોપ આપવાની જાહેરાત કરી? જાણો સત્ય'
       : 'Did government really announce free laptops for all students? Know truth'
   );
-  const featExcerpt = featArt ? getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt }) : (
+  const featExcerpt = featArt ? stripHtmlTags(getLocalized(language, { en: featArt.excerpt, gu: featArt.excerptGu || featArt.excerpt, hi: (featArt as any).excerptHi || featArt.excerpt })) : (
     language === 'gu'
       ? 'ગુજરાત પોસ્ટની તપાસમાં જાણવા મળ્યું કે વાયરલ પરિપત્ર બનાવટી છે – શિક્ષણ વિભાગે આવી કોઈ જાહેરાત કરી નથી.'
       : 'Gujarat Post investigation revealed that the viral circular is fake – the education department has made no such announcement.'
@@ -6279,7 +6292,7 @@ export function WorldSection({ language }: { language: Language }) {
                 {featured.title}
               </h3>
               <p className="text-muted-foreground text-[13px] leading-relaxed mt-3.5 line-clamp-4 select-none">
-                {featured.excerpt}
+                {stripHtmlTags(featured.excerpt)}
               </p>
             </div>
 
@@ -7720,7 +7733,22 @@ function TrendingNewsSection({ articles, language }: { articles: Article[]; lang
               style={{ aspectRatio: '4/3' }}
             >
               <Image
-                src={article.image || 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=400&q=80'}
+                src={
+                  article.image && !article.image.includes('photo-1599930113854') && !article.image.includes('photo-1589308078059')
+                    ? article.image
+                    : [
+                        'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
+                        'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
+                      ][index % 10]
+                }
                 alt={getArticleTitle(article, language)}
                 fill
                 sizes="(max-width: 768px) 50vw, 20vw"

@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { getPublicGallery, getPublicArticles } from "@/lib/api";
 import PhotoDetailClient from "./PhotoDetailClient";
 
+export const revalidate = 300;
+
 export async function generateStaticParams() {
   const photos = await getPublicGallery();
   return photos.map((photo) => ({ id: photo.id }));
