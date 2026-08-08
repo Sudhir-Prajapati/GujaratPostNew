@@ -183,6 +183,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const [speaking, setSpeaking] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [adSlide, setAdSlide] = useState(0);
+  const [relatedLimit, setRelatedLimit] = useState(8);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -1030,15 +1031,24 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             <span className="spacer"></span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6">
-            {related.slice(0, 8).map((item, index) => {
+            {related.slice(0, relatedLimit).map((item, index) => {
               const itemTitle = getArticleTitle(item, language);
               const itemCategory = getCategoryLabel(item, language);
               const isSaved = savedIds.includes(item.id);
               return (
                 <div key={item.id} className="zoomhost relative group flex flex-col">
                   <Link href={`/news/${item.slug}`} className="s-standard flex flex-col group">
-                    <div className="imgwrap relative aspect-[3/2] overflow-hidden rounded-md mb-2">
-                      <Image src={getCardThumbnail(item, index)} alt={item.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition duration-300 group-hover:scale-105" />
+                    <div className="imgwrap relative aspect-[3/2] overflow-hidden rounded-md mb-2 bg-neutral-100 dark:bg-neutral-800">
+                      <Image
+                        src={getCardThumbnail(item, index)}
+                        alt={item.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover transition duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
+                        }}
+                      />
                       {isSaved && (
                         <span className="absolute top-2 right-2 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
                           🔖
@@ -1060,9 +1070,22 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             })}
           </div>
           <div style={{ textAlign: 'center', padding: '42px 0 4px' }}>
-            <button type="button" className="art-more-btn">
-              {language === 'gu' ? 'વધુ જુઓ ↓' : language === 'hi' ? 'अधिक देखें ↓' : 'View More ↓'}
-            </button>
+            {relatedLimit < related.length ? (
+              <button
+                type="button"
+                onClick={() => setRelatedLimit((prev) => prev + 4)}
+                className="art-more-btn cursor-pointer hover:bg-[#B3121B] hover:text-white transition-all shadow-sm active:scale-95"
+              >
+                {language === 'gu' ? 'વધુ જુઓ ↓' : language === 'hi' ? 'अधिक देखें ↓' : 'View More ↓'}
+              </button>
+            ) : (
+              <Link
+                href={`/category/${(article.category || 'all').toLowerCase().replace(/\s+/g, '-')}`}
+                className="art-more-btn inline-block cursor-pointer hover:bg-[#B3121B] hover:text-white transition-all shadow-sm active:scale-95"
+              >
+                {language === 'gu' ? 'બધા સમાચાર જુઓ →' : language === 'hi' ? 'सभी समाचार देखें →' : 'View All News →'}
+              </Link>
+            )}
           </div>
         </section>
 
