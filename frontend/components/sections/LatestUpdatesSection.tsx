@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, Clock } from 'lucide-react';
 import { getArticleTitle, getCategoryLabel, formatViews, getLocalized } from '@/data';
-import { getPublicArticles } from '@/lib/api';
+import { getPublicArticles, getHeroSettings } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import { toGuDigits } from '@/lib/utils';
 import type { Article, Language } from '@/types';
@@ -21,9 +21,16 @@ export default function LatestUpdatesSection({ view = 'all' }: { view?: 'timelin
   const silverPrice = 82800;
 
   useEffect(() => {
-    getPublicArticles({ limit: 20 }).then((res) => {
+    Promise.all([
+      getPublicArticles({ limit: 20 }),
+      getHeroSettings(),
+    ]).then(([res, heroRes]: any[]) => {
       if (res && res.articles && res.articles.length > 0) {
         setLatestNews(res.articles.slice(0, 10));
+      }
+      if (heroRes && Array.isArray(heroRes.mostReadArticles) && heroRes.mostReadArticles.length > 0) {
+        setMostRead(heroRes.mostReadArticles);
+      } else if (res && res.articles) {
         setMostRead(res.articles.length > 10 ? res.articles.slice(10, 16) : res.articles.slice(0, 6));
       }
     });
