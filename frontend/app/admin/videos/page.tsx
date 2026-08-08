@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getBackendApiUrl, authFetch, getPublicCategories, clearApiCache } from '@/lib/api';
+import { getBackendApiUrl, authFetch, getPublicCategories } from '@/lib/api';
+import { clearApiCache } from '@/lib/api';
 import { safeYouTubeId } from '@/lib/youtube';
 import {
   Search,
@@ -512,8 +513,8 @@ export default function VideosPage() {
         <button
           onClick={() => setActiveTab('saved')}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${activeTab === 'saved'
-              ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
-              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+            : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
             }`}
         >
           <VideoIcon className="h-4 w-4" />
@@ -522,8 +523,8 @@ export default function VideosPage() {
         <button
           onClick={() => setActiveTab('channel')}
           className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all ${activeTab === 'channel'
-              ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
-              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-white'
+            : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
             }`}
         >
           <YoutubeIcon className="h-4 w-4 text-red-500" />
@@ -662,8 +663,8 @@ export default function VideosPage() {
                       <button
                         onClick={() => handleToggleFeaturedSaved(video)}
                         className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${video.isFeatured
-                            ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
-                            : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
+                          ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                          : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
                           }`}
                       >
                         {video.isFeatured ? (
@@ -817,8 +818,8 @@ export default function VideosPage() {
                             onClick={() => toggleFeatured(cv)}
                             disabled={isFeaturing}
                             className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all ${isFeat
-                                ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
-                                : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
+                              ? 'bg-yellow-400 text-yellow-950 hover:bg-yellow-300 dark:bg-yellow-500 dark:text-yellow-950 shadow-sm'
+                              : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 shadow-sm'
                               }`}
                           >
                             {isFeaturing ? (

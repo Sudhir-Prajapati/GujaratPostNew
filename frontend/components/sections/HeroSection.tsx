@@ -21,7 +21,7 @@ import {
 } from '@/data';
 import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories, getLiveCenterData, getPublicGallery } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
