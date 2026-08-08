@@ -103,7 +103,7 @@ export class HeroController {
         try {
           parsedTopics = JSON.parse(heroSetting.trendingTopics);
         } catch {
-          parsedTopics = heroSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+          parsedTopics = heroSetting.trendingTopics.split(',').map((t: string) => t.trim()).filter(Boolean);
         }
       }
 
@@ -278,7 +278,7 @@ export class HeroController {
         try {
           parsedTopics = JSON.parse(updatedSetting.trendingTopics);
         } catch {
-          parsedTopics = updatedSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+          parsedTopics = updatedSetting.trendingTopics.split(',').map((t: string) => t.trim()).filter(Boolean);
         }
       }
 
