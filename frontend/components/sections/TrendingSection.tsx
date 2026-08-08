@@ -9,26 +9,6 @@ import { getPublicArticles, getHeroSettings } from '@/lib/api';
 import { useApp } from '@/components/AppProvider';
 import type { Article } from '@/types';
 
-export default function TrendingSection() {
-  const { language } = useApp();
-  const [trending, setTrending] = useState<Article[]>([]);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      getHeroSettings(),
-      getPublicArticles({ isTrending: true, limit: 10 }),
-    ]).then(([heroRes, articlesRes]) => {
-      if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
-        setTrending((heroRes as any).trendingNewsArticles);
-      } else if (articlesRes && articlesRes.articles && articlesRes.articles.length > 0) {
-        setTrending(articlesRes.articles);
-      }
-    });
-  }, []);
-
 const DEMO_CARD_IMAGES = [
   'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80', // Business Market / Textile
   'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80', // Heavy Rain / Weather
@@ -43,7 +23,7 @@ const DEMO_CARD_IMAGES = [
 ];
 
 function getDistinctArticleImage(article: Article, index: number): string {
-  const raw = article.featuredImage || article.image || (article as any).thumbnail;
+  const raw = (article as any).featuredImage || article.image || (article as any).thumbnail;
   if (
     raw &&
     raw.trim() !== '' &&
@@ -55,6 +35,27 @@ function getDistinctArticleImage(article: Article, index: number): string {
   }
   return DEMO_CARD_IMAGES[index % DEMO_CARD_IMAGES.length];
 }
+
+export default function TrendingSection() {
+  const { language } = useApp();
+  const [trending, setTrending] = useState<Article[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+  const isPaused = useRef(false);
+
+  useEffect(() => {
+    Promise.all([
+      getHeroSettings(),
+      getPublicArticles({ isTrending: true, limit: 10 }),
+    ]).then(([heroRes, articlesRes]) => {
+      if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
+        setTrending((heroRes as any).trendingNewsArticles);
+      } else if (articlesRes && articlesRes.articles && articlesRes.articles.length > 0) {
+        setTrending(articlesRes.articles);
+      }
+    });
+  }, []);
 
   // Auto-scroll effect
   useEffect(() => {

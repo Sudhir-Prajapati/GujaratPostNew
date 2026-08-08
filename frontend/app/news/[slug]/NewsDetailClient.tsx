@@ -58,6 +58,92 @@ function getCardThumbnail(art: any, index: number = 0): string {
   return DEMO_THUMBNAILS[Math.abs(hash) % DEMO_THUMBNAILS.length];
 }
 
+function parseArticleBodyBlocks(rawBody: string): string[] {
+  if (!rawBody) return [];
+
+  let cleaned = rawBody
+    .replace(/^##\s*📌?\s*(એક નજરમાં|KEY HIGHLIGHTS|एक नजर में|AT A GLANCE).*?$/gmi, '')
+    .replace(/----------------+/g, '')
+    .replace(/\s*data-start="[^"]*"/gi, '')
+    .replace(/\s*data-end="[^"]*"/gi, '')
+    .replace(/\s*data-content-reference-start="[^"]*"/gi, '')
+    .replace(/\s*data-content-reference-end="[^"]*"/gi, '')
+    .replace(/\s*data-state="[^"]*"/gi, '')
+    .replace(/\s*data-section-id="[^"]*"/gi, '')
+    .replace(/<span[^>]*class="[^"]*selectionAnchor[^"]*"[^>]*><\/span>/gi, '')
+    .replace(/<span[^>]*class="[^"]*contents[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
+    .replace(/<span[^>]*><\/span>/gi, '');
+
+  const htmlTagRegex = /<(p|blockquote|h1|h2|h3|figure)[^>]*>[\s\S]*?<\/\1>/gi;
+  const htmlMatches = cleaned.match(htmlTagRegex);
+
+  let rawBlocks: string[] = [];
+
+  if (htmlMatches && htmlMatches.length > 0) {
+    let currentBody = cleaned;
+    htmlMatches.forEach((match) => {
+      const idx = currentBody.indexOf(match);
+      if (idx > 0) {
+        const before = currentBody.substring(0, idx).trim();
+        if (before) {
+          before.split(/\n+/).forEach((line) => {
+            const lTrim = line.trim();
+            if (lTrim) rawBlocks.push(lTrim);
+          });
+        }
+      }
+      rawBlocks.push(match.trim());
+      currentBody = currentBody.substring(idx + match.length);
+    });
+    if (currentBody.trim()) {
+      currentBody.trim().split(/\n+/).forEach((line) => {
+        const lTrim = line.trim();
+        if (lTrim) rawBlocks.push(lTrim);
+      });
+    }
+  } else {
+    rawBlocks = cleaned.split(/\n\s*\n+/).flatMap((chunk) => chunk.split(/\n+/));
+  }
+
+  const result: string[] = [];
+  let galleryImageCount = 0;
+
+  for (const block of rawBlocks) {
+    let trimmed = block.trim();
+    if (!trimmed) continue;
+
+    const plainText = trimmed.replace(/<[^>]*>/g, '').trim();
+
+    if (!plainText && !trimmed.includes('<img') && !trimmed.includes('![')) {
+      continue;
+    }
+
+    if (
+      plainText.includes('KEY HIGHLIGHTS') ||
+      plainText.includes('એક નજરમાં') ||
+      plainText.includes('एक नजर में') ||
+      plainText.includes('AT A GLANCE') ||
+      plainText.includes('📌') ||
+      plainText.startsWith('----------------') ||
+      plainText.startsWith('---')
+    ) {
+      continue;
+    }
+
+    const imgMatch = trimmed.match(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/i);
+    if (imgMatch) {
+      galleryImageCount++;
+      if (galleryImageCount > 1) {
+        continue;
+      }
+    }
+
+    result.push(trimmed);
+  }
+
+  return result;
+}
+
 function sanitizeParagraphHtml(html: string): string {
   if (!html) return '';
 
@@ -69,12 +155,15 @@ function sanitizeParagraphHtml(html: string): string {
     .replace(/\s*data-content-reference-start="[^"]*"/gi, '')
     .replace(/\s*data-content-reference-end="[^"]*"/gi, '')
     .replace(/\s*data-state="[^"]*"/gi, '')
+    .replace(/\s*data-section-id="[^"]*"/gi, '')
     .replace(/<span[^>]*class="[^"]*selectionAnchor[^"]*"[^>]*><\/span>/gi, '')
     .replace(/<span[^>]*class="[^"]*contents[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
     .replace(/<span[^>]*><\/span>/gi, '')
     .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi, (match, alt, url) => {
       return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || 'Gujarat Post Image'}" class="w-full h-full object-cover" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${alt || 'Gujarat Post'}</span><span>તસવીર: ગુજરાત પોસ્ટ</span></figcaption></figure>`;
     });
+
+  cleaned = cleaned.replace(/<p\s+class="[^"]*"[^>]*>/gi, '<p>');
 
   return cleaned.trim();
 }
@@ -101,6 +190,11 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }, 4500);
     return () => clearInterval(timer);
   }, []);
+
+  // Scroll to top when opening a new article
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [article?.id, article?.slug]);
 
   // Increment view count in real browser when reader opens the article page
   useEffect(() => {
@@ -229,33 +323,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
 
   const displayParagraphs = useMemo(() => {
-    let inlineImgIndex = 0;
-    return paragraphs.filter((p: string) => {
-      const rawCleaned = p.replace(/<[^>]*>/g, '').trim();
-      if (
-        rawCleaned.includes('KEY HIGHLIGHTS') ||
-        rawCleaned.includes('એક નજરમાં') ||
-        rawCleaned.includes('एक नजर में') ||
-        rawCleaned.includes('AT A GLANCE') ||
-        rawCleaned.includes('📌') ||
-        rawCleaned.startsWith('----------------') ||
-        rawCleaned.startsWith('---')
-      ) {
-        return false;
-      }
-
-      // Check if this paragraph is an embedded markdown image
-      const imgMatch = p.match(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/i);
-      if (imgMatch) {
-        inlineImgIndex++;
-        if (inlineImgIndex > 1) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-  }, [paragraphs]);
+    return parseArticleBodyBlocks(body);
+  }, [body]);
 
 
 
@@ -893,7 +962,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {related.slice(0, recommendedLimit).map((item) => {
+                  {related.slice(0, recommendedLimit).map((item, index) => {
                     const itemTitle = getArticleTitle(item, language);
                     const itemCategory = getCategoryLabel(item, language);
                     return (
@@ -961,7 +1030,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             <span className="spacer"></span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6">
-            {related.slice(0, 8).map((item) => {
+            {related.slice(0, 8).map((item, index) => {
               const itemTitle = getArticleTitle(item, language);
               const itemCategory = getCategoryLabel(item, language);
               const isSaved = savedIds.includes(item.id);
@@ -969,7 +1038,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 <div key={item.id} className="zoomhost relative group flex flex-col">
                   <Link href={`/news/${item.slug}`} className="s-standard flex flex-col group">
                     <div className="imgwrap relative aspect-[3/2] overflow-hidden rounded-md mb-2">
-                      <Image src={item.image} alt={item.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition duration-300 group-hover:scale-105" />
+                      <Image src={getCardThumbnail(item, index)} alt={item.title} fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover transition duration-300 group-hover:scale-105" />
                       {isSaved && (
                         <span className="absolute top-2 right-2 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
                           🔖
@@ -1009,7 +1078,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   const streamTitle = getArticleTitle(streamArticle, language);
                   const streamExcerpt = getArticleExcerpt(streamArticle, language);
                   const streamCategory = getCategoryLabel(streamArticle, language);
-                  const streamParagraphs = getArticleContent(streamArticle, language).split('\n\n');
+                  const streamBody = getArticleContent(streamArticle, language);
+                  const streamParagraphs = parseArticleBodyBlocks(streamBody);
                   const streamCity = language === 'gu' ? 'અમદાવાદ' : language === 'hi' ? 'अहमदाबाद' : 'Ahmedabad';
 
                   const readAlsoArticles = [...related, ...trending]
@@ -1048,10 +1118,45 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         />
                       </div>
 
-                      <div className="text-[16px] leading-relaxed text-foreground space-y-4 mb-6 text-left w-full">
-                        {streamParagraphs.map((p, pIdx) => (
-                          <p key={pIdx}>{p}</p>
-                        ))}
+                      <div className="article-body space-y-4 text-[16px] leading-relaxed text-foreground mb-6 text-left w-full">
+                        {streamParagraphs.map((p, pIdx) => {
+                          const trimmed = p.trim();
+                          if (!trimmed) return null;
+
+                          if (trimmed.startsWith('> ') || trimmed.startsWith('>"') || trimmed.startsWith('> "')) {
+                            const lines = trimmed.split('\n');
+                            const quoteText = lines
+                              .filter((l) => l.startsWith('>') && !l.includes('> —') && !l.includes('> -'))
+                              .map((l) => l.replace(/^>\s*"?/, '').replace(/"?$/, ''))
+                              .join(' ');
+                            const citeLine = lines.find((l) => l.includes('> —') || l.includes('> -'));
+                            const citeText = citeLine ? citeLine.replace(/^>\s*—\s*/, '').replace(/^>\s*-\s*/, '').trim() : '';
+
+                            return (
+                              <blockquote key={pIdx} className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/40 p-4 dark:bg-red-950/20 shadow-sm">
+                                <p className="text-base font-bold text-neutral-900 dark:text-white leading-relaxed">
+                                  "{quoteText || trimmed.replace(/^>\s*/, '')}"
+                                </p>
+                                {citeText && (
+                                  <cite className="block mt-2 text-xs font-bold text-neutral-600 dark:text-neutral-400 not-italic">
+                                    — {citeText}
+                                  </cite>
+                                )}
+                              </blockquote>
+                            );
+                          }
+
+                          const cleanedParagraph = sanitizeParagraphHtml(trimmed);
+                          if (!cleanedParagraph) return null;
+
+                          return (
+                            <div
+                              key={pIdx}
+                              className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+                              dangerouslySetInnerHTML={{ __html: cleanedParagraph }}
+                            />
+                          );
+                        })}
                       </div>
 
                       {readAlsoArticles.length > 0 && (
@@ -1063,7 +1168,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                             </h4>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {readAlsoArticles.map((raArt) => {
+                            {readAlsoArticles.map((raArt, index) => {
                               const raTitle = getArticleTitle(raArt, language);
                               return (
                                 <Link
@@ -1121,7 +1226,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   </h4>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {related.slice(0, 4).map((raArt) => {
+                  {related.slice(0, 4).map((raArt, index) => {
                     const raTitle = getArticleTitle(raArt, language);
                     return (
                       <Link
