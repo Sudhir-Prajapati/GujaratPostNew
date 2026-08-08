@@ -290,20 +290,23 @@ export const getMockRelativeTime = (timeStrGu: string | undefined, language: Lan
 };
 
 export const DEMO_IMAGES = [
-  '/assets/demo/3.jpg',
-  '/assets/demo/4.jpg',
-  '/assets/demo/1.jpg',
-  '/assets/demo/2.jpg',
-  '/assets/demo/5.jpg',
-  '/assets/demo/6.jpg',
-  '/assets/demo/7.jpg',
-  '/assets/demo/8.jpg',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop&q=80',
 ];
 
 export function getArticleImage(article?: Article | null): string {
   if (!article) return DEMO_IMAGES[0];
-  if (article.image && article.image.trim() !== '') {
-    return article.image;
+  const raw = article.image || (article as any).featuredImage || (article as any).thumbnail;
+  if (raw && typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim();
   }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
@@ -316,19 +319,11 @@ export function getArticleImage(article?: Article | null): string {
 }
 
 function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
-  const usedImages = new Set<string>();
-
   return sections.map((section) =>
     section.map((article) => {
       if (!article) return article;
-      let image = article.image;
-
-      if (!image || usedImages.has(image)) {
-        image = getArticleImage(article);
-      }
-
-      usedImages.add(image);
-      return image === article.image ? article : { ...article, image };
+      const image = getArticleImage(article);
+      return { ...article, image };
     })
   );
 }
@@ -4063,21 +4058,35 @@ function PopularStoriesSection({
   const [popularList, setPopularList] = useState<any[]>([]);
 
   useEffect(() => {
-    getHeroSettings().then((res: any) => {
+    Promise.all([
+      getHeroSettings(),
+      getPublicArticles({ limit: 12 }),
+    ]).then(([res, pubRes]: any[]) => {
+      let customArts: any[] = [];
       if (res && Array.isArray(res.popularNewsArticles) && res.popularNewsArticles.length > 0) {
-        const mapped = res.popularNewsArticles.map((a: any, idx: number) => ({
-          id: a.id,
-          slug: a.slug,
-          image: a.image || a.featuredImage || '/assets/demo/3.jpg',
-          titleGu: a.titleGu || a.title,
-          title: a.title || a.titleGu,
-          relativeTimeGu: formatDate(a.publishedAt || a.createdAt),
-          relativeTime: formatDate(a.publishedAt || a.createdAt),
-          viewsGu: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
-          views: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
-        }));
-        setPopularList(mapped);
+        customArts = res.popularNewsArticles;
       }
+      const fallbackArts = pubRes?.articles || [];
+      const combined = [...customArts];
+      for (const item of fallbackArts) {
+        if (combined.length >= 12) break;
+        if (item && item.id && !combined.some((c: any) => c.id === item.id)) {
+          combined.push(item);
+        }
+      }
+
+      const mapped = combined.map((a: any, idx: number) => ({
+        id: a.id,
+        slug: a.slug,
+        image: a.featuredImage || a.image || DEMO_IMAGES[idx % DEMO_IMAGES.length],
+        titleGu: a.titleGu || a.title,
+        title: a.title || a.titleGu,
+        relativeTimeGu: formatDate(a.publishedAt || a.createdAt),
+        relativeTime: formatDate(a.publishedAt || a.createdAt),
+        viewsGu: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+        views: `${a.articleNumber ? `#${a.articleNumber}` : ''}`,
+      }));
+      setPopularList(mapped);
     });
   }, []);
 

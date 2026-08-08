@@ -24,14 +24,8 @@ const DEMO_CARD_IMAGES = [
 
 function getDistinctArticleImage(article: Article, index: number): string {
   const raw = (article as any).featuredImage || article.image || (article as any).thumbnail;
-  if (
-    raw &&
-    raw.trim() !== '' &&
-    !raw.includes('photo-1599930113854') &&
-    !raw.includes('photo-1589308078059') &&
-    !raw.includes('placehold.co')
-  ) {
-    return raw;
+  if (raw && typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim();
   }
   return DEMO_CARD_IMAGES[index % DEMO_CARD_IMAGES.length];
 }
@@ -60,25 +54,18 @@ export default function TrendingSection() {
     });
   }, []);
 
-  // Auto-scroll effect - starting cleanly from 0
+  // Auto-scroll effect
   useEffect(() => {
     if (!trending.length) return;
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = 0;
-    }
-    const timer = setTimeout(() => {
-      const interval = setInterval(() => {
-        const el = scrollContainerRef.current;
-        if (!el || isPaused.current) return;
-        el.scrollLeft += 1;
-        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) {
-          el.scrollLeft = 0;
-        }
-      }, 35);
-      return () => clearInterval(interval);
-    }, 3000);
-
-    return () => clearTimeout(timer);
+    const interval = setInterval(() => {
+      const el = scrollContainerRef.current;
+      if (!el || isPaused.current) return;
+      el.scrollLeft += 1;
+      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 2) {
+        el.scrollLeft = 0;
+      }
+    }, 25);
+    return () => clearInterval(interval);
   }, [trending]);
 
   const updateArrows = () => {
