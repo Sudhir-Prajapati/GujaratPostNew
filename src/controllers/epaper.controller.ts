@@ -107,7 +107,7 @@ export class EPaperController {
 
       // NOTE: No fallback to other dates here — if date filter returns 0, return empty so the frontend shows proper "no data" message.
 
-      const sanitized = editions.map((ed) => ({
+      const sanitized = editions.map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
         thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
@@ -155,7 +155,7 @@ export class EPaperController {
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       });
 
-      const sanitized = editions.map((ed) => ({
+      const sanitized = editions.map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
         thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
@@ -319,7 +319,7 @@ export class EPaperController {
       const uniqueCitiesMap = new Map<string, { id: string; city: string; cityGu: string }>();
 
       // 1. Add DB Cities (Primary source of truth)
-      dbCities.forEach((c) => {
+      dbCities.forEach((c: any) => {
         const uniqueKey = (c.cityGu || c.city).trim().toLowerCase();
         if (!uniqueCitiesMap.has(uniqueKey)) {
           uniqueCitiesMap.set(uniqueKey, {
@@ -331,7 +331,7 @@ export class EPaperController {
       });
 
       // 2. Add cities from existing editions if not already in DB
-      editionCities.forEach((e) => {
+      editionCities.forEach((e: any) => {
         if (e.city) {
           const uniqueKey = (e.cityGu || e.city).trim().toLowerCase();
           if (!uniqueCitiesMap.has(uniqueKey)) {
