@@ -34,32 +34,23 @@ type Article = {
 };
 
 const DEMO_IMAGES = [
-  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=800&auto=format&fit=crop&q=80',
 ];
 
-function getArticleImage(article?: Article | null, index?: number): string {
+function getArticleImage(article?: Article | null): string {
   if (!article) return DEMO_IMAGES[0];
   const rawImage = (article as any).featuredImage || article.image || (article as any).thumbnail;
-  if (
-    rawImage &&
-    rawImage.trim() !== '' &&
-    !rawImage.includes('photo-1599930113854') &&
-    !rawImage.includes('photo-1589308078059') &&
-    !rawImage.includes('placehold.co')
-  ) {
-    return rawImage;
-  }
-  if (typeof index === 'number') {
-    return DEMO_IMAGES[index % DEMO_IMAGES.length];
+  if (rawImage && typeof rawImage === 'string' && rawImage.trim() !== '') {
+    return rawImage.trim();
   }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
@@ -596,8 +587,8 @@ export default function HeroManagerPage() {
       showToast('Article already in Popular News list', false);
       return;
     }
-    if (popularNewsArticles.length >= 5) {
-      showToast('⚠️ Limit reached (5 articles max for Most Read). Please remove one first.', false);
+    if (popularNewsArticles.length >= 12) {
+      showToast('⚠️ Limit reached (12 articles max for Popular News). Please remove one first.', false);
       return;
     }
     setPopularNewsArticles((prev) => [...prev, art]);
@@ -1011,7 +1002,7 @@ export default function HeroManagerPage() {
           </div>
 
           {/* ════════════════════════════════════════════════════════════════
-             MOST READ 5 POSITIONS MANAGEMENT (સૌથી વધુ વંચાયેલા)
+             POPULAR NEWS 12 POSITIONS MANAGEMENT (લોકપ્રિય સમાચાર)
              ════════════════════════════════════════════════════════════════ */}
           <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
@@ -1019,14 +1010,14 @@ export default function HeroManagerPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🔥</span>
                   <h3 className="text-base font-black text-zinc-900 dark:text-white">
-                    Most Read 5 Positions (સૌથી વધુ વંચાયેલા)
+                    Popular News Slider (લોકપ્રિય સમાચાર)
                   </h3>
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800">
-                    {popularNewsArticles.length} / 5 Positions
+                    {popularNewsArticles.length} / 12 Positions
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500 font-medium mt-1">
-                  Manage the 5 articles displayed in the "સૌથી વધુ વંચાયેલા" (Most Read) sidebar widget on the homepage. Move up / down to reorder rank #1 to #5.
+                  Manage the 12 articles displayed in the "લોકપ્રિય સમાચાર" (Popular News) slider on the homepage. Use Move Up / Move Down or Drag & Drop to change exact rank #1 to #12.
                 </p>
               </div>
 
@@ -1037,20 +1028,20 @@ export default function HeroManagerPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
               >
                 {savingPopularNews ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                {savingPopularNews ? 'Saving Most Read...' : 'Save Most Read 5 Positions'}
+                {savingPopularNews ? 'Saving Popular News...' : 'Save Popular News 12 Positions'}
               </button>
             </div>
 
             {/* Quick Article Search to Add Position */}
             <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
               <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
-                ➕ Add Article to Most Read 5 Positions
+                ➕ Add Article to Popular News Slider (લોકપ્રિય સમાચાર)
               </p>
               <ArticleSearchBox
                 allArticles={allArticles}
                 excluded={popularNewsArticles.map((a) => a.id)}
                 maxLimit={100}
-                placeholder={popularNewsArticles.length >= 5 ? '[ Limit 5 reached — remove an article to add new ]' : 'Search latest 100 articles by title or #articleNumber to add to Most Read...'}
+                placeholder={popularNewsArticles.length >= 12 ? '[ Limit 12 reached — remove an article to add new ]' : 'Search latest 100 articles by title or #articleNumber to add to Popular News...'}
                 onSelect={(art) => handleAddPopularNewsArticle(art)}
               />
             </div>
@@ -1282,7 +1273,7 @@ export default function HeroManagerPage() {
                       <div>
                         {/* Thumbnail, Rank Badge & Drag Handle */}
                         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
-                          <Image src={getArticleImage(art, idx)} alt="" fill unoptimized className="object-cover pointer-events-none" />
+                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
 
                           {/* Rank Badge */}
                           <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B3121B] text-white text-[11px] font-black shadow-md z-10 select-none">

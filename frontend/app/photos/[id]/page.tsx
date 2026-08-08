@@ -6,25 +6,33 @@ import PhotoDetailClient from "./PhotoDetailClient";
 export const revalidate = 300;
 
 export async function generateStaticParams() {
-  const photos = await getPublicGallery();
-  return photos.map((photo) => ({ id: photo.id }));
+  try {
+    const photos = await getPublicGallery();
+    return (photos || []).map((photo) => ({ id: photo.id }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const photos = await getPublicGallery();
-  const photo = photos.find((p) => p.id === id);
-  if (!photo) return {};
+  try {
+    const photos = await getPublicGallery();
+    const photo = photos.find((p) => p.id === id);
+    if (!photo) return {};
 
-  return {
-    title: `${photo.caption} - Photo Gallery`,
-    description: `View ${photo.caption} and other latest news photos on Gujarat Post.`,
-    openGraph: {
+    return {
       title: `${photo.caption} - Photo Gallery`,
       description: `View ${photo.caption} and other latest news photos on Gujarat Post.`,
-      images: [{ url: photo.src, alt: photo.caption }],
-    },
-  };
+      openGraph: {
+        title: `${photo.caption} - Photo Gallery`,
+        description: `View ${photo.caption} and other latest news photos on Gujarat Post.`,
+        images: [{ url: photo.src, alt: photo.caption }],
+      },
+    };
+  } catch {
+    return {};
+  }
 }
 
 export default async function PhotoDetailPage({ params }: { params: Promise<{ id: string }> }) {

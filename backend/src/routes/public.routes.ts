@@ -623,7 +623,33 @@ router.get('/tickers', async (req, res, next) => {
       slug: a.slug,
     }));
 
-    const combinedTickers = [...articleTickers, ...customTickers];
+    let combinedTickers = [...articleTickers, ...customTickers];
+
+    // Fallback: If no breaking articles or custom tickers exist, pick latest 5 published articles
+    if (combinedTickers.length === 0) {
+      const latestArticles = await prisma.post.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          titleGu: true,
+          titleHi: true,
+          slug: true,
+        },
+      });
+      combinedTickers = latestArticles.map((a) => ({
+        id: a.id,
+        en: a.title,
+        gu: a.titleGu || a.title,
+        hi: a.titleHi || a.title,
+        title: a.title,
+        titleGu: a.titleGu,
+        titleHi: a.titleHi,
+        slug: a.slug,
+      }));
+    }
 
     return sendSuccess(res, { tickers: combinedTickers }, 'Breaking tickers retrieved');
   } catch (error) {
