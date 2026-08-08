@@ -525,4 +525,15 @@ export async function getPublicAdBySection(section: string): Promise<any | null>
   return null;
 }
 
+export async function updateAdminAstrologySign(id: string, data: any): Promise<any> {
+  const res = await authFetch(getBackendApiUrl(`/api/admin/astrology/${id}`), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || 'Failed to update astrology sign');
+  return json.data;
+}
+
 
