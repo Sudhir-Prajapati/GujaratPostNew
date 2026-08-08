@@ -582,10 +582,38 @@ router.get('/live-center', async (req, res) => {
  */
 router.get('/tickers', async (req, res, next) => {
   try {
-    const tickers = await prisma.breakingTickerItem.findMany({
+    const customTickers = await prisma.breakingTickerItem.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 10,
     });
-    return sendSuccess(res, { tickers }, 'Breaking tickers retrieved');
+
+    const breakingArticles = await prisma.post.findMany({
+      where: { isBreaking: true, status: 'PUBLISHED' },
+      orderBy: { publishedAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        title: true,
+        titleGu: true,
+        titleHi: true,
+        slug: true,
+      },
+    });
+
+    const articleTickers = breakingArticles.map((a) => ({
+      id: a.id,
+      en: a.title,
+      gu: a.titleGu || a.title,
+      hi: a.titleHi || a.title,
+      title: a.title,
+      titleGu: a.titleGu,
+      titleHi: a.titleHi,
+      slug: a.slug,
+    }));
+
+    const combinedTickers = [...articleTickers, ...customTickers];
+
+    return sendSuccess(res, { tickers: combinedTickers }, 'Breaking tickers retrieved');
   } catch (error) {
     next(error);
   }
