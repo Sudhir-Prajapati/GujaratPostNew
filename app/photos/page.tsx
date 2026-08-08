@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { getPublicGallery } from "@/lib/api";
 import PhotosClient from "./PhotosClient";
 
+export const revalidate = 300;
+
 export const metadata: Metadata = {
   title: "Photo Gallery",
   description: "Browse the latest Gujarat news photo gallery on Gujarat Post.",
