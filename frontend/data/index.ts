@@ -175,6 +175,11 @@ export const getArticleExcerpt = (article: Article, language: Language) => {
   return (raw || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '').trim();
 };
 
+export const getArticleExcerptHtml = (article: Article, language: Language) => {
+  const raw = getLocalized(language, { en: article?.excerpt || '', gu: article?.excerptGu || '', hi: article?.excerptHi || '' });
+  return (raw || '').replace(/!\[.*?\]\(.*?\)/g, '').trim();
+};
+
 export const getArticleContent = (article: Article, language: Language) =>
   getLocalized(language, { en: article?.content || '', gu: article?.contentGu || '', hi: article?.contentHi || '' });
 

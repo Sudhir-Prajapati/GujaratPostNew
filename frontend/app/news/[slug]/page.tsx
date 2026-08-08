@@ -4,6 +4,8 @@ import { SITE_URL } from "@/data";
 import { getPublicArticleBySlug, getPublicArticles } from "@/lib/api";
 import NewsDetailClient from "./NewsDetailClient";
 
+export const revalidate = 300;
+
 export async function generateStaticParams() {
   const { articles } = await getPublicArticles({ limit: 50 });
   return (articles || []).map((article) => ({ slug: article.slug }));

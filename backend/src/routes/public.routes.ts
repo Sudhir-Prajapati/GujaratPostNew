@@ -246,6 +246,12 @@ router.get('/articles/:slug', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Article not found' });
     }
 
+    // Increment view count asynchronously when article is opened
+    prisma.post.update({
+      where: { id: p.id },
+      data: { views: { increment: 1 } },
+    }).catch(() => {});
+
     const article = {
       id: p.id,
       slug: p.slug,

@@ -682,6 +682,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       if (!response.ok) throw new Error(result.error || 'Failed to save article.');
 
       clearApiCache();
+      fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: result.article?.slug || result.slug || slug }),
+      }).catch(() => {});
 
       // Route back to list
       router.push('/admin/articles');

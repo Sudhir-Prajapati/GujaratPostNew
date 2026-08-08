@@ -89,8 +89,18 @@ const bootstrap = async () => {
     console.log('Successfully connected to MySQL database via Prisma.');
 
     // 3. Start listening
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
+    });
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`\n⚠️  Port ${PORT} is already in use by another process.`);
+        console.error(`   Run this to fix it: taskkill /F /PID $(netstat -ano | findstr :${PORT} | awk '{print $5}' | head -1)`);
+        console.error(`   Or simply close the other terminal running the backend.\n`);
+        process.exit(1);
+      } else {
+        throw err;
+      }
     });
   } catch (error) {
     console.error('Bootstrap warning:', error);

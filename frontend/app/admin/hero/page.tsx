@@ -344,15 +344,21 @@ export default function HeroManagerPage() {
         setHeroGridArticles(arts.slice(0, 13));
       }
 
+      const featured = arts.filter((a) => a.isFeatured);
+      const defaultSlots = [
+        featured[0] || arts[0] || null,
+        featured[1] || arts[1] || null,
+        featured[2] || arts[2] || null,
+      ];
+
       if (heroRes && Array.isArray(heroRes.slots) && heroRes.slots.length > 0) {
         setSlots([
-          heroRes.slots[0] ? (heroRes.slots[0] as unknown as Article) : null,
-          heroRes.slots[1] ? (heroRes.slots[1] as unknown as Article) : null,
-          heroRes.slots[2] ? (heroRes.slots[2] as unknown as Article) : null,
+          heroRes.slots[0] ? (heroRes.slots[0] as unknown as Article) : defaultSlots[0],
+          heroRes.slots[1] ? (heroRes.slots[1] as unknown as Article) : defaultSlots[1],
+          heroRes.slots[2] ? (heroRes.slots[2] as unknown as Article) : defaultSlots[2],
         ]);
       } else {
-        const featured = arts.filter((a) => a.isFeatured);
-        setSlots([featured[0] || arts[0] || null, featured[1] || arts[1] || null, featured[2] || arts[2] || null]);
+        setSlots(defaultSlots);
       }
 
       if (heroRes && (heroRes as any).trendingTopics && Array.isArray((heroRes as any).trendingTopics)) {

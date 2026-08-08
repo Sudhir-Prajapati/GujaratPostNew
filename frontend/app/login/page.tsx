@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Mail, Lock, Eye, EyeOff, Loader2, Newspaper, ArrowRight, AlertCircle } from 'lucide-react';
-import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
 
 function LoginForm() {
   const router = useRouter();
@@ -79,7 +78,7 @@ function LoginForm() {
       <div className="mb-8 text-center">
         <div className="relative mx-auto mb-4 h-16 w-44">
           <Image
-            src={gpLogo}
+            src="/assets/gujarat-post-logo-chip.png"
             alt="Gujarat Post"
             fill
             priority

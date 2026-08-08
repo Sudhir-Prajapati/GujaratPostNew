@@ -10,6 +10,7 @@ import {
   formatViews,
   getArticleContent,
   getArticleExcerpt,
+  getArticleExcerptHtml,
   getArticleTitle,
   getCategoryLabel,
   getLocalized,
@@ -156,7 +157,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   };
 
   const title = getArticleTitle(article, language);
-  const excerpt = getArticleExcerpt(article, language);
+  const excerpt = getArticleExcerptHtml(article, language);
   const body = getArticleContent(article, language);
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
@@ -322,7 +323,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       setSpeaking(false);
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(`${title}. ${excerpt}`);
+    const utterance = new SpeechSynthesisUtterance(`${title}. ${excerpt.replace(/<[^>]*>/g, '')}`);
     utterance.lang = language === 'hi' ? 'hi-IN' : language === 'gu' ? 'gu-IN' : 'en-IN';
     utterance.onend = () => setSpeaking(false);
     window.speechSynthesis.speak(utterance);
@@ -793,7 +794,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 return (
                   <div
                     key={idx}
-                    className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+                    className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
                     dangerouslySetInnerHTML={{ __html: trimmed }}
                   />
                 );
