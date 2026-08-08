@@ -129,6 +129,17 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      if (trendingNewsArticles.length === 0) {
+        const defaultTrendingPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: [{ isTrending: 'desc' }, { createdAt: 'desc' }],
+          take: 10,
+          include: { category: true, author: true },
+        });
+        trendingNewsArticles = defaultTrendingPosts.map(formatPost);
+        parsedTrendingNewsIds = trendingNewsArticles.map((a: any) => a.id);
+      }
+
       let parsedPopularNewsIds: string[] = [];
       if (heroSetting?.popularNewsIds) {
         try {
@@ -151,6 +162,17 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      if (popularNewsArticles.length === 0) {
+        const defaultPopularPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: { createdAt: 'desc' },
+          take: 12,
+          include: { category: true, author: true },
+        });
+        popularNewsArticles = defaultPopularPosts.map(formatPost);
+        parsedPopularNewsIds = popularNewsArticles.map((a: any) => a.id);
+      }
+
       let parsedHeroGridIds: string[] = [];
       if ((heroSetting as any)?.heroGridIds) {
         try {
@@ -171,6 +193,17 @@ export class HeroController {
         heroGridArticles = parsedHeroGridIds
           .map((id) => map.get(id))
           .filter(Boolean);
+      }
+
+      if (heroGridArticles.length === 0) {
+        const defaultHeroPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: { createdAt: 'desc' },
+          take: 16,
+          include: { category: true, author: true },
+        });
+        heroGridArticles = defaultHeroPosts.map(formatPost);
+        parsedHeroGridIds = heroGridArticles.map((a: any) => a.id);
       }
 
       return sendSuccess(res, {
@@ -341,12 +374,35 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      let parsedHeroGridIds: string[] = [];
+      if (updatedSetting.heroGridIds) {
+        try {
+          parsedHeroGridIds = JSON.parse(updatedSetting.heroGridIds);
+        } catch {
+          parsedHeroGridIds = [];
+        }
+      }
+
+      let heroGridArticles: any[] = [];
+      if (parsedHeroGridIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedHeroGridIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        heroGridArticles = parsedHeroGridIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...updatedSetting,
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
           popularNewsIds: parsedPopularNewsIds,
+          heroGridIds: parsedHeroGridIds,
         },
         slots,
         trendingTopics: parsedTopics,
@@ -354,6 +410,8 @@ export class HeroController {
         trendingNewsArticles,
         popularNewsIds: parsedPopularNewsIds,
         popularNewsArticles,
+        heroGridIds: parsedHeroGridIds,
+        heroGridArticles,
       }, 'Hero section settings updated successfully.');
     } catch (error) {
       next(error);
