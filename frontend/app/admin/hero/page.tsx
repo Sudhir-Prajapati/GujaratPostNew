@@ -326,6 +326,15 @@ export default function HeroManagerPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  const triggerOnDemandRevalidate = () => {
+    clearApiCache();
+    fetch('/api/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: '/' }),
+    }).catch(() => {});
+  };
+
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
@@ -405,7 +414,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Hero section cards & trending topics updated successfully.', true);
         if (res.data?.slots) {
           setSlots([
@@ -467,7 +476,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Trending topics updated live on user side.', true);
         if (res.data?.trendingTopics && Array.isArray(res.data.trendingTopics)) {
           setTrendingTopics(res.data.trendingTopics);
@@ -549,7 +558,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Trending News slider articles updated live on user side.', true);
         if (res.data?.trendingNewsArticles && Array.isArray(res.data.trendingNewsArticles)) {
           setTrendingNewsArticles(res.data.trendingNewsArticles as unknown as Article[]);
@@ -629,7 +638,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Popular News slider articles updated live on user side.', true);
         if (res.data?.popularNewsArticles && Array.isArray(res.data.popularNewsArticles)) {
           setPopularNewsArticles(res.data.popularNewsArticles as unknown as Article[]);
@@ -684,7 +693,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Top Main Hero Grid positions updated live on user side.', true);
         if (res.data?.heroGridArticles && Array.isArray(res.data.heroGridArticles)) {
           setHeroGridArticles(res.data.heroGridArticles as unknown as Article[]);
@@ -717,7 +726,7 @@ export default function HeroManagerPage() {
       const res = await updateHeroSettings(payload);
 
       if (res && res.success) {
-        clearApiCache();
+        triggerOnDemandRevalidate();
         showToast('✅ Saved! Bottom Row 3 Image Cards updated live on user side.', true);
         if (res.data?.slots) {
           setSlots([
