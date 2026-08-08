@@ -8,68 +8,7 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gujaratpost
 // Empty static arrays - backend API is the single source of truth
 export const ARTICLES: Article[] = [];
 export const VIDEOS: Video[] = [];
-export const PHOTOS: any[] = [
-  {
-    id: 'photo-1',
-    src: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?auto=format&fit=crop&w=1200&q=90',
-    alt: 'Somnath Temple Devotion',
-    caption: 'Ocean of Devotion: Pilgrims enthusiasm at Somnath Temple',
-    captionGu: 'ભક્તિનો મહાસાગર ઉમટ્યો: સોમનાથ મંદિરે શ્રદ્ધાળુઓનો અદભુત ઉત્સાહ',
-    captionHi: 'ભક્તિ નો મહાસાગર',
-    category: 'ધર્મ',
-    photographer: 'Gujarat Post',
-    copyright: '© Gujarat Post',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'photo-2',
-    src: 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1200&q=90',
-    alt: 'Ahmedabad Flower Show',
-    caption: 'Stunning glimpse of Ahmedabad Flower Show 2025',
-    captionGu: 'અહમદાબાદ ફલાવર શો 2025ની અદ્ભુત ઝલક',
-    captionHi: 'અમદાવાદ ફ્લાવર શો 2025',
-    category: 'ઉત્સવ',
-    photographer: 'Gujarat Post',
-    copyright: '© Gujarat Post',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'photo-3',
-    src: 'https://images.unsplash.com/photo-1609137144813-7d9921338f24?auto=format&fit=crop&w=1200&q=90',
-    alt: 'Navratri Garba',
-    caption: 'Colorful Navratri preparations! See the excitement in pictures',
-    captionGu: 'નવરાત્રિની રંગીન તૈયારીઓ! તસવીરોમાં જુઓ ધમાલ',
-    captionHi: 'નવરાત્રી કી તૈયારીયાં',
-    category: 'પ્રવાસ',
-    photographer: 'Gujarat Post',
-    copyright: '© Gujarat Post',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'photo-4',
-    src: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=90',
-    alt: 'Girnar Mountain Parikrama',
-    caption: 'Girnar Lili Parikrama: Massive gathering of devotees',
-    captionGu: 'ગિરનાર લીલી પરિક્રમા: ભક્તિનો મહાસાગર ઉમટ્યો',
-    captionHi: 'ગિરનાર લીલી પરિક્રમા',
-    category: 'ખેલ',
-    photographer: 'Gujarat Post',
-    copyright: '© Gujarat Post',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'photo-5',
-    src: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1200&q=90',
-    alt: 'Kutch Rann Utsav Sunset',
-    caption: 'Folk cultural celebration at Kutch Rann Utsav',
-    captionGu: 'કચ્છના રણ ઉત્સવમાં લોકસંસ્કૃતિની અદ્ભુત રમઝટ',
-    captionHi: 'કચ્છ રણ ઉત્સવ',
-    category: 'સંસ્કૃતિ',
-    photographer: 'Gujarat Post',
-    copyright: '© Gujarat Post',
-    createdAt: new Date().toISOString(),
-  },
-];
+export const PHOTOS: any[] = [];
 export const AUTHORS: Author[] = [];
 export const BREAKING_TICKER: Array<{ en: string; gu: string; hi: string; slug: string }> = [];
 
