@@ -28,12 +28,18 @@ async function ensureAdsTableExists() {
     `);
 
     // Ensure mediaType column exists if table was created previously without it
+    // Use INFORMATION_SCHEMA check to avoid Prisma internal error logs on duplicate column
     try {
-      await prisma.$executeRawUnsafe(`
-        ALTER TABLE \`advertisements\` ADD COLUMN \`mediaType\` VARCHAR(50) NOT NULL DEFAULT 'IMAGE';
-      `);
+      const cols: any[] = await prisma.$queryRawUnsafe(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'advertisements' AND COLUMN_NAME = 'mediaType'`
+      );
+      if (cols.length === 0) {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE \`advertisements\` ADD COLUMN \`mediaType\` VARCHAR(50) NOT NULL DEFAULT 'IMAGE'`
+        );
+      }
     } catch (_) {
-      // Column likely already exists
+      // Ignore if column check or alter fails
     }
 
     tableCreated = true;
