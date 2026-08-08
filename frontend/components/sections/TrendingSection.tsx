@@ -29,7 +29,32 @@ export default function TrendingSection() {
     });
   }, []);
 
-  const isPaused = useRef(false);
+const DEMO_CARD_IMAGES = [
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80', // Business Market / Textile
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80', // Heavy Rain / Weather
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80', // Sports / Cricket Stadium
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80', // Metro Train / City
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80', // Politics / Election
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80', // Technology / Digital
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80', // Stock Market / Gold
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80', // Newsroom / Media
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80', // Newspaper / Journal
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80', // Industry / Commerce
+];
+
+function getDistinctArticleImage(article: Article, index: number): string {
+  const raw = article.featuredImage || article.image || (article as any).thumbnail;
+  if (
+    raw &&
+    raw.trim() !== '' &&
+    !raw.includes('photo-1599930113854') &&
+    !raw.includes('photo-1589308078059') &&
+    !raw.includes('placehold.co')
+  ) {
+    return raw;
+  }
+  return DEMO_CARD_IMAGES[index % DEMO_CARD_IMAGES.length];
+}
 
   // Auto-scroll effect
   useEffect(() => {
@@ -141,13 +166,13 @@ export default function TrendingSection() {
               {/* Image Container */}
               <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                 <Image
-                  src={article.image || 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=400&q=80'}
+                  src={getDistinctArticleImage(article, index)}
                   alt={article.title}
                   fill
                   sizes="(max-width: 768px) 50vw, 20vw"
                   className="object-cover transition duration-300 group-hover:scale-105"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=400&q=80';
+                    (e.target as HTMLImageElement).src = DEMO_CARD_IMAGES[index % DEMO_CARD_IMAGES.length];
                   }}
                 />
                 {/* Rank Badge on top of image */}
