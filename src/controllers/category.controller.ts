@@ -30,7 +30,7 @@ export class CategoryController {
    */
   static async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader, headerType } = req.body;
 
       if (!name || typeof name !== 'string' || name.trim() === '') {
         throw new BadRequestError('Category name is required.');
@@ -88,7 +88,8 @@ export class CategoryController {
           isActive: isActive !== undefined ? isActive : true,
           showInHome: showInHome !== undefined ? showInHome : true,
           showInHeader: showInHeader !== undefined ? showInHeader : true,
-        } as any,
+          headerType: headerType !== undefined ? headerType : 'GLOBAL',
+        },
       });
 
       return sendSuccess(res, category, 'Category created successfully.', 201);
@@ -103,7 +104,7 @@ export class CategoryController {
   static async updateCategory(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader } = req.body;
+      const { name, nameGu, nameHi, slug, icon, color, displayOrder, isActive, showInHome, showInHeader, headerType } = req.body;
 
       const category = await prisma.category.findUnique({
         where: { id },
@@ -136,6 +137,7 @@ export class CategoryController {
       if (isActive !== undefined) updateData.isActive = isActive;
       if (showInHome !== undefined) updateData.showInHome = showInHome;
       if (showInHeader !== undefined) updateData.showInHeader = showInHeader;
+      if (headerType !== undefined) updateData.headerType = headerType;
 
       const checkName = updateData.name || category.name;
       const checkNameGu = updateData.nameGu || category.nameGu;

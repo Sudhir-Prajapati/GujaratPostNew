@@ -92,6 +92,7 @@ model Category {
   isActive      Boolean  @default(true)
   showInHome    Boolean  @default(true)
   showInHeader  Boolean  @default(true)
+  headerType    String   @default("GLOBAL")
   posts         Post[]
   videos        Video[]
   createdAt     DateTime @default(now())
