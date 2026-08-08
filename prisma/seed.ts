@@ -540,19 +540,50 @@ async function main() {
 
   // 9. Seed Web Stories
   await prisma.webStory.deleteMany({});
-  for (const ws of WEB_STORIES_DATA) {
-    await prisma.webStory.create({
-      data: {
-        title: ws.title,
-        titleGu: ws.titleGu,
-        titleHi: ws.titleHi,
-        coverImage: ws.coverImage,
-        slidesCount: ws.slidesCount,
-        category: ws.category,
-      },
-    });
+  const WEB_STORY_SEED = [
+    {
+      heading: 'Future of Technology',
+      headingGu: 'ભવિષ્ય ટેકનોલોજી',
+      headingHi: 'भविष्य टेक्नोलॉजी',
+      image1: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&q=80',
+      image2: 'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=800&q=80',
+      image3: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80',
+    },
+    {
+      heading: 'Gujarat Tourism',
+      headingGu: 'ગુજરાત પ્રવાસ',
+      headingHi: 'गुजरात पर्यटन',
+      image1: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=800&q=80',
+      image2: 'https://images.unsplash.com/photo-1519677584237-752f8853252e?w=800&q=80',
+      image3: 'https://images.unsplash.com/photo-1598091383021-15ddea10925d?w=800&q=80',
+    },
+    {
+      heading: 'Gujarati Culture & Festivals',
+      headingGu: 'ગુજરાતી સંસ્કૃતિ',
+      headingHi: 'गुजराती संस्कृति',
+      image1: 'https://images.unsplash.com/photo-1598520106830-8c45c2035460?w=800&q=80',
+      image2: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=800&q=80',
+      image3: 'https://images.unsplash.com/photo-1547358881-25e19bcc29a4?w=800&q=80',
+    },
+    {
+      heading: 'Sports Update',
+      headingGu: 'રમતગમત અપડેટ',
+      headingHi: 'खेल अपडेट',
+      image1: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?w=800&q=80',
+      image2: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=800&q=80',
+    },
+    {
+      heading: 'Business & Economy',
+      headingGu: 'વ્યવસાય અને અર્થ',
+      headingHi: 'व्यापार और अर्थव्यवस्था',
+      image1: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&q=80',
+      image2: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=800&q=80',
+    },
+  ];
+  for (const ws of WEB_STORY_SEED) {
+    await prisma.webStory.create({ data: ws });
   }
-  console.log(`✅ ${WEB_STORIES_DATA.length} Web Stories seeded.`);
+  console.log(`✅ ${WEB_STORY_SEED.length} Web Stories seeded.`);
 
   // 10. Seed Breaking Ticker Items
   await prisma.breakingTickerItem.deleteMany({});

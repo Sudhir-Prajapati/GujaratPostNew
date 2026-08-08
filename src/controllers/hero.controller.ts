@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
+import { withDbRetry } from '../utils/db.js';
 
 function formatPost(p: any) {
   if (!p) return null;
@@ -45,26 +46,35 @@ export class HeroController {
    */
   static async getHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      let heroSetting = await prisma.heroSetting.findUnique({
-        where: { id: 'default' },
-      });
+      let heroSetting: any = null;
+      try {
+        heroSetting = await withDbRetry(() =>
+          prisma.heroSetting.findUnique({
+            where: { id: 'default' },
+          })
+        );
+      } catch (err: any) {
+        console.warn('Warning: heroSetting query error, using fallback:', err?.message);
+        heroSetting = null;
+      }
 
       let slot1Id = heroSetting?.slot1Id;
       let slot2Id = heroSetting?.slot2Id;
       let slot3Id = heroSetting?.slot3Id;
 
-      // If heroSetting doesn't exist or is empty, fallback to currently featured posts or top published posts
-      if (!slot1Id && !slot2Id && !slot3Id) {
-        const featuredPosts = await prisma.post.findMany({
-          where: { isFeatured: true, status: 'PUBLISHED' },
-          orderBy: { createdAt: 'asc' },
-          take: 3,
-        });
+      // Fetch backup featured or published posts in case any slot is missing
+      const fallbackPosts = await prisma.post.findMany({
+        where: { status: 'PUBLISHED' },
+        orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+        take: 10,
+        include: { category: true, author: true },
+      });
 
-        slot1Id = featuredPosts[0]?.id || null;
-        slot2Id = featuredPosts[1]?.id || null;
-        slot3Id = featuredPosts[2]?.id || null;
-      }
+      const fallbackFormatted = fallbackPosts.map(formatPost);
+
+      if (!slot1Id && fallbackPosts[0]) slot1Id = fallbackPosts[0].id;
+      if (!slot2Id && fallbackPosts[1]) slot2Id = fallbackPosts[1].id;
+      if (!slot3Id && fallbackPosts[2]) slot3Id = fallbackPosts[2].id;
 
       const targetIds = [slot1Id, slot2Id, slot3Id].filter((id): id is string => Boolean(id));
 
@@ -80,11 +90,11 @@ export class HeroController {
         posts.forEach((p) => postsMap.set(p.id, formatPost(p)));
       }
 
-      const slots = [
-        slot1Id ? postsMap.get(slot1Id) || null : null,
-        slot2Id ? postsMap.get(slot2Id) || null : null,
-        slot3Id ? postsMap.get(slot3Id) || null : null,
-      ];
+      const s1 = (slot1Id ? postsMap.get(slot1Id) : null) || fallbackFormatted[0] || null;
+      const s2 = (slot2Id ? postsMap.get(slot2Id) : null) || fallbackFormatted[1] || null;
+      const s3 = (slot3Id ? postsMap.get(slot3Id) : null) || fallbackFormatted[2] || null;
+
+      const slots = [s1, s2, s3];
 
       const DEFAULT_TOPICS = ['ચૂંટણી 2026', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'];
 
@@ -93,7 +103,7 @@ export class HeroController {
         try {
           parsedTopics = JSON.parse(heroSetting.trendingTopics);
         } catch {
-          parsedTopics = heroSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+          parsedTopics = heroSetting.trendingTopics.split(',').map((t: string) => t.trim()).filter(Boolean);
         }
       }
 
@@ -119,6 +129,17 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      if (trendingNewsArticles.length === 0) {
+        const defaultTrendingPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: [{ isTrending: 'desc' }, { createdAt: 'desc' }],
+          take: 10,
+          include: { category: true, author: true },
+        });
+        trendingNewsArticles = defaultTrendingPosts.map(formatPost);
+        parsedTrendingNewsIds = trendingNewsArticles.map((a: any) => a.id);
+      }
+
       let parsedPopularNewsIds: string[] = [];
       if (heroSetting?.popularNewsIds) {
         try {
@@ -141,12 +162,91 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      if (popularNewsArticles.length === 0) {
+        const defaultPopularPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: { createdAt: 'desc' },
+          take: 12,
+          include: { category: true, author: true },
+        });
+        popularNewsArticles = defaultPopularPosts.map(formatPost);
+        parsedPopularNewsIds = popularNewsArticles.map((a: any) => a.id);
+      }
+
+      let parsedHeroGridIds: string[] = [];
+      if ((heroSetting as any)?.heroGridIds) {
+        try {
+          parsedHeroGridIds = JSON.parse((heroSetting as any).heroGridIds);
+        } catch {
+          parsedHeroGridIds = [];
+        }
+      }
+
+      let heroGridArticles: any[] = [];
+      if (parsedHeroGridIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedHeroGridIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        heroGridArticles = parsedHeroGridIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
+      if (heroGridArticles.length === 0) {
+        const defaultHeroPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: { createdAt: 'desc' },
+          take: 16,
+          include: { category: true, author: true },
+        });
+        heroGridArticles = defaultHeroPosts.map(formatPost);
+        parsedHeroGridIds = heroGridArticles.map((a: any) => a.id);
+      }
+
+      let parsedMostReadIds: string[] = [];
+      if ((heroSetting as any)?.mostReadIds) {
+        try {
+          parsedMostReadIds = JSON.parse((heroSetting as any).mostReadIds);
+        } catch {
+          parsedMostReadIds = [];
+        }
+      }
+
+      let mostReadArticles: any[] = [];
+      if (parsedMostReadIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedMostReadIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        mostReadArticles = parsedMostReadIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
+      if (mostReadArticles.length === 0) {
+        const defaultMostReadPosts = await prisma.post.findMany({
+          where: { status: 'PUBLISHED' },
+          orderBy: [{ views: 'desc' }, { createdAt: 'desc' }],
+          take: 5,
+          include: { category: true, author: true },
+        });
+        mostReadArticles = defaultMostReadPosts.map(formatPost);
+        parsedMostReadIds = mostReadArticles.map((a: any) => a.id);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...(heroSetting || { id: 'default', slot1Id, slot2Id, slot3Id }),
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
           popularNewsIds: parsedPopularNewsIds,
+          mostReadIds: parsedMostReadIds,
+          heroGridIds: parsedHeroGridIds,
         },
         slots,
         trendingTopics: parsedTopics,
@@ -154,6 +254,10 @@ export class HeroController {
         trendingNewsArticles,
         popularNewsIds: parsedPopularNewsIds,
         popularNewsArticles,
+        mostReadIds: parsedMostReadIds,
+        mostReadArticles,
+        heroGridIds: parsedHeroGridIds,
+        heroGridArticles,
       }, 'Hero section settings retrieved successfully.');
     } catch (error) {
       next(error);
@@ -165,7 +269,7 @@ export class HeroController {
    */
   static async updateHeroSettings(req: Request, res: Response, next: NextFunction) {
     try {
-      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds, popularNewsIds } = req.body;
+      const { slot1Id, slot2Id, slot3Id, trendingTopics, trendingNewsIds, popularNewsIds, mostReadIds, heroGridIds } = req.body;
 
       const topicsStr = Array.isArray(trendingTopics)
         ? JSON.stringify(trendingTopics)
@@ -185,6 +289,18 @@ export class HeroController {
         ? popularNewsIds
         : null;
 
+      const mostReadIdsStr = Array.isArray(mostReadIds)
+        ? JSON.stringify(mostReadIds)
+        : typeof mostReadIds === 'string'
+        ? mostReadIds
+        : null;
+
+      const heroGridIdsStr = Array.isArray(heroGridIds)
+        ? JSON.stringify(heroGridIds)
+        : typeof heroGridIds === 'string'
+        ? heroGridIds
+        : null;
+
       const updatedSetting = await prisma.heroSetting.upsert({
         where: { id: 'default' },
         update: {
@@ -194,7 +310,9 @@ export class HeroController {
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
           popularNewsIds: popularIdsStr,
-        },
+          mostReadIds: mostReadIdsStr,
+          heroGridIds: heroGridIdsStr,
+        } as any,
         create: {
           id: 'default',
           slot1Id: slot1Id || null,
@@ -203,7 +321,9 @@ export class HeroController {
           trendingTopics: topicsStr,
           trendingNewsIds: newsIdsStr,
           popularNewsIds: popularIdsStr,
-        },
+          mostReadIds: mostReadIdsStr,
+          heroGridIds: heroGridIdsStr,
+        } as any,
       });
 
       const featuredIds = [slot1Id, slot2Id, slot3Id].filter((id): id is string => Boolean(id));
@@ -215,12 +335,6 @@ export class HeroController {
           data: { isFeatured: true },
         });
       }
-
-      // Mark all other articles as isFeatured: false
-      await prisma.post.updateMany({
-        where: { id: { notIn: featuredIds } },
-        data: { isFeatured: false },
-      });
 
       // Update isTrending flag for assigned trending news articles
       if (Array.isArray(trendingNewsIds) && trendingNewsIds.length > 0) {
@@ -235,7 +349,7 @@ export class HeroController {
         try {
           parsedTopics = JSON.parse(updatedSetting.trendingTopics);
         } catch {
-          parsedTopics = updatedSetting.trendingTopics.split(',').map((t) => t.trim()).filter(Boolean);
+          parsedTopics = updatedSetting.trendingTopics.split(',').map((t: string) => t.trim()).filter(Boolean);
         }
       }
 
@@ -254,6 +368,15 @@ export class HeroController {
           parsedPopularNewsIds = JSON.parse(updatedSetting.popularNewsIds);
         } catch {
           parsedPopularNewsIds = [];
+        }
+      }
+
+      let parsedMostReadIds: string[] = [];
+      if ((updatedSetting as any)?.mostReadIds) {
+        try {
+          parsedMostReadIds = JSON.parse((updatedSetting as any).mostReadIds);
+        } catch {
+          parsedMostReadIds = [];
         }
       }
 
@@ -298,12 +421,49 @@ export class HeroController {
           .filter(Boolean);
       }
 
+      let mostReadArticles: any[] = [];
+      if (parsedMostReadIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedMostReadIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        mostReadArticles = parsedMostReadIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
+      let parsedHeroGridIds: string[] = [];
+      if ((updatedSetting as any)?.heroGridIds) {
+        try {
+          parsedHeroGridIds = JSON.parse((updatedSetting as any).heroGridIds);
+        } catch {
+          parsedHeroGridIds = [];
+        }
+      }
+
+      let heroGridArticles: any[] = [];
+      if (parsedHeroGridIds.length > 0) {
+        const posts = await prisma.post.findMany({
+          where: { id: { in: parsedHeroGridIds }, status: 'PUBLISHED' },
+          include: { category: true, author: true },
+        });
+        const map = new Map<string, any>();
+        posts.forEach((p) => map.set(p.id, formatPost(p)));
+        heroGridArticles = parsedHeroGridIds
+          .map((id) => map.get(id))
+          .filter(Boolean);
+      }
+
       return sendSuccess(res, {
         setting: {
           ...updatedSetting,
           trendingTopics: parsedTopics,
           trendingNewsIds: parsedTrendingNewsIds,
           popularNewsIds: parsedPopularNewsIds,
+          mostReadIds: parsedMostReadIds,
+          heroGridIds: parsedHeroGridIds,
         },
         slots,
         trendingTopics: parsedTopics,
@@ -311,6 +471,10 @@ export class HeroController {
         trendingNewsArticles,
         popularNewsIds: parsedPopularNewsIds,
         popularNewsArticles,
+        mostReadIds: parsedMostReadIds,
+        mostReadArticles,
+        heroGridIds: parsedHeroGridIds,
+        heroGridArticles,
       }, 'Hero section settings updated successfully.');
     } catch (error) {
       next(error);

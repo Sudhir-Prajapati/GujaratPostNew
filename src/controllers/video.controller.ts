@@ -26,7 +26,7 @@ function extractYouTubeId(input: string): string {
 
 export class VideoController {
   /**
-   * Fetch all videos with pagination, search query, and type filters.
+   * Fetch all videos with pagination, search query, type, and category filters.
    */
   static async getAllVideos(req: Request, res: Response, next: NextFunction) {
     try {
@@ -36,6 +36,7 @@ export class VideoController {
 
       const query = req.query.query as string || '';
       const type = req.query.type as string || '';
+      const categoryId = req.query.categoryId as string || '';
 
       const where: any = {};
 
@@ -50,6 +51,10 @@ export class VideoController {
 
       if (type) {
         where.type = type;
+      }
+
+      if (categoryId) {
+        where.categoryId = categoryId;
       }
 
       const [videos, total] = await Promise.all([
@@ -91,6 +96,8 @@ export class VideoController {
         duration,
         isFeatured,
         channel,
+        categoryId,
+        categoryName,
       } = req.body;
 
       if (!title || !youtubeId) {
@@ -101,6 +108,12 @@ export class VideoController {
       const cleanId = extractYouTubeId(youtubeId);
       const embedUrl = `https://www.youtube.com/embed/${cleanId}`;
       const thumbnail = `https://img.youtube.com/vi/${cleanId}/maxresdefault.jpg`;
+
+      let finalCategoryName = categoryName || null;
+      if (categoryId && !finalCategoryName) {
+        const cat = await prisma.category.findUnique({ where: { id: categoryId } });
+        if (cat) finalCategoryName = cat.name;
+      }
 
       const video = await prisma.video.create({
         data: {
@@ -115,7 +128,9 @@ export class VideoController {
           duration: duration || '0:00',
           isFeatured: !!isFeatured,
           channel: channel ? channel.trim() : 'Gujarat Post News',
-        },
+          categoryId: categoryId || null,
+          categoryName: finalCategoryName,
+        } as any,
       });
 
       return sendSuccess(res, video, 'Video added successfully.', 201);
@@ -140,6 +155,8 @@ export class VideoController {
         duration,
         isFeatured,
         channel,
+        categoryId,
+        categoryName,
       } = req.body;
 
       const existing = await prisma.video.findUnique({ where: { id } });
@@ -155,7 +172,25 @@ export class VideoController {
       if (type !== undefined) updateData.type = type;
       if (description !== undefined) updateData.description = description ? description.trim() : null;
       if (duration !== undefined) updateData.duration = duration;
-      if (isFeatured !== undefined) updateData.isFeatured = !!isFeatured;
+      if (categoryId !== undefined) {
+        updateData.categoryId = categoryId || null;
+        if (categoryId) {
+          const cat = await prisma.category.findUnique({ where: { id: categoryId } });
+          updateData.categoryName = cat ? cat.name : (categoryName || null);
+        } else {
+          updateData.categoryName = null;
+        }
+      }
+      if (isFeatured !== undefined) {
+        const newFeatured = !!isFeatured;
+        if (!newFeatured && existing.isFeatured) {
+          const featuredCount = await prisma.video.count({ where: { isFeatured: true } });
+          if (featuredCount <= 3) {
+            throw new BadRequestError('Minimum 3 featured videos are compulsory for the homepage layout! Please feature another video before unfeaturing this one.');
+          }
+        }
+        updateData.isFeatured = newFeatured;
+      }
       if (channel !== undefined) updateData.channel = channel.trim();
 
       if (youtubeId !== undefined) {
@@ -189,11 +224,32 @@ export class VideoController {
         throw new BadRequestError('Video not found.');
       }
 
+      if (existing.isFeatured && existing.type !== 'short') {
+        const featuredCount = await prisma.video.count({ where: { isFeatured: true, type: 'video' } });
+        if (featuredCount <= 3) {
+          throw new BadRequestError('Minimum 3 featured videos are compulsory for the homepage layout! You cannot delete a featured video when only 3 featured videos exist.');
+        }
+      }
+
       await prisma.video.delete({
         where: { id },
       });
 
       return sendSuccess(res, null, 'Video deleted successfully.');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Bulk delete all short videos (type === 'short')
+   */
+  static async deleteAllShorts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await prisma.video.deleteMany({
+        where: { type: 'short' },
+      });
+      return sendSuccess(res, { count: result.count }, `Deleted ${result.count} short videos.`);
     } catch (error) {
       next(error);
     }
