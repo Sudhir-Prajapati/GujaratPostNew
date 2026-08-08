@@ -11,12 +11,31 @@ function slugify(text: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
+export async function autoPublishDueArticles() {
+  try {
+    const now = new Date();
+    await prisma.post.updateMany({
+      where: {
+        status: 'SCHEDULED',
+        scheduledAt: { lte: now },
+      },
+      data: {
+        status: 'PUBLISHED',
+      },
+    });
+  } catch (err) {
+    console.error('Error auto-publishing due articles:', err);
+  }
+}
+
 export class ArticleController {
   /**
    * Fetch all articles (posts) with filters.
    */
   static async getAllArticles(req: Request, res: Response, next: NextFunction) {
     try {
+      await autoPublishDueArticles();
+
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limit = Math.max(1, parseInt(req.query.limit as string) || 10);
       const skip = (page - 1) * limit;
@@ -101,13 +120,18 @@ export class ArticleController {
    */
   static async getArticleById(req: Request, res: Response, next: NextFunction) {
     try {
+      await autoPublishDueArticles();
       const { id } = req.params;
       const article = await prisma.post.findUnique({
         where: { id },
         include: {
           category: true,
           author: true,
-          tags: true,
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
         },
       });
 
@@ -154,6 +178,7 @@ export class ArticleController {
         tags, // array of { name: string }
         slug,
         location,
+        scheduledAt,
       } = req.body;
 
       if (!title || !content || !categoryId || !authorId) {
@@ -233,6 +258,7 @@ export class ArticleController {
           contentHi: (contentHi || content).trim(),
           featuredImage: (featuredImage || '').trim(),
           status: status || 'DRAFT',
+          scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
           authorId,
           categoryId,
           location: location ? String(location).trim() : null,
@@ -301,6 +327,7 @@ export class ArticleController {
         tags, // array of { name: string }
         slug,
         location,
+        scheduledAt,
       } = req.body;
 
       const existingPost = await prisma.post.findUnique({
@@ -325,6 +352,9 @@ export class ArticleController {
       if (contentHi !== undefined) updateData.contentHi = contentHi.trim();
       if (featuredImage !== undefined) updateData.featuredImage = featuredImage.trim();
       if (status !== undefined) updateData.status = status;
+      if (scheduledAt !== undefined) {
+        updateData.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+      }
       if (categoryId !== undefined) updateData.categoryId = categoryId;
       if (authorId !== undefined) updateData.authorId = authorId;
       if (priority !== undefined) updateData.priority = Number(priority);

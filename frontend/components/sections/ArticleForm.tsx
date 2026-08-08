@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
+import RichTextArea from '@/components/ui/RichTextArea';
 
 interface ArticleFormProps {
   articleId?: string; // If present, we are in Edit mode
@@ -494,10 +495,15 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
         setStatus(art.status || 'PUBLISHED');
-        if (art.scheduledAt) {
-          const d = new Date(art.scheduledAt);
-          const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-          setScheduledAt(localIso);
+        const rawSched = art.scheduledAt || (art.status === 'SCHEDULED' ? art.publishedAt : null);
+        if (rawSched) {
+          const d = new Date(rawSched);
+          if (!isNaN(d.getTime())) {
+            const localIso = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            setScheduledAt(localIso);
+          } else {
+            setScheduledAt('');
+          }
         } else {
           setScheduledAt('');
         }
@@ -514,7 +520,12 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setMetaRobots(art.metaRobots || 'index, follow');
 
         if (art.tags && art.tags.length > 0) {
-          setTagsString(art.tags.map((t: any) => t.name).join(', '));
+          const names = art.tags
+            .map((t: any) => (t.tag?.name || t.name || '').trim())
+            .filter((name: string) => name.length > 0);
+          setTagsString(names.join(', '));
+        } else {
+          setTagsString('');
         }
       } catch (err: any) {
         console.error('Error loading article in edit mode:', err);
@@ -671,6 +682,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       if (!response.ok) throw new Error(result.error || 'Failed to save article.');
 
       clearApiCache();
+      fetch('/api/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: result.article?.slug || result.slug || slug }),
+      }).catch(() => {});
 
       // Route back to list
       router.push('/admin/articles');
@@ -1017,19 +1033,16 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Short Description / Subtitle Excerpt
-          </label>
-          <textarea
+          <RichTextArea
+            label="Short Description / Subtitle Excerpt"
             value={(contentLang === 'gu' ? excerptGu : contentLang === 'hi' ? excerptHi : excerpt) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setExcerpt(e.target.value);
-              else if (contentLang === 'gu') setExcerptGu(e.target.value);
-              else if (contentLang === 'hi') setExcerptHi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setExcerpt(val);
+              else if (contentLang === 'gu') setExcerptGu(val);
+              else if (contentLang === 'hi') setExcerptHi(val);
             }}
             placeholder="Brief news hook overview summary..."
-            rows={2}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+            rows={3}
           />
         </div>
 
@@ -1131,21 +1144,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         </div>
 
         {/* 📰 DISTINCT SECTION 3: Description 1 (*) / Main Content Body */}
-        <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Description 1 (*) / Main Content Body <span className="text-red-500">*</span>
-          </label>
-          <textarea
+        <div>
+          <RichTextArea
+            label="Description 1 (*) / Main Content Body"
+            required
             value={(contentLang === 'gu' ? desc1Gu : contentLang === 'hi' ? desc1Hi : desc1) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setDesc1(e.target.value);
-              else if (contentLang === 'gu') setDesc1Gu(e.target.value);
-              else if (contentLang === 'hi') setDesc1Hi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setDesc1(val);
+              else if (contentLang === 'gu') setDesc1Gu(val);
+              else if (contentLang === 'hi') setDesc1Hi(val);
             }}
             placeholder="Write main story lead paragraphs..."
             rows={8}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 font-sans"
-            required
           />
         </div>
 
@@ -1292,20 +1302,18 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
 
 
         {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
-        <div className="space-y-2">
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-            Description 2 (Optional) / Additional Paragraphs
-          </label>
-          <textarea
+        {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
+        <div>
+          <RichTextArea
+            label="Description 2 (Optional) / Additional Paragraphs"
             value={(contentLang === 'gu' ? desc2Gu : contentLang === 'hi' ? desc2Hi : desc2) || ''}
-            onChange={(e) => {
-              if (contentLang === 'en') setDesc2(e.target.value);
-              else if (contentLang === 'gu') setDesc2Gu(e.target.value);
-              else if (contentLang === 'hi') setDesc2Hi(e.target.value);
+            onChange={(val) => {
+              if (contentLang === 'en') setDesc2(val);
+              else if (contentLang === 'gu') setDesc2Gu(val);
+              else if (contentLang === 'hi') setDesc2Hi(val);
             }}
             placeholder="Write concluding story paragraphs..."
             rows={5}
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-3 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 font-sans"
           />
         </div>
 
@@ -1359,25 +1367,27 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                Scheduled Publish Date & Time ⏰
-              </label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => {
-                  setScheduledAt(e.target.value);
-                  if (e.target.value && status !== 'SCHEDULED') {
-                    setStatus('SCHEDULED');
-                  }
-                }}
-                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-              />
-              <p className="text-[10px] text-zinc-400 mt-1">
-                Article will automatically become visible on the public website when this time arrives.
-              </p>
-            </div>
+            {status !== 'PUBLISHED' && (
+              <div>
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                  Scheduled Publish Date & Time ⏰
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => {
+                    setScheduledAt(e.target.value);
+                    if (e.target.value && status !== 'SCHEDULED') {
+                      setStatus('SCHEDULED');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+                />
+                <p className="text-[10px] text-zinc-400 mt-1">
+                  Article will automatically become visible on the public website when this time arrives.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
