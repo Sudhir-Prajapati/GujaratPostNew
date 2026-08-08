@@ -48,11 +48,14 @@ export default function TrendingSection() {
     Promise.all([
       getHeroSettings(),
       getPublicArticles({ isTrending: true, limit: 10 }),
-    ]).then(([heroRes, articlesRes]) => {
+      getPublicArticles({ limit: 10 }),
+    ]).then(([heroRes, trendingRes, latestRes]) => {
       if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
         setTrending((heroRes as any).trendingNewsArticles);
-      } else if (articlesRes && articlesRes.articles && articlesRes.articles.length > 0) {
-        setTrending(articlesRes.articles);
+      } else if (trendingRes && trendingRes.articles && trendingRes.articles.length > 0) {
+        setTrending(trendingRes.articles);
+      } else if (latestRes && latestRes.articles && latestRes.articles.length > 0) {
+        setTrending(latestRes.articles);
       }
     });
   }, []);
