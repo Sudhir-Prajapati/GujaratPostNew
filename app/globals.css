@@ -250,6 +250,20 @@ h6,
   line-height: 1.25;
 }
 
+b,
+strong {
+  font-weight: 700 !important;
+}
+
+.article-sub b,
+.article-sub strong,
+.article-body b,
+.article-body strong,
+.prose b,
+.prose strong {
+  font-weight: 800 !important;
+}
+
 
 
 .max-w-screen-xl {

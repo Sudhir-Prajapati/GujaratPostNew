@@ -27,7 +27,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
-import gpLogo from '../../public/assets/gujarat-post-logo-chip.png';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -140,7 +139,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <a href="/admin" className="flex items-center gap-2">
             <div className="relative h-10 w-40 overflow-hidden rounded">
               <Image
-                src={gpLogo}
+                src="/assets/gujarat-post-logo-chip.png"
                 alt="Gujarat Post"
                 fill
                 priority

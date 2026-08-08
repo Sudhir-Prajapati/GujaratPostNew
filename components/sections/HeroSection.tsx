@@ -448,14 +448,18 @@ export default function HeroSection({
         const autoHeroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
-            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
-            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
-            return bScore - aScore;
+            const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+            const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+            if (bScore !== aScore) return bScore - aScore;
+            return bTime - aTime;
           });
         const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
+        setTopStories(heroPool);
         const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
-        const trending = arts.filter((a: Article) => a.isTrending);
-        const popularPool = customPopularArts.length > 0 ? fillPool(customPopularArts, fillPool(trending, arts, 10), 10) : fillPool(trending, arts, 10);
+        const trendingArts = arts.filter((a: Article) => a.isTrending);
+        const popularPool = fillPool([...trendingArts, ...customPopularArts], arts, 10);
         setTrendingArtDB(popularPool);
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
         setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));

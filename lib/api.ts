@@ -76,7 +76,7 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
     try {
       const res = await fetch(url, {
-        next: { revalidate: 60 },
+        next: { revalidate: 300 },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
