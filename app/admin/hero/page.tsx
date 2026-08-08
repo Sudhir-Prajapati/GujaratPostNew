@@ -34,19 +34,21 @@ type Article = {
 };
 
 const DEMO_IMAGES = [
-  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
 ];
 
-function getArticleImage(article?: Article | null): string {
+function getArticleImage(article?: Article | null, index?: number): string {
   if (!article) return DEMO_IMAGES[0];
-  const rawImage = article.featuredImage || article.image;
+  const rawImage = (article as any).featuredImage || article.image || (article as any).thumbnail;
   if (
     rawImage &&
     rawImage.trim() !== '' &&
@@ -55,6 +57,9 @@ function getArticleImage(article?: Article | null): string {
     !rawImage.includes('placehold.co')
   ) {
     return rawImage;
+  }
+  if (typeof index === 'number') {
+    return DEMO_IMAGES[index % DEMO_IMAGES.length];
   }
   let hash = 0;
   const key = article.id || article.slug || article.titleGu || article.title || '';
@@ -1277,7 +1282,7 @@ export default function HeroManagerPage() {
                       <div>
                         {/* Thumbnail, Rank Badge & Drag Handle */}
                         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
-                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
+                          <Image src={getArticleImage(art, idx)} alt="" fill unoptimized className="object-cover pointer-events-none" />
 
                           {/* Rank Badge */}
                           <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B3121B] text-white text-[11px] font-black shadow-md z-10 select-none">
