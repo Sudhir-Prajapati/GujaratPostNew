@@ -27,29 +27,29 @@ interface ReelItem {
 const DEMO_REELS: ReelItem[] = [
   {
     id: 'demo-1',
-    type: 'INSTAGRAM',
+    type: 'VIDEO',
     heading: 'Gujarat Post Daily News Highlights',
     headingGu: 'ગુજરાત પોસ્ટ સમાચાર વાયરલ અપડેટ્સ',
     headingHi: 'गुजरात पोस्ट समाचार अपडेट्स',
-    videoUrl: null,
+    videoUrl: 'https://www.youtube.com/watch?v=sA6BrUmBXiA',
     instaUrl: 'https://www.instagram.com/gujaratpostnews',
   },
   {
     id: 'demo-2',
-    type: 'INSTAGRAM',
+    type: 'VIDEO',
     heading: 'Breaking Politics & City News',
     headingGu: 'ગાંધીનગર રાજકારણ તાજા વાયરલ દ્રશ્યો',
     headingHi: 'गांधीनगर राजनीति ताजा समाचार',
-    videoUrl: null,
+    videoUrl: 'https://www.youtube.com/watch?v=rQHoqCTiQvI',
     instaUrl: 'https://www.instagram.com/gujaratpostnews',
   },
   {
     id: 'demo-3',
-    type: 'INSTAGRAM',
+    type: 'VIDEO',
     heading: 'Live Weather & Special Report',
     headingGu: 'ગુજરાત હવામાન તથા વિશેષ ન્યૂઝ રિલ',
     headingHi: 'गुजरात मौसम तथा विशेष रिपोर्ट',
-    videoUrl: null,
+    videoUrl: 'https://www.youtube.com/watch?v=WF2Kuec5HV0',
     instaUrl: 'https://www.instagram.com/gujaratpostnews',
   },
 ];
@@ -155,32 +155,78 @@ export default function InstagramStories() {
           >
             {reels.map((reel) => {
               const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
+              const videoSrc = reel.videoUrl || reel.instaUrl;
+
+              // Extract Instagram reel embed URL if present
+              let instaEmbedUrl: string | null = null;
+              if (videoSrc && (videoSrc.includes('instagram.com/reel/') || videoSrc.includes('instagram.com/p/') || videoSrc.includes('instagram.com/tv/'))) {
+                const match = videoSrc.match(/instagram\.com\/(?:reel|p|tv)\/([A-Za-z0-9_-]+)/);
+                if (match && match[1]) {
+                  instaEmbedUrl = `https://www.instagram.com/p/${match[1]}/embed`;
+                }
+              }
+
+              // Extract YouTube embed URL if present
+              let ytEmbedUrl: string | null = null;
+              if (videoSrc && (videoSrc.includes('youtube.com') || videoSrc.includes('youtu.be'))) {
+                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+                const match = videoSrc.match(regExp);
+                if (match && match[2] && match[2].length === 11) {
+                  ytEmbedUrl = `https://www.youtube.com/embed/${match[2]}?autoplay=1&mute=1&loop=1&playlist=${match[2]}&controls=0&modestbranding=1&rel=0`;
+                }
+              }
+
+              // Check if URL is a direct video file (mp4, webm, uploads, blob, etc.)
+              const isDirectVideo = videoSrc && (
+                videoSrc.endsWith('.mp4') ||
+                videoSrc.endsWith('.webm') ||
+                videoSrc.endsWith('.ogg') ||
+                videoSrc.includes('/uploads/') ||
+                videoSrc.startsWith('blob:') ||
+                videoSrc.startsWith('data:video/')
+              );
+
               return (
                 <div
                   key={reel.id}
                   onClick={() => handleReelClick(reel)}
                   className="flex-none w-[140px] sm:w-[165px] cursor-pointer snap-start group"
                 >
-                  <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-muted shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
+                  <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-slate-950 shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
                     <div className="absolute top-2.5 left-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shadow-md">
                       <ReelsBadgeIcon className="h-3.5 w-3.5 text-white" />
                     </div>
 
-                    {/* Render HTML5 Video preview if uploaded video file exists */}
-                    {reel.type === 'VIDEO' && reel.videoUrl ? (
+                    {/* Render Reel Video (HTML5 Video, Instagram Embed, YouTube Shorts, or Dark Video Cover) */}
+                    {isDirectVideo ? (
                       <video
-                        src={reel.videoUrl}
+                        src={videoSrc!}
                         autoPlay
                         loop
                         muted
                         playsInline
                         className="absolute inset-0 h-full w-full object-cover"
                       />
+                    ) : instaEmbedUrl ? (
+                      <iframe
+                        src={instaEmbedUrl}
+                        className="absolute inset-0 h-[140%] w-[120%] -top-[20%] -left-[10%] pointer-events-none object-cover border-0"
+                        allow="autoplay; encrypted-media"
+                        title={displayTitle}
+                      />
+                    ) : ytEmbedUrl ? (
+                      <iframe
+                        src={ytEmbedUrl}
+                        className="absolute inset-0 h-full w-full pointer-events-none border-0"
+                        allow="autoplay; encrypted-media"
+                        title={displayTitle}
+                      />
                     ) : (
-                      /* Instagram Gradient Cover */
-                      <div className="absolute inset-0 h-full w-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                          <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-1" fill="currentColor">
+                      /* Dark sleek video cover card - NO ORANGE GRADIENT */
+                      <div className="absolute inset-0 h-full w-full bg-slate-900 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-slate-900/70 to-black/40" />
+                        <div className="relative z-10 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-lg border border-white/30 group-hover:bg-[#B3121B] transition-colors">
+                          <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-0.5" fill="currentColor">
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
