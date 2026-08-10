@@ -907,156 +907,141 @@ export default function HeroSection({
 
       <AdSectionBanner section="AFTER_HERO" />
 
-      <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
+      {/* 1. GUJARAT Section */}
+      <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
 
-      {/* Dynamic home page category sections rendered in exact displayOrder sequence configured by Admin */}
-      {allCategoriesDB.map((cat) => {
-        const s = (cat.slug || '').toLowerCase();
-        if (s === 'gujarat') {
-          return <CityHyperlocalSection key={cat.id || 'gujarat'} language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />;
-        }
-        if (s === 'national' || s === 'india' || s === 'desh') {
-          return <NationalSection key={cat.id || 'national'} language={language} />;
-        }
-        if (s === 'world' || s === 'vishw') {
-          return <WorldSection key={cat.id || 'world'} language={language} />;
-        }
-        if (s === 'politics' || s === 'rajkaran') {
-          return <PoliticsSection key={cat.id || 'politics'} language={language} />;
-        }
-        if (s === 'crime') {
-          return (
-            <section key={cat.id || 'crime'} className="mx-auto max-w-screen-xl px-4 mt-10">
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
-                {/* Left Column */}
-                <div className="flex flex-col gap-10 min-w-0">
-                  <CrimeSection language={language} view="content" />
-                </div>
+      {/* 2. DESH (National) Section */}
+      <NationalSection key="national" language={language} />
 
-                {/* Right Column / Sidebar */}
-                <div className="flex flex-col gap-6 sticky top-20 select-none">
-                  {/* Gold & Silver Rates Widget */}
-                  <div>
-                    <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
-                      <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
-                      <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
-                        {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
-                      </h3>
-                    </div>
-
-                    <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
-                      {/* Gold Rate Row */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
-                            🏅
-                          </div>
-                          <div>
-                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                              {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
-                            </h4>
-                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                              {language === 'gu' ? '24 Karat' : '24 Karat'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                            {marketRates?.gold?.price || '₹74,850'}
-                          </p>
-                          <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
-                            {marketRates?.gold?.change || '▲ ₹450'}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Divider */}
-                      <div className="border-t border-border/40" />
-
-                      {/* Silver Rate Row */}
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
-                            🥈
-                          </div>
-                          <div>
-                            <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                              {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
-                            </h4>
-                            <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                              {language === 'gu' ? 'Per Kg' : 'Per Kg'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                            {marketRates?.silver?.price || '₹84,200'}
-                          </p>
-                          <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
-                            {marketRates?.silver?.change || '— Stable'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Weather, WhatsApp, and Astrology */}
-                  <CrimeSection language={language} view="sidebar" />
-                </div>
-              </div>
-            </section>
-          );
-        }
-        return <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />;
-      })}
-
-      <TrendingSection />
-
+      {/* 3. TRENDING Section */}
+      <TrendingSection key="trending" />
       <AdSectionBanner section="AFTER_TRENDING" />
 
-      {/* Big Horizontal Ad before Latest News */}
-      <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
-        <Advertisement position="header" className="w-full" />
-      </div>
+      {/* 4. LATEST SAMACHAR (Latest Updates) Section */}
+      <LatestUpdatesSection view="all" />
 
-      {/* Remaining bottom content layout (Latest Updates & Popular Stories) */}
-      <section className="mt-8 border-t border-border/60 pt-6">
+      {/* 5. LOKPRIYA (Popular Stories) Section */}
+      <PopularStoriesSection language={language} view="all" />
+
+      {/* 6. INSTA REEL (Instagram Stories) Section */}
+      <InstagramStories />
+
+      {/* 7. VISHW (World) Section */}
+      <WorldSection key="world" language={language} />
+
+      {/* 8. RAJAKARAN (Politics) Section */}
+      <PoliticsSection key="politics" language={language} />
+
+      {/* 9. WEBSTORY (Web Stories) Section */}
+      <WebStoriesSection />
+      <AdSectionBanner section="AFTER_WEBSTORIES" />
+
+      {/* 10. CRIME Section */}
+      <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
+          {/* Left Column */}
           <div className="flex flex-col gap-10 min-w-0">
-            <LatestUpdatesSection view="timeline" />
-            <PopularStoriesSection language={language} view="content" />
+            <CrimeSection language={language} view="content" />
           </div>
+
+          {/* Right Column / Sidebar */}
           <div className="flex flex-col gap-6 sticky top-20 select-none">
-            <LatestUpdatesSection view="sidebar" />
-            <PopularStoriesSection language={language} view="sidebar" />
+            {/* Gold & Silver Rates Widget */}
+            <div>
+              <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
+                <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
+                <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
+                  {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
+                </h3>
+              </div>
+
+              <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
+                {/* Gold Rate Row */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
+                      🏅
+                    </div>
+                    <div>
+                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                        {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
+                      </h4>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                        {language === 'gu' ? '24 Karat' : '24 Karat'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                      {marketRates?.gold?.price || '₹74,850'}
+                    </p>
+                    <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
+                      {marketRates?.gold?.change || '▲ ₹450'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-border/40" />
+
+                {/* Silver Rate Row */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
+                      🥈
+                    </div>
+                    <div>
+                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                        {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
+                      </h4>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                        {language === 'gu' ? 'Per Kg' : 'Per Kg'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                      {marketRates?.silver?.price || '₹84,200'}
+                    </p>
+                    <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
+                      {marketRates?.silver?.change || '— Stable'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weather, WhatsApp, and Astrology */}
+            <CrimeSection language={language} view="sidebar" />
           </div>
         </div>
       </section>
 
-      <InstagramStories />
-
-      <WebStoriesSection />
-
-      <AdSectionBanner section="AFTER_WEBSTORIES" />
-
-      {/* Horizontal Ad Section before EntertainTechLifeSection */}
-      <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
-        <Advertisement position="header" className="w-full" />
-      </div>
-
-      <EntertainTechLifeSection language={language} />
-
+      {/* 11. FACT CHECK Section */}
       <FactCheckSection language={language} />
 
+      {/* 12. PHOTO GALLERY Section */}
       <PhotoGallerySection language={language} />
-
       <AdSectionBanner section="AFTER_GALLERY" />
 
+      {/* 13. SHORTS VIDEO Section */}
       <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
-
       <AdSectionBanner section="AFTER_VIDEOS" />
 
+      {/* 14. HAWAMAN (Weather Dashboard) Section */}
       <WeatherDashboardSection language={language} />
+
+      {/* 15. Remaining sections kept as current */}
+      {allCategoriesDB
+        .filter((cat) => {
+          const s = (cat.slug || '').toLowerCase();
+          return !['gujarat', 'national', 'india', 'desh', 'world', 'vishw', 'politics', 'rajkaran', 'crime'].includes(s);
+        })
+        .map((cat) => (
+          <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />
+        ))}
+
+      <EntertainTechLifeSection language={language} />
 
       <LiveCenterSection language={language} />
 
