@@ -8,18 +8,24 @@ export default function SplashLoader() {
   const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
+    // Lock body scrolling so no content behind loader can be scrolled
+    document.body.style.overflow = 'hidden';
+
     // Show 3D Microphone Loader on page load until homepage is fully ready
     const fadeTimer = setTimeout(() => {
       setVisible(false);
+      document.body.style.overflow = '';
     }, 2200); // 2.2s display time for website initial load
 
     const destroyTimer = setTimeout(() => {
       setShouldRender(false);
+      document.body.style.overflow = '';
     }, 2600); // Unmount after smooth fade out
 
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(destroyTimer);
+      document.body.style.overflow = '';
     };
   }, []);
 
@@ -27,7 +33,7 @@ export default function SplashLoader() {
 
   return (
     <div
-      className={`fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#040810] transition-opacity duration-500 ease-in-out select-none ${
+      className={`fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-[#040810] transition-opacity duration-500 ease-in-out select-none ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
     >

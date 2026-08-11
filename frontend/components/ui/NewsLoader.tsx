@@ -1,6 +1,15 @@
 export default function NewsLoader({ fullPage = false }: { fullPage?: boolean }) {
   return (
-    <div className={`news-loader ${fullPage ? 'news-loader-page' : ''}`} role="status" aria-live="polite" aria-label="Loading Gujarat Post">
+    <div
+      className={`news-loader ${
+        fullPage
+          ? 'fixed inset-0 z-[9999999] bg-[#040810] text-white w-screen h-screen flex flex-col items-center justify-center overflow-hidden news-loader-page'
+          : ''
+      }`}
+      role="status"
+      aria-live="polite"
+      aria-label="Loading Gujarat Post"
+    >
       <div className="news-loader-stage" aria-hidden="true">
         {/* Modern Spinner */}
         <div className="relative flex items-center justify-center h-20 w-20">
