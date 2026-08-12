@@ -144,37 +144,45 @@ export default function YouTubeShorts() {
     try {
       const liveRes = await getPublicVideos('short');
       if (liveRes && liveRes.length > 0) {
-        const mapped: ShortItem[] = liveRes.map((v, i) => {
-          let rawViews = v.views;
-          if (!rawViews || rawViews === 500) {
-            const vid = v.youtubeId || v.id || '';
-            let hash = 0;
-            for (let c = 0; c < vid.length; c++) {
-              hash = (hash << 5) - hash + vid.charCodeAt(c);
-              hash |= 0;
+        const seen = new Set<string>();
+        const mapped: ShortItem[] = [];
+        let i = 0;
+        for (const v of liveRes) {
+          const key = v.youtubeId?.trim() || v.id;
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            let rawViews = v.views;
+            if (!rawViews || rawViews === 500) {
+              const vid = v.youtubeId || v.id || '';
+              let hash = 0;
+              for (let c = 0; c < vid.length; c++) {
+                hash = (hash << 5) - hash + vid.charCodeAt(c);
+                hash |= 0;
+              }
+              rawViews = Math.abs(hash % 450) + 35;
             }
-            rawViews = Math.abs(hash % 450) + 35;
-          }
 
-          let viewsStr = `${rawViews}`;
-          if (rawViews >= 1000000) {
-            viewsStr = `${(rawViews / 1000000).toFixed(1)}M`;
-          } else if (rawViews >= 1000) {
-            viewsStr = `${(rawViews / 1000).toFixed(1)}K`;
-          }
+            let viewsStr = `${rawViews}`;
+            if (rawViews >= 1000000) {
+              viewsStr = `${(rawViews / 1000000).toFixed(1)}M`;
+            } else if (rawViews >= 1000) {
+              viewsStr = `${(rawViews / 1000).toFixed(1)}K`;
+            }
 
-          return {
-            id: v.youtubeId || v.id,
-            title: v.titleGu || v.title,
-            titleGu: v.titleGu || v.title,
-            thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
-            videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
-            categoryGu: CATEGORIES_GU[i % CATEGORIES_GU.length],
-            categoryEn: CATEGORIES_EN[i % CATEGORIES_EN.length],
-            viewsGu: viewsStr,
-            duration: v.duration || '0:58',
-          };
-        });
+            mapped.push({
+              id: v.youtubeId || v.id,
+              title: v.titleGu || v.title,
+              titleGu: v.titleGu || v.title,
+              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
+              videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
+              categoryGu: CATEGORIES_GU[i % CATEGORIES_GU.length],
+              categoryEn: CATEGORIES_EN[i % CATEGORIES_EN.length],
+              viewsGu: viewsStr,
+              duration: v.duration || '0:58',
+            });
+            i++;
+          }
+        }
 
         setShorts(mapped);
       } else {

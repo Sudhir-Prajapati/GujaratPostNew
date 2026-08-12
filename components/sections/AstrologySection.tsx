@@ -139,6 +139,7 @@ export default function AstrologySection() {
     getPublicAstrology().then((res) => {
       if (res && res.length > 0) {
         const formatted: ZodiacSign[] = res.map((s: any) => ({
+          ...s,
           id: s.slug || s.id,
           name: s.name,
           nameGu: s.nameGu,
