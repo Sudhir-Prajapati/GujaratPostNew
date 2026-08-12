@@ -56,6 +56,8 @@ router.delete('/articles/:id', requireAuth, ArticleController.deleteArticle);
 // ==========================================
 router.get('/videos', requireAuth, VideoController.getAllVideos);
 router.post('/videos', requireAuth, VideoController.createVideo);
+router.post('/videos/sync-youtube', requireAuth, VideoController.syncYouTubeVideos);
+router.post('/videos/sync-youtube-shorts', requireAuth, VideoController.syncYouTubeShorts);
 router.delete('/videos/all-shorts', requireAuth, VideoController.deleteAllShorts);
 router.put('/videos/:id', requireAuth, VideoController.updateVideo);
 router.delete('/videos/:id', requireAuth, VideoController.deleteVideo);
