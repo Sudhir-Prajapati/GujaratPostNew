@@ -327,6 +327,9 @@ export default function HeroManagerPage() {
   const [savingPopularNews, setSavingPopularNews] = useState(false);
   const [draggedPopularIndex, setDraggedPopularIndex] = useState<number | null>(null);
 
+  const [mostReadArticles, setMostReadArticles] = useState<Article[]>([]);
+  const [savingMostRead, setSavingMostRead] = useState(false);
+
   const [heroGridArticles, setHeroGridArticles] = useState<Article[]>([]);
   const [savingHeroGrid, setSavingHeroGrid] = useState(false);
 
@@ -395,6 +398,12 @@ export default function HeroManagerPage() {
         setPopularNewsArticles((heroRes as any).popularNewsArticles as unknown as Article[]);
       } else {
         setPopularNewsArticles(arts.slice(0, 12));
+      }
+
+      if (heroRes && Array.isArray((heroRes as any).mostReadArticles) && (heroRes as any).mostReadArticles.length > 0) {
+        setMostReadArticles((heroRes as any).mostReadArticles as unknown as Article[]);
+      } else {
+        setMostReadArticles(arts.slice(0, 5));
       }
     } catch {
       showToast('Failed to load hero section articles', false);
@@ -659,6 +668,66 @@ export default function HeroManagerPage() {
       showToast('Save failed. Please try again.', false);
     } finally {
       setSavingPopularNews(false);
+    }
+  };
+
+  const handleAddMostReadArticle = (art: Article) => {
+    if (mostReadArticles.some((a) => a.id === art.id)) {
+      showToast('Article already in Most Read list', false);
+      return;
+    }
+    if (mostReadArticles.length >= 5) {
+      showToast('⚠️ Limit reached (5 articles max for Most Read). Please remove one first.', false);
+      return;
+    }
+    setMostReadArticles((prev) => [...prev, art]);
+  };
+
+  const handleRemoveMostReadArticle = (id: string) => {
+    setMostReadArticles((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const moveMostReadArticle = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= mostReadArticles.length) return;
+    setMostReadArticles((prev) => {
+      const updated = [...prev];
+      const temp = updated[index];
+      updated[index] = updated[newIndex];
+      updated[newIndex] = temp;
+      return updated;
+    });
+  };
+
+  const handleSaveMostRead = async () => {
+    setSavingMostRead(true);
+    try {
+      const payload = {
+        slot1Id: slots[0]?.id || null,
+        slot2Id: slots[1]?.id || null,
+        slot3Id: slots[2]?.id || null,
+        trendingTopics: trendingTopics,
+        trendingNewsIds: trendingNewsArticles.map((a) => a.id),
+        popularNewsIds: popularNewsArticles.map((a) => a.id),
+        mostReadIds: mostReadArticles.map((a) => a.id),
+        heroGridIds: JSON.stringify(heroGridArticles.map((a) => a.id)),
+      };
+
+      const res = await updateHeroSettings(payload);
+
+      if (res && res.success) {
+        triggerOnDemandRevalidate();
+        showToast('✅ Saved! Most Read (સૌથી વધુ વંચાયેલા) articles updated live on user side.', true);
+        if (res.data?.mostReadArticles && Array.isArray(res.data.mostReadArticles)) {
+          setMostReadArticles(res.data.mostReadArticles as unknown as Article[]);
+        }
+      } else {
+        showToast('Failed to save Most Read articles. Please try again.', false);
+      }
+    } catch {
+      showToast('Save failed. Please try again.', false);
+    } finally {
+      setSavingMostRead(false);
     }
   };
 
@@ -1115,6 +1184,128 @@ export default function HeroManagerPage() {
                         title="Remove from Most Read"
                       >
                         ✕ Remove
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* ════════════════════════════════════════════════════════════════
+             MOST READ 5 POSITIONS MANAGEMENT (સૌથી વધુ વંચાયેલા)
+             ════════════════════════════════════════════════════════════════ */}
+          <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-100 pb-4 dark:border-zinc-800 mb-6 gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔥</span>
+                  <h3 className="text-base font-black text-zinc-900 dark:text-white">
+                    Most Read 5 Positions (સૌથી વધુ વંચાયેલા)
+                  </h3>
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800">
+                    {mostReadArticles.length} / 5 Positions
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 font-medium mt-1">
+                  Manage the 5 articles displayed in the "સૌથી વધુ વંચાયેલા" (Most Read) sidebar widget on the homepage. Move up / down to reorder rank #1 to #5.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSaveMostRead}
+                disabled={savingMostRead}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#B3121B] px-4 py-2 text-xs font-bold text-white hover:bg-[#8E0E15] transition shadow-md shadow-[#B3121B]/20 disabled:opacity-50 cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                {savingMostRead ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {savingMostRead ? 'Saving Most Read...' : 'Save Most Read 5 Positions'}
+              </button>
+            </div>
+
+            {/* Quick Article Search to Add Position */}
+            <div className="mb-6 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-3 border border-zinc-200 dark:border-zinc-700">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mb-2">
+                ➕ Add Article to Most Read 5 Positions (સૌથી વધુ વંચાયેલા)
+              </p>
+              <ArticleSearchBox
+                allArticles={allArticles}
+                excluded={mostReadArticles.map((a) => a.id)}
+                maxLimit={100}
+                placeholder={mostReadArticles.length >= 5 ? '[ Limit 5 reached — remove an article to add new ]' : 'Search latest 100 articles by title or #articleNumber to add to Most Read...'}
+                onSelect={(art) => handleAddMostReadArticle(art)}
+              />
+            </div>
+
+            {/* List of 5 Most Read Positions */}
+            <div className="space-y-3">
+              {mostReadArticles.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 text-center text-xs text-zinc-400">
+                  No articles assigned. Default published articles will be displayed automatically.
+                </div>
+              ) : (
+                mostReadArticles.map((art, idx) => (
+                  <div
+                    key={art.id}
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40"
+                  >
+                    {/* Left Info */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
+                        #{idx + 1}
+                      </span>
+
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                            Most Read Rank #{idx + 1}
+                          </span>
+                          {art.articleNumber && (
+                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                              #{art.articleNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                          {getTitle(art)}
+                        </p>
+                        <p className="text-[10px] text-zinc-400 mt-0.5">
+                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Right Controls */}
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                      <button
+                        type="button"
+                        onClick={() => moveMostReadArticle(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Up 1 Position"
+                      >
+                        ⬆️ Move Up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveMostReadArticle(idx, 1)}
+                        disabled={idx === mostReadArticles.length - 1}
+                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Move Down 1 Position"
+                      >
+                        ⬇️ Move Down
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveMostReadArticle(art.id)}
+                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                        title="Remove from Most Read"
+                      >
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
