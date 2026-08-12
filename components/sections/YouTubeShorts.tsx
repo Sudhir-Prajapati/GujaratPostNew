@@ -212,6 +212,9 @@ export default function YouTubeShorts() {
     const el = scrollContainerRef.current;
     if (!el || loading || shorts.length === 0) return;
 
+    // Set initial arrow state as soon as content is available
+    updateArrows();
+
     let animId: number;
     let lastTime = performance.now();
     const SPEED = 50; // pixels per second
@@ -250,22 +253,35 @@ export default function YouTubeShorts() {
     };
   }, [loading, shorts, selectedVideoId, updateArrows]);
 
-  // Manual button scroll handler
+  // Manual button scroll handler - pauses auto-scroll during and after manual scroll
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
     if (!el) return;
+    // Pause auto-scroll so it doesn't fight the manual smooth scroll
+    isPausedRef.current = true;
     const scrollAmount = el.clientWidth * 0.75;
-    const target = direction === 'left' ? el.scrollLeft - scrollAmount : el.scrollLeft + scrollAmount;
+    const target = Math.max(0, Math.min(
+      el.scrollWidth - el.clientWidth,
+      direction === 'left' ? el.scrollLeft - scrollAmount : el.scrollLeft + scrollAmount
+    ));
     el.scrollTo({ left: target, behavior: 'smooth' });
     scrollPosRef.current = target;
+    // Update arrows immediately based on target
+    setShowLeftArrow(target > 10);
+    setShowRightArrow(target < el.scrollWidth - el.clientWidth - 10);
+    // Resume auto-scroll after smooth scroll completes (~600ms)
+    setTimeout(() => {
+      scrollPosRef.current = el.scrollLeft;
+      isPausedRef.current = false;
+    }, 700);
   };
 
   const displayList = shorts.length > 0 ? [...shorts, ...shorts] : [];
 
   return (
-    <section className="mx-auto max-w-screen-xl px-4 py-6 select-none">
+    <section className="relative mx-auto max-w-screen-xl px-4 py-6 select-none">
       {/* Red Solid Panel Container matching exact screenshot */}
-      <div className="w-full bg-[#B3121B] text-white rounded-2xl p-5 sm:p-6 md:p-7 border border-white/10 relative shadow-xl overflow-hidden">
+      <div className="w-full bg-[#B3121B] text-white rounded-2xl p-5 sm:p-6 md:p-7 border border-white/10 relative shadow-xl">
         
         {/* Header Row */}
         <div className="flex items-center justify-between mb-5 select-none">
@@ -283,33 +299,7 @@ export default function YouTubeShorts() {
           </a>
         </div>
 
-        {/* Slider Container Wrapper */}
-        <div className="relative group/slider-wrap">
-          {/* Left Arrow Button */}
-          {showLeftArrow && (
-            <button
-              type="button"
-              onClick={() => handleScroll('left')}
-              className="absolute left-[-16px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#B3121B] flex items-center justify-center shadow-2xl border border-slate-200 hover:scale-110 active:scale-95 transition-all duration-200"
-              aria-label="Scroll left"
-            >
-              <ChevronLeft className="h-6 w-6 stroke-[3]" />
-            </button>
-          )}
-
-          {/* Right Arrow Button */}
-          {showRightArrow && (
-            <button
-              type="button"
-              onClick={() => handleScroll('right')}
-              className="absolute right-[-16px] top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white text-[#B3121B] flex items-center justify-center shadow-2xl border border-slate-200 hover:scale-110 active:scale-95 transition-all duration-200"
-              aria-label="Scroll right"
-            >
-              <ChevronRight className="h-6 w-6 stroke-[3]" />
-            </button>
-          )}
-
-          {/* Scrollable Cards Container */}
+        <div className="relative">
           <div
             ref={scrollContainerRef}
             onMouseEnter={() => { isPausedRef.current = true; }}
@@ -318,7 +308,7 @@ export default function YouTubeShorts() {
           >
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex-shrink-0 w-[150px] sm:w-[170px] aspect-[9/16] rounded-2xl bg-white/10 animate-pulse border border-white/20" />
+                <div key={i} className="flex-shrink-0 w-[185px] sm:w-[205px] aspect-[9/16] rounded-2xl bg-white/10 animate-pulse border border-white/20" />
               ))
             ) : (
               displayList.map((short, index) => (
@@ -327,83 +317,35 @@ export default function YouTubeShorts() {
                   onClick={() => setSelectedVideoId(short.id)}
                   className="group relative flex-shrink-0 w-[185px] sm:w-[205px] cursor-pointer select-none"
                 >
-                  {/* Vertical 9:16 Card matching screenshot */}
                   <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-white/20 bg-black shadow-md transition-transform duration-300 group-hover:scale-[1.02]">
-                    {short.isBannerCard ? (
-                      <div className="absolute inset-0 bg-gradient-to-b from-[#800A11] via-[#5C060B] to-[#3B0306] flex flex-col justify-between p-3.5">
-                        {/* Top Category Badge */}
-                        <div className="flex items-center justify-between z-10">
-                          <span className="bg-[#B3121B] text-white px-2.5 py-0.5 text-[10.5px] font-black rounded-full shadow-sm">
-                            {language === 'gu' ? short.categoryGu : short.categoryEn}
-                          </span>
-                          <MoreVertical className="h-4 w-4 text-white/80" />
-                        </div>
-
-                        {/* Middle Alert Text */}
-                        <div className="my-auto text-left leading-tight py-2 z-10">
-                          <h3 className="text-3xl font-black text-white drop-shadow">60</h3>
-                          <h3 className="text-lg font-black text-white drop-shadow">સેકન્ડમાં</h3>
-                          <h3 className="text-lg font-black text-[#B3121B] bg-white px-1.5 py-0.5 inline-block rounded-sm mt-0.5 shadow">વરસાદ</h3>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <h3 className="text-lg font-black text-white drop-shadow">એલર્ટ</h3>
-                            <span className="w-6 h-6 rounded-full bg-[#B3121B] text-white flex items-center justify-center shadow">
-                              <Play className="h-3 w-3 fill-current ml-0.5" />
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Bottom Metadata */}
-                        <div className="z-10">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold text-white/90">
-                            <Eye className="h-3 w-3" />
-                            <span>{short.viewsGu || '12K'} વ્યુ</span>
-                            <span>|</span>
-                            <Clock className="h-3 w-3" />
-                            <span>{short.duration || '0:60'}</span>
-                          </div>
-                          <div className="h-1 w-4 bg-[#B3121B] rounded-full mt-1.5" />
-                        </div>
+                    <img
+                      src={`https://i.ytimg.com/vi/${short.id}/frame0.jpg`}
+                      alt={short.title}
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${short.id}/hqdefault.jpg`;
+                      }}
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+                    <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+                      <span className="w-11 h-11 rounded-full bg-[#B3121B] text-white flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 border border-white/20">
+                        <Play className="h-5 w-5 fill-current ml-0.5" />
+                      </span>
+                    </div>
+                    <div className="absolute bottom-0 inset-x-0 p-3.5 z-10 flex flex-col justify-end space-y-1.5">
+                      <h3 className="text-white text-[12.5px] font-black leading-snug line-clamp-2 drop-shadow-md group-hover:text-red-200 transition-colors">
+                        {language === 'gu' ? (short.titleGu || short.title) : short.title}
+                      </h3>
+                      <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold text-white/90 drop-shadow">
+                        <Eye className="h-3 w-3 text-white/80" />
+                        <span>{short.viewsGu || '75'} વ્યુ</span>
+                        <span>|</span>
+                        <Clock className="h-3 w-3 text-white/80" />
+                        <span>{short.duration || '0:58'}</span>
                       </div>
-                    ) : (
-                      <>
-                        {/* 1080x1920 HD Vertical Frame Thumbnail */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={`https://i.ytimg.com/vi/${short.id}/frame0.jpg`}
-                          alt={short.title}
-                          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = `https://i.ytimg.com/vi/${short.id}/hqdefault.jpg`;
-                          }}
-                          loading="lazy"
-                        />
-
-                        {/* Dark Gradient Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
-
-                        {/* Center Red Play Icon */}
-                        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-                          <span className="w-11 h-11 rounded-full bg-[#B3121B] text-white flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 border border-white/20">
-                            <Play className="h-5 w-5 fill-current ml-0.5" />
-                          </span>
-                        </div>
-
-                        {/* Bottom Title & Views Overlay */}
-                        <div className="absolute bottom-0 inset-x-0 p-3.5 z-10 flex flex-col justify-end space-y-1.5">
-                          <h3 className="text-white text-[12.5px] font-black leading-snug line-clamp-2 drop-shadow-md group-hover:text-red-200 transition-colors">
-                            {language === 'gu' ? (short.titleGu || short.title) : short.title}
-                          </h3>
-                          <div className="flex items-center gap-1.5 text-[10.5px] font-extrabold text-white/90 drop-shadow">
-                            <Eye className="h-3 w-3 text-white/80" />
-                            <span>{short.viewsGu || '75'} વ્યુ</span>
-                            <span>|</span>
-                            <Clock className="h-3 w-3 text-white/80" />
-                            <span>{short.duration || '0:58'}</span>
-                          </div>
-                          <div className="h-1 w-4 bg-[#B3121B] rounded-full mt-1" />
-                        </div>
-                      </>
-                    )}
+                      <div className="h-1 w-4 bg-[#B3121B] rounded-full mt-1" />
+                    </div>
                   </div>
                 </article>
               ))
@@ -412,11 +354,34 @@ export default function YouTubeShorts() {
         </div>
       </div>
 
-      {/* Video Modal Player */}
+      {!loading && shorts.length > 0 && (
+        <>
+          {showLeftArrow && (
+            <button
+              type="button"
+              onClick={() => handleScroll('left')}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full bg-white text-[#B3121B] flex items-center justify-center shadow-2xl border border-slate-200 hover:scale-110 active:scale-95 transition-all duration-200"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="h-6 w-6 stroke-[3]" />
+            </button>
+          )}
+          {showRightArrow && (
+            <button
+              type="button"
+              onClick={() => handleScroll('right')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-40 w-10 h-10 rounded-full bg-white text-[#B3121B] flex items-center justify-center shadow-2xl border border-slate-200 hover:scale-110 active:scale-95 transition-all duration-200"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="h-6 w-6 stroke-[3]" />
+            </button>
+          )}
+        </>
+      )}
+
       {selectedVideoId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="absolute inset-0" onClick={() => setSelectedVideoId(null)} />
-          
           <div className="relative w-full max-w-md aspect-[9/16] max-h-[85vh] rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/10 z-10 animate-in zoom-in-95 duration-200">
             {/* Close Button */}
             <button
