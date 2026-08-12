@@ -472,20 +472,81 @@ export async function updateHeroSettings(payload: {
   return res.json();
 }
 
+export async function fetchLiveInstagramReels(): Promise<any[]> {
+  try {
+    const baseUrl = typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const apiUrl = `${baseUrl}/api/instagram-reels`;
+
+    const res = await fetchCachedJson<any>(apiUrl, 300000); // 5-minute cache
+    if (res?.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch live Instagram reels feed:', err);
+  }
+
+  return [];
+}
+
 /**
- * Fetch Instagram Reels (Admin/Public)
+ * Fetch Instagram Reels (Combines DB reels + Live scraped Reels from @gujaratpost.in)
  */
 export async function getPublicReels(): Promise<any[]> {
+  const combined: any[] = [];
+  const seenUrls = new Set<string>();
+
+  const getShortcodeKey = (item: any): string => {
+    const url = item?.instaUrl || item?.videoUrl || item?.thumbnail || '';
+    const m = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
+    if (m && m[1]) return m[1];
+    return item?.id || '';
+  };
+
   try {
-    const url = `${API_BASE_URL}/reels?isActive=true`;
-    const json = await fetchCachedJson<any>(url);
-    if (json?.success && json.data?.reels) {
-      return json.data.reels;
+    // 1. Fetch backend database reels
+    const dbUrl = `${API_BASE_URL}/reels?isActive=true`;
+    const json = await fetchCachedJson<any>(dbUrl, 60 * 1000);
+    const dbReels: any[] = (json?.success && Array.isArray(json.data?.reels)) ? json.data.reels : [];
+
+    // 2. Fetch live scraped Instagram Reels from @gujaratpost.in profile
+    const liveReels = await fetchLiveInstagramReels();
+
+    const liveMap = new Map<string, any>();
+    for (const lr of liveReels) {
+      const key = getShortcodeKey(lr);
+      if (key) liveMap.set(key, lr);
     }
+
+    // Add DB reels first
+    for (const dbr of dbReels) {
+      const key = getShortcodeKey(dbr);
+      if (key) seenUrls.add(key);
+      const liveMatch = liveMap.get(key);
+      combined.push({
+        ...dbr,
+        thumbnail: dbr.thumbnail || liveMatch?.thumbnail || null,
+        views: liveMatch?.views || dbr.views || 0,
+      });
+    }
+
+    // Add live Instagram reels from profile that are not yet in DB
+    for (const lr of liveReels) {
+      const key = getShortcodeKey(lr);
+      if (key && !seenUrls.has(key)) {
+        seenUrls.add(key);
+        combined.push(lr);
+      }
+    }
+
+    if (combined.length > 0) return combined;
   } catch (error: any) {
     console.warn('Backend API fetch error for reels:', error?.message || error);
   }
-  return [];
+
+  // Fallback to live Instagram reels alone if DB is empty or fails
+  return fetchLiveInstagramReels();
 }
 
 /**
