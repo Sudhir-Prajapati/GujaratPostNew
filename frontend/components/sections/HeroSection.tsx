@@ -334,9 +334,13 @@ function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
 export default function HeroSection({
   initialArticles = [],
   initialVideos = [],
+  initialHeroSettings = null,
+  initialCategories = [],
 }: {
   initialArticles?: Article[];
   initialVideos?: any[];
+  initialHeroSettings?: any;
+  initialCategories?: any[];
 }) {
   const { language } = useApp();
   const [videoMode, setVideoMode] = useState<'latest' | 'live'>('latest');
@@ -356,29 +360,52 @@ export default function HeroSection({
     return pool;
   };
 
+  // Pre-calculate initial hero slots & grid from initialHeroSettings
+  const initialSlots: Article[] = (initialHeroSettings?.slots || []).filter(Boolean);
+  const initialFeaturedIds = new Set(initialSlots.map((a: Article) => a.id));
+
   const initFeatured = initialArticles.filter((a) => a.isFeatured);
   const initTrending = initialArticles.filter((a) => a.isTrending);
 
+  const initialCustomGridArts: Article[] = (initialHeroSettings?.heroGridArticles || []).filter(Boolean);
+  const initialAutoHeroPool = initialArticles
+    .filter((a: Article) => !initialFeaturedIds.has(a.id))
+    .sort((a: Article, b: Article) => {
+      const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+      const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+      const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+      const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+      if (bScore !== aScore) return bScore - aScore;
+      return bTime - aTime;
+    });
+
+  const initialHeroPool = initialCustomGridArts.length > 0 
+    ? fillPool(initialCustomGridArts, initialAutoHeroPool, 16) 
+    : initialAutoHeroPool.slice(0, 16);
+
+  const initialCustomPopularArts: Article[] = (initialHeroSettings?.popularNewsArticles || []).filter(Boolean);
+  const initialCustomMostReadArts: Article[] = (initialHeroSettings?.mostReadArticles || []).filter(Boolean);
+  const initialPopularPool = fillPool([...initTrending, ...initialCustomPopularArts], initialArticles, 10);
+  const initialMostReadPool = initialCustomMostReadArts.length > 0 ? initialCustomMostReadArts : initialArticles.slice(0, 5);
+
+  const initialCategoriesDB = Array.isArray(initialCategories)
+    ? initialCategories.filter((c) => c.showInHome !== false && c.isActive !== false).sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+    : [];
+  const initialCategorySlugs = initialCategoriesDB.map((c) => c.slug?.toLowerCase()).filter(Boolean);
+
   // DB-backed article state
   const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
-  // topStories: auto-populated from latest articles (main hero, right 2, text articles)
-  const initialSortedHeroPool = [...initialArticles].sort((a: Article, b: Article) => {
-    const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
-    const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
-    return bScore - aScore;
-  });
-  const [topStories, setTopStories] = useState<Article[]>(initialSortedHeroPool.slice(0, 16));
-  // bottomFeatured: admin-selected 3 articles shown in the bottom image row
-  const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
-  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
-  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialArticles.slice(0, 5));
+  const [topStories, setTopStories] = useState<Article[]>(initialHeroPool);
+  const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initialSlots.length > 0 ? initialSlots : initFeatured.slice(0, 3));
+  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(initialPopularPool);
+  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialMostReadPool);
   const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
   const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
   const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
   const [worldArtDB, setWorldArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
-  const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
+  const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>(initialHeroSettings?.trendingTopics || initialHeroSettings?.setting?.trendingTopics || []);
   const [marketRates, setMarketRates] = useState<any>({
     gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
     silver: { price: '₹84,200', change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
@@ -393,9 +420,9 @@ export default function HeroSection({
     conditionEn: 'Partly cloudy',
   });
   const [astrologySignsDB, setAstrologySignsDB] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(['gujarat', 'national', 'world', 'politics', 'crime']);
-  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(!initialArticles.length);
+  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(initialCategorySlugs.length > 0 ? initialCategorySlugs : ['gujarat', 'national', 'world', 'politics', 'crime']);
+  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>(initialCategoriesDB);
 
   useEffect(() => {
     // Fetch main articles pool, hero slots settings, videos, market rates, weather, AND categories in parallel
