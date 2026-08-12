@@ -302,6 +302,7 @@ model Reel {
   headingHi String   @db.Text
   videoUrl  String?  @db.Text // Used if type is "VIDEO"
   instaUrl  String?  @db.Text // Used if type is "INSTAGRAM"
+  thumbnail String?  @db.Text // Cover thumbnail image URL
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

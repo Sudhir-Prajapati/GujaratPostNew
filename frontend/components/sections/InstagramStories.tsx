@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { getPublicReels } from '@/lib/api';
+import { safeYouTubeId } from '@/lib/youtube';
 
 function ReelsBadgeIcon({ className = "h-4 w-4 text-white" }: { className?: string }) {
   return (
@@ -22,6 +22,106 @@ interface ReelItem {
   headingHi: string;
   videoUrl: string | null;
   instaUrl: string | null;
+  thumbnail?: string | null;
+}
+
+export function getReelThumbnail(reel: ReelItem): string | null {
+  if (reel.thumbnail?.trim()) return reel.thumbnail.trim();
+
+  const url = (reel.videoUrl || reel.instaUrl || '').trim();
+  if (!url) return null;
+
+  // 1. YouTube video or shorts URL
+  const ytId = safeYouTubeId(url);
+  if (ytId && ytId !== url && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
+    return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+  }
+
+  // 2. Instagram post / reel URL
+  const instaMatch = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
+  if (instaMatch && instaMatch[1]) {
+    return `https://www.instagram.com/p/${instaMatch[1]}/media/?size=l`;
+  }
+
+  // 3. Direct image link
+  if (/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url)) {
+    return url;
+  }
+
+  return null;
+}
+
+function ReelCard({ reel, language, onReelClick }: { reel: ReelItem; language: string; onReelClick: (reel: ReelItem) => void }) {
+  const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
+  const thumbUrl = getReelThumbnail(reel);
+  const [imgFailed, setImgFailed] = useState(false);
+
+  const showImage = thumbUrl && !imgFailed;
+
+  return (
+    <div
+      onClick={() => onReelClick(reel)}
+      className="flex-none w-[140px] sm:w-[165px] cursor-pointer snap-start group select-none"
+    >
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-muted shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
+        {/* Top Badge Icon */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shadow-md">
+          <ReelsBadgeIcon className="h-3.5 w-3.5 text-white" />
+        </div>
+
+        {/* Thumbnail Image OR Instagram Gradient Background */}
+        {showImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbUrl}
+              alt={displayTitle || 'Reel'}
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgFailed(true)}
+              loading="lazy"
+            />
+            {/* Dark gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent z-10" />
+            {/* Center Play Button Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+              <span className="w-10 h-10 rounded-full bg-[#B3121B] text-white flex items-center justify-center shadow-lg border border-white/20 transition-transform group-hover:scale-110">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current ml-0.5" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 h-full w-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+            {reel.type === 'VIDEO' ? (
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-1" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            ) : (
+              <ReelsBadgeIcon className="h-12 w-12 text-white/30" />
+            )}
+          </div>
+        )}
+
+        {/* Bottom Title Container Box */}
+        <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-20">
+          <div className="flex flex-col min-w-0 flex-1 pr-1">
+            <div className="flex items-center gap-1 mb-0.5">
+              <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
+            </div>
+            <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
+              {displayTitle || reel.heading}
+            </p>
+          </div>
+          <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shrink-0 ml-1 shadow-sm group-hover:scale-105 transition-transform">
+            <span className="text-[12px] font-black leading-none">→</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function InstagramStories() {
@@ -123,50 +223,14 @@ export default function InstagramStories() {
             ref={scrollContainerRef}
             className="scrollbar-hide flex gap-4 overflow-x-auto pb-2"
           >
-            {reels.map((reel) => {
-              const displayTitle = language === 'gu' ? reel.headingGu : language === 'hi' ? reel.headingHi : reel.heading;
-              return (
-                <div
-                  key={reel.id}
-                  onClick={() => handleReelClick(reel)}
-                  className="flex-none w-[140px] sm:w-[165px] cursor-pointer snap-start group"
-                >
-                  <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-muted shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
-                    <div className="absolute top-2.5 left-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shadow-md">
-                      <ReelsBadgeIcon className="h-3.5 w-3.5 text-white" />
-                    </div>
-
-                    {/* Gradient Background since there is no thumbnail */}
-                    <div className="absolute inset-0 h-full w-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                      {reel.type === 'VIDEO' ? (
-                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                          <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-1" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                      ) : (
-                        <ReelsBadgeIcon className="h-12 w-12 text-white/30" />
-                      )}
-                    </div>
-
-                    {/* Bottom Title Container Box */}
-                    <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">
-                      <div className="flex flex-col min-w-0 flex-1 pr-1">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
-                        </div>
-                        <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
-                          {displayTitle || reel.heading}
-                        </p>
-                      </div>
-                      <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shrink-0 ml-1 shadow-sm group-hover:scale-105 transition-transform">
-                        <span className="text-[12px] font-black leading-none">→</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {reels.map((reel) => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                language={language}
+                onReelClick={handleReelClick}
+              />
+            ))}
           </div>
         </div>
 
