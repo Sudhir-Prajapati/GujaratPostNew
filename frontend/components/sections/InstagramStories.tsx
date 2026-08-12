@@ -23,7 +23,15 @@ interface ReelItem {
   videoUrl: string | null;
   instaUrl: string | null;
   thumbnail?: string | null;
+  views?: number;
 }
+
+const formatInstaViews = (views: number | undefined | null): string | null => {
+  if (!views || views <= 0) return null;
+  if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M`;
+  if (views >= 1000) return `${Math.round(views / 1000)}K`;
+  return `${views}`;
+};
 
 export function getReelThumbnail(reel: ReelItem): string | null {
   if (reel.thumbnail?.trim()) return reel.thumbnail.trim();
@@ -55,6 +63,7 @@ function ReelCard({ reel, language, onReelClick }: { reel: ReelItem; language: s
   const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
   const thumbUrl = getReelThumbnail(reel);
   const [imgFailed, setImgFailed] = useState(false);
+  const viewsText = formatInstaViews(reel.views);
 
   const showImage = thumbUrl && !imgFailed;
 
@@ -110,6 +119,9 @@ function ReelCard({ reel, language, onReelClick }: { reel: ReelItem; language: s
           <div className="flex flex-col min-w-0 flex-1 pr-1">
             <div className="flex items-center gap-1 mb-0.5">
               <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
+              {viewsText && (
+                <span className="text-[10px] font-extrabold text-[#B3121B]">{viewsText} views</span>
+              )}
             </div>
             <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
               {displayTitle || reel.heading}
