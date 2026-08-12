@@ -162,7 +162,7 @@ export default function SplashLoader() {
             {/* FRONT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(0deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(0deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
               <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 {/* Specular Light Sweep */}
@@ -180,15 +180,19 @@ export default function SplashLoader() {
             {/* BACK FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(180deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(180deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
-              <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div
+                className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner"
+                style={{ transform: 'scaleX(-1)' }}
+              >
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
                 <Image
                   src="/assets/logoblack.png"
                   alt="Gujarat Post Logo"
                   fill
                   className="object-contain scale-110 drop-shadow-md"
+                  priority
                 />
               </div>
             </div>
@@ -196,7 +200,7 @@ export default function SplashLoader() {
             {/* RIGHT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(90deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(90deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
               <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
@@ -205,6 +209,7 @@ export default function SplashLoader() {
                   alt="Gujarat Post Logo"
                   fill
                   className="object-contain scale-110 drop-shadow-md"
+                  priority
                 />
               </div>
             </div>
@@ -212,7 +217,7 @@ export default function SplashLoader() {
             {/* LEFT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(-90deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(-90deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
               <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
@@ -221,6 +226,7 @@ export default function SplashLoader() {
                   alt="Gujarat Post Logo"
                   fill
                   className="object-contain scale-110 drop-shadow-md"
+                  priority
                 />
               </div>
             </div>
