@@ -377,41 +377,29 @@ router.get('/categories', async (req, res, next) => {
     const showInHome = req.query.showInHome === 'true';
     const headerType = req.query.headerType as string | undefined;
 
-    let categories: any[] = [];
-    try {
-      const where: any = {
-        isActive: true,
-        slug: {
-          notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-        },
-      };
+    // Build where clause WITHOUT headerType — it's filtered in JS below
+    // (Prisma client may not have headerType in its type definitions yet)
+    const where: any = {
+      isActive: true,
+      slug: {
+        notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
+      },
+    };
 
-      if (showInHeader) where.showInHeader = true;
-      if (showInHome) where.showInHome = true;
-      if (headerType) where.headerType = headerType;
+    if (showInHeader) where.showInHeader = true;
+    if (showInHome) where.showInHome = true;
 
-      categories = await prisma.category.findMany({
-        where,
-        orderBy: { displayOrder: 'desc' },
-      });
-    } catch (dbErr: any) {
-      // Fallback in case Prisma client filter options or columns differ
-      const allCategories = await prisma.category.findMany({
-        where: {
-          isActive: true,
-          slug: {
-            notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-          },
-        },
-        orderBy: { displayOrder: 'desc' },
-      });
+    const allCategories = await prisma.category.findMany({
+      where,
+      orderBy: { displayOrder: 'desc' },
+    });
 
-      categories = allCategories.filter((c: any) => {
-        if (showInHeader && c.showInHeader === false) return false;
-        if (showInHome && c.showInHome === false) return false;
-        return true;
-      });
-    }
+    // Apply headerType filter in JavaScript (column exists in DB but Prisma
+    // client type definitions may not include it until next prisma generate)
+    const categories = allCategories.filter((c: any) => {
+      if (headerType && c.headerType && c.headerType !== headerType) return false;
+      return true;
+    });
 
     return sendSuccess(res, { categories }, 'Categories retrieved');
   } catch (error) {
