@@ -10,7 +10,8 @@ export default function ScrollToTop() {
   useEffect(() => {
     setMounted(true);
     const onScroll = () => {
-      setVisible(window.scrollY > 150);
+      const isSplashActive = document.body.classList.contains('splash-active');
+      setVisible(!isSplashActive && window.scrollY > 400);
     };
     // Check immediately in case user reloads while scrolled
     onScroll();
@@ -33,7 +34,7 @@ export default function ScrollToTop() {
         position: 'fixed',
         bottom: '32px',
         right: '32px',
-        zIndex: 99999,
+        zIndex: 9990,
         width: '50px',
         height: '50px',
         borderRadius: '50%',
