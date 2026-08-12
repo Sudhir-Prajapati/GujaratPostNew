@@ -21,6 +21,8 @@ import {
   LayoutTemplate,
   Smartphone,
   BookOpen,
+  Megaphone,
+  Newspaper,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
