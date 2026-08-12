@@ -275,6 +275,13 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
           combined.push({
             ...liveMatch,
             ...dbv,
+            // ✅ CRITICAL: Always prefer LIVE scraped views over DB zeros
+            // DB stores views=0 (never updated from YouTube), live has real counts
+            views: (liveMatch.views && liveMatch.views > 0) ? liveMatch.views : (dbv.views || 0),
+            // ✅ Prefer live duration over DB generic "10:00" / "0:00" defaults
+            duration: (liveMatch.duration && liveMatch.duration !== '10:00' && liveMatch.duration !== '0:00' && liveMatch.duration !== '0:58')
+              ? liveMatch.duration
+              : (dbv.duration || liveMatch.duration),
             thumbnail: dbv.thumbnail || liveMatch.thumbnail,
             titleGu: dbv.titleGu || liveMatch.titleGu || dbv.title,
             titleHi: dbv.titleHi || liveMatch.titleHi || dbv.title,
