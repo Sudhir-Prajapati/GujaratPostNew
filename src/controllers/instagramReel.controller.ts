@@ -29,7 +29,7 @@ export class InstagramReelController {
   // Create a new reel
   static async createReel(req: Request, res: Response, next: NextFunction) {
     try {
-      const { type, heading, headingGu, headingHi, videoUrl, instaUrl, isActive } = req.body;
+      const { type, heading, headingGu, headingHi, videoUrl, instaUrl, thumbnail, isActive } = req.body;
 
       const newReel = await prisma.reel.create({
         data: {
@@ -39,6 +39,7 @@ export class InstagramReelController {
           headingHi,
           videoUrl,
           instaUrl,
+          thumbnail,
           isActive: isActive !== undefined ? isActive : true,
         },
       });
@@ -53,7 +54,7 @@ export class InstagramReelController {
   static async updateReel(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { type, heading, headingGu, headingHi, videoUrl, instaUrl, isActive } = req.body;
+      const { type, heading, headingGu, headingHi, videoUrl, instaUrl, thumbnail, isActive } = req.body;
 
       const updatedReel = await prisma.reel.update({
         where: { id },
@@ -64,6 +65,7 @@ export class InstagramReelController {
           headingHi,
           videoUrl,
           instaUrl,
+          thumbnail,
           isActive,
         },
       });
