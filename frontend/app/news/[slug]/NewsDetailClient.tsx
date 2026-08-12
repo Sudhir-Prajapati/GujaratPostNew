@@ -1,8 +1,43 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+
+const ReadingProgressBar = memo(function ReadingProgressBar() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(total > 0 ? Math.min(100, (window.scrollY / total) * 100) : 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return <div className="reading-progress" style={{ width: `${progress}%` }} />;
+});
+
+const ArticleContentBody = memo(function ArticleContentBody({ html }: { html: string }) {
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (bodyRef.current) {
+      bodyRef.current.innerHTML = html;
+    }
+  }, [html]);
+
+  // Both SSR and client initial render produce identical empty <div>
+  // innerHTML is set imperatively after mount via ref — no hydration mismatch
+  return (
+    <div
+      ref={bodyRef}
+      className="article-body space-y-4 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:list-item [&_li]:my-1 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:font-bold [&_blockquote]:not-italic [&_blockquote]:my-3 [&_img]:rounded-xl [&_figure]:my-6"
+    />
+  );
+});
 import { Article } from '@/types';
 import {
   formatDate,
@@ -21,7 +56,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
-import { getBackendApiUrl } from '@/lib/api';
+import { getBackendApiUrl, getHeroSettings } from '@/lib/api';
+import AdSectionBanner from '@/components/ads/AdSectionBanner';
 
 const CATEGORY_SLUG_MAP: Record<string, string> = {
   'gujarat': 'gujarat',
@@ -171,7 +207,19 @@ function parseArticleBodyBlocks(rawBody: string): string[] {
       });
     }
   } else {
-    rawBlocks = cleaned.split(/\n\s*\n+/).flatMap((chunk) => chunk.split(/\n+/));
+    const rawChunks = cleaned.split(/\n\s*\n+/);
+    rawChunks.forEach((chunk) => {
+      const cTrim = chunk.trim();
+      if (!cTrim) return;
+      if (cTrim.startsWith('>')) {
+        rawBlocks.push(cTrim);
+      } else {
+        cTrim.split(/\n+/).forEach((line) => {
+          const lTrim = line.trim();
+          if (lTrim) rawBlocks.push(lTrim);
+        });
+      }
+    });
   }
 
   const result: string[] = [];
@@ -199,8 +247,15 @@ function parseArticleBodyBlocks(rawBody: string): string[] {
       continue;
     }
 
-    const imgMatch = trimmed.match(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/i);
-    if (imgMatch) {
+    if (trimmed.startsWith('>')) {
+      if (result.length > 0 && result[result.length - 1].startsWith('>')) {
+        result[result.length - 1] += `\n${trimmed}`;
+        continue;
+      }
+    }
+
+    const isGalleryImg = trimmed.match(/!\[Gallery Image \d+\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/i);
+    if (isGalleryImg) {
       galleryImageCount++;
       if (galleryImageCount > 1) {
         continue;
@@ -213,7 +268,7 @@ function parseArticleBodyBlocks(rawBody: string): string[] {
   return result;
 }
 
-function sanitizeParagraphHtml(html: string): string {
+function sanitizeParagraphHtml(html: string, language?: string): string {
   if (!html) return '';
 
   let cleaned = html
@@ -232,10 +287,44 @@ function sanitizeParagraphHtml(html: string): string {
       return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || 'Gujarat Post Image'}" class="w-full h-full object-cover" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${alt || 'Gujarat Post'}</span><span>તસવીર: ગુજરાત પોસ્ટ</span></figcaption></figure>`;
     });
 
+  // Convert plain URLs to styled clickable links if not inside HTML attributes
+  cleaned = cleaned.replace(/(^|[\s>(])(https?:\/\/[^\s<"']+)/g, (match, prefix, url) => {
+    return `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#B3121B] font-bold underline hover:text-red-700 break-all">${url}</a>`;
+  });
+
   cleaned = cleaned.replace(/<p\s+class="[^"]*"[^>]*>/gi, '<p>');
+
+  // Upgrade X / Twitter card blocks to premium design
+  cleaned = cleaned.replace(
+    /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:View Tweet|View Official Post|Post on X|Twitter)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
+    (match) => {
+      const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+      const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : '#';
+      const guLabel = language === 'gu' ? 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો' : language === 'hi' ? 'आधिकारिक ट्वीट देखने के लिए यहां क्लिक करें' : 'Click to view the official post on X';
+      const guBtn = language === 'gu' ? 'ટ્વીટ જુઓ ↗' : language === 'hi' ? 'ट्वीट देखें ↗' : 'View Post ↗';
+      return `<div class="gp-x-card"><div style="display:flex;align-items:center;gap:14px;min-width:0;position:relative;z-index:1"><span class="gp-x-icon">𝕏</span><div style="min-width:0"><span class="gp-x-title">View Official Post on X (Twitter)</span><span class="gp-x-sub">${guLabel}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" class="gp-x-btn" style="position:relative;z-index:1"><span>${guBtn}</span></a></div>`;
+    }
+  );
+
+  // Upgrade PDF Attachment card blocks to premium design
+  cleaned = cleaned.replace(
+    /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:Attached PDF|Download PDF|Official Document \(PDF\)|Attached Official Document)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
+    (match) => {
+      const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+      const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : '#';
+      const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
+      const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
+      const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
+      return `<div class="gp-pdf-card"><div style="display:flex;align-items:center;gap:14px;min-width:0"><span class="gp-pdf-icon">📄</span><div style="min-width:0"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" download class="gp-pdf-btn"><span>${btnText}</span><span class="dl-arrow">⬇</span></a></div>`;
+    }
+  );
+
+  // Strip orphan plain Download PDF buttons
+  cleaned = cleaned.replace(/<a[^>]+download[^>]*>\s*Download PDF\s*<\/a>/gi, '');
 
   return cleaned.trim();
 }
+
 
 interface Props {
   article: Article;
@@ -246,6 +335,7 @@ interface Props {
 
 export default function NewsDetailClient({ article, related, trending, articleUrl }: Props) {
   const { language } = useApp();
+  const [mounted, setMounted] = useState(false);
   const [progress, setProgress] = useState(0);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -253,6 +343,25 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [adSlide, setAdSlide] = useState(0);
   const [relatedLimit, setRelatedLimit] = useState(8);
+
+  const [mostReadArticles, setMostReadArticles] = useState<typeof trending>(trending.slice(0, 5));
+
+  // Mounted guard: prevents language-dependent SSR/client HTML mismatch
+  useEffect(() => { setMounted(true); }, []);
+
+  // Fetch hero-settings to get the same Most Read list as the home screen
+  useEffect(() => {
+    getHeroSettings().then((heroRes: any) => {
+      const customMostRead: typeof trending = (heroRes?.mostReadArticles || []).filter(Boolean);
+      if (customMostRead.length > 0) {
+        setMostReadArticles(customMostRead);
+      } else {
+        setMostReadArticles(trending.slice(0, 5));
+      }
+    }).catch(() => {
+      setMostReadArticles(trending.slice(0, 5));
+    });
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -270,7 +379,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   useEffect(() => {
     if (article?.id) {
       const endpoint = getBackendApiUrl(`/api/public/articles/${article.id}/view`);
-      fetch(endpoint, { method: 'POST' }).catch(() => {});
+      fetch(endpoint, { method: 'POST' }).catch(() => { });
     }
   }, [article?.id]);
 
@@ -396,6 +505,119 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     return parseArticleBodyBlocks(body);
   }, [body]);
 
+  const formattedArticleBodyHtml = useMemo(() => {
+    if (!body) return '';
+
+    let cleaned = body
+      .replace(/^##\s*📌?\s*(એક નજરમાં|KEY HIGHLIGHTS|एक नजर में|AT A GLANCE).*?$/gmi, '')
+      .replace(/----------------+/g, '')
+      .replace(/\s*data-start="[^"]*"/gi, '')
+      .replace(/\s*data-end="[^"]*"/gi, '')
+      .replace(/\s*data-content-reference-start="[^"]*"/gi, '')
+      .replace(/\s*data-content-reference-end="[^"]*"/gi, '')
+      .replace(/\s*data-state="[^"]*"/gi, '')
+      .replace(/\s*data-section-id="[^"]*"/gi, '')
+      .replace(/<span[^>]*class="[^"]*selectionAnchor[^"]*"[^>]*><\/span>/gi, '')
+      .replace(/<span[^>]*class="[^"]*contents[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
+      .replace(/<span[^>]*><\/span>/gi, '');
+
+    // Convert markdown blockquotes (> "Quote"\n> — Author) to styled HTML blockquotes
+    cleaned = cleaned.replace(/(?:^|\n)(>[^\n]+(?:\n>[^\n]+)*)/g, (match, bqBlock) => {
+      const lines = bqBlock.split('\n');
+      const quoteLines = lines.filter((l: string) => l.startsWith('>') && !l.includes('> —') && !l.includes('> -'));
+      const quoteText = quoteLines.map((l: string) => l.replace(/^>\s*"?/, '').replace(/"?$/, '')).join(' ').trim();
+      const citeLine = lines.find((l: string) => l.includes('> —') || l.includes('> -'));
+      const citeText = citeLine ? citeLine.replace(/^>\s*—\s*/, '').replace(/^>\s*-\s*/, '').trim() : '';
+      const finalQuote = (quoteText || bqBlock.replace(/^>\s*"?/, '').replace(/"?$/, '')).replace(/^"/, '').replace(/"$/, '');
+
+      return `\n<blockquote class="my-6 border-l-[3px] border-[#B3121B] pl-4 py-1 font-sans"><p class="text-lg md:text-[21px] font-bold text-neutral-900 dark:text-white leading-snug">"${finalQuote}"</p>${citeText ? `<cite class="block mt-2 text-sm font-semibold text-neutral-500 dark:text-neutral-400 not-italic">— ${citeText}</cite>` : ''}</blockquote>\n`;
+    });
+
+    // Convert markdown images ![alt](url) to HTML figures (only display the 2nd image Gallery Image 2, skip stacked 3, 4, 5)
+    let galleryCount = 0;
+    cleaned = cleaned.replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi, (match, alt, url) => {
+      const isGallery = alt && /Gallery Image \d+/i.test(alt);
+      if (isGallery) {
+        galleryCount++;
+        if (galleryCount > 1 || /Gallery Image [3-9]/i.test(alt)) {
+          return '';
+        }
+      }
+      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || title}" class="w-full h-full object-cover" /></div>${alt && !/Gallery Image/i.test(alt) ? `<figcaption class="text-xs text-center text-neutral-500 font-medium">${alt}</figcaption>` : ''}</figure>`;
+    });
+
+    // Upgrade X / Twitter cards styling in body HTML (matches only card divs/p-tags with border/rounded/bg/p/my classes)
+    cleaned = cleaned.replace(
+      /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:View Tweet|View Official Post|Post on X|Twitter)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
+      (match) => {
+        const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+        const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : (article as any).twitterUrl || (article as any).tweetUrl || '#';
+        const guLabel = language === 'gu' ? 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો' : language === 'hi' ? 'आधिकारिक ट्वीट देखने के लिए यहां क्लिक करें' : 'Click to view the official post on X';
+        const guBtn = language === 'gu' ? 'ટ્વીટ જુઓ ↗' : language === 'hi' ? 'ट्वीट देखें ↗' : 'View Post ↗';
+        return `<div class="gp-x-card">
+          <div style="display:flex;align-items:center;gap:14px;min-width:0;position:relative;z-index:1">
+            <span class="gp-x-icon">𝕏</span>
+            <div style="min-width:0">
+              <span class="gp-x-title">View Official Post on X (Twitter)</span>
+              <span class="gp-x-sub">${guLabel}</span>
+            </div>
+          </div>
+          <a href="${url}" target="_blank" rel="noopener noreferrer" class="gp-x-btn" style="position:relative;z-index:1">
+            <span>${guBtn}</span>
+          </a>
+        </div>`;
+      }
+    );
+
+    // Upgrade PDF Attachment cards styling in body HTML (matches only card divs/p-tags with border/rounded/bg/p/my classes)
+    cleaned = cleaned.replace(
+      /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:Attached PDF|Download PDF|Official Document \(PDF\)|Attached Official Document)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
+      (match) => {
+        const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+        const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : (article as any).pdfUrl || '#';
+        const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
+        const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
+        const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
+        return `<div class="gp-pdf-card">
+          <div style="display:flex;align-items:center;gap:14px;min-width:0">
+            <span class="gp-pdf-icon">📄</span>
+            <div style="min-width:0">
+              <span class="gp-pdf-title">${titleText}</span>
+              <span class="gp-pdf-sub">${descText}</span>
+            </div>
+          </div>
+          <a href="${url}" target="_blank" download class="gp-pdf-btn">
+            <span>${btnText}</span>
+            <span class="dl-arrow">⬇</span>
+          </a>
+        </div>`;
+      }
+    );
+
+    // Remove any leftover standalone plain Download PDF buttons (legacy HTML not caught by regex)
+    cleaned = cleaned.replace(/<a[^>]+download[^>]*>\s*Download PDF\s*<\/a>/gi, '');
+
+    // Collapse multiple nested blockquotes
+    cleaned = cleaned
+      .replace(/(<blockquote[^>]*>\s*)+/gi, '<blockquote class="my-6 border-l-[3px] border-[#B3121B] pl-4 py-1 font-sans font-bold text-neutral-900 dark:text-white">')
+      .replace(/(\s*<\/blockquote>)+/gi, '</blockquote>');
+
+    // Auto-link plain URLs that are not inside href="..."
+    cleaned = cleaned.replace(/(^|[\s>(])(https?:\/\/[^\s<"']+)/g, (match, prefix, url) => {
+      return `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#B3121B] font-bold underline hover:text-[#8E0E15] break-all">${url}</a>`;
+    });
+
+    // If cleaned does not contain HTML block tags, wrap paragraphs in <p> tags
+    if (!/<(p|div|blockquote|figure|ul|ol|table|h1|h2|h3|h4)[^>]*>/i.test(cleaned)) {
+      cleaned = cleaned
+        .split(/\n\s*\n+/)
+        .map((p) => `<p>${p.trim().replace(/\n/g, '<br />')}</p>`)
+        .join('');
+    }
+
+    return cleaned;
+  }, [body, title, language]);
+
 
 
   const gistPoints = useMemo(() => {
@@ -493,6 +715,50 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     if (textLength < 800) return 4;
     return 5;
   }, [article]);
+
+  const streamList = useMemo(() => {
+    const mainId = String(article.id);
+    return [...related, ...trending]
+      .filter((item, index, self) => String(item.id) !== mainId && self.findIndex(t => String(t.id) === String(item.id)) === index)
+      .slice(0, 8);
+  }, [related, trending, article.id]);
+
+  const sidebarRecommendedPool = useMemo(() => {
+    const mainId = String(article.id);
+    const excludeIds = new Set([mainId, ...streamList.map(a => String(a.id))]);
+
+    // Priority State & National top headline categories
+    const priorityCatKeywords = ['gujarat', 'india', 'world', 'politics', 'business', 'ગુજરાત', 'ભારત', 'વિશ્વ', 'રાજનીતિ', 'વ્યાપાર'];
+
+    // Gather candidate articles excluding main article & all stream articles
+    const pool = [...trending, ...related, ...mostReadArticles].filter(
+      (item, index, self) => !excludeIds.has(String(item.id)) && self.findIndex(t => String(t.id) === String(item.id)) === index
+    );
+
+    // Filter for State & National top headlines first
+    const stateNationalCandidates = pool.filter(cand => {
+      const cat = (cand.category || '').toLowerCase().trim();
+      return priorityCatKeywords.some(kw => cat.includes(kw) || kw.includes(cat));
+    });
+
+    const poolToUse = stateNationalCandidates.length >= 4 ? stateNationalCandidates : pool;
+
+    // Group by category to favor category variety in sidebar
+    const byCategory = new Map<string, Article>();
+    for (const cand of poolToUse) {
+      const cat = (cand.category || '').toLowerCase().trim();
+      if (!byCategory.has(cat)) {
+        byCategory.set(cat, cand);
+      }
+    }
+
+    const distinctCatArts = Array.from(byCategory.values());
+    if (distinctCatArts.length >= 4) {
+      return distinctCatArts.slice(0, 4);
+    }
+
+    return poolToUse.slice(0, 4);
+  }, [article.id, streamList, trending, related, mostReadArticles]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -613,10 +879,10 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
   return (
     <>
-      <div className="reading-progress" style={{ width: `${progress}%` }} />
+      <ReadingProgressBar />
       <div className="wrap py-6">
-        <div className="article-grid">
-          <article>
+        <div className="article-grid" suppressHydrationWarning>
+          <article suppressHydrationWarning>
             <nav className="breadcrumb select-none flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-neutral-500 font-medium">
               <Link href="/" className="hover:text-[var(--red)] transition-colors">
                 {language === 'gu' ? 'હોમ' : language === 'hi' ? 'होम' : 'Home'}
@@ -646,6 +912,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             <h1 className="article-title">{title}</h1>
             <div
               className="article-sub [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through"
+              suppressHydrationWarning
               dangerouslySetInnerHTML={{ __html: excerpt }}
             />
 
@@ -661,7 +928,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       {authorName}
                     </Link>
                   </div>
-                  <div className="text-[12px] text-[var(--ink-3)] mt-[2px]">
+                  <div className="text-[12px] text-[var(--ink-3)] mt-[2px]" suppressHydrationWarning>
                     {language === 'gu' ? (
                       <span>પ્રકાશિત: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">અપડેટ: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'gu')}</span></span>
                     ) : language === 'hi' ? (
@@ -883,8 +1150,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 onClick={copyUrl}
                 title={copied ? (language === 'gu' ? 'કૉપિ થઈ' : 'Copied') : (language === 'gu' ? 'લિંક કૉપિ કરો' : 'Copy Link')}
                 className={`group relative flex items-center justify-center w-11 h-11 rounded-full border transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm ${copied
-                    ? 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 shadow-[0_8px_20px_rgba(16,185,129,0.35)] scale-110'
-                    : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
+                  ? 'border-emerald-500 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 shadow-[0_8px_20px_rgba(16,185,129,0.35)] scale-110'
+                  : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
                   }`}
               >
                 {copied ? (
@@ -905,8 +1172,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 onClick={handleToggleSave}
                 title={saved ? (language === 'gu' ? 'સાચવેલું' : 'Saved') : (language === 'gu' ? 'સાચવો' : 'Save')}
                 className={`group relative flex items-center justify-center w-11 h-11 rounded-full border transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm ${saved
-                    ? 'border-[#B3121B] bg-red-50 text-[#B3121B] dark:bg-red-950/40 shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
-                    : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
+                  ? 'border-[#B3121B] bg-red-50 text-[#B3121B] dark:bg-red-950/40 shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
+                  : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
                   }`}
               >
                 <svg viewBox="0 0 24 24" className={`w-[18px] h-[18px] shrink-0 ${saved ? 'fill-current' : 'fill-none'} stroke-current stroke-2 transition-transform duration-300 group-hover:scale-110`} strokeLinecap="round" strokeLinejoin="round">
@@ -920,8 +1187,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 onClick={toggleAudio}
                 title={speaking ? (language === 'gu' ? 'બંધ કરો' : 'Stop') : (language === 'gu' ? 'ઓડિયો' : 'Audio')}
                 className={`group relative flex items-center justify-center w-11 h-11 rounded-full border transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm ${speaking
-                    ? 'border-[#B3121B] bg-red-50 text-[#B3121B] dark:bg-red-950/40 shadow-[0_8px_20px_rgba(179,18,27,0.35)] animate-pulse'
-                    : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
+                  ? 'border-[#B3121B] bg-red-50 text-[#B3121B] dark:bg-red-950/40 shadow-[0_8px_20px_rgba(179,18,27,0.35)] animate-pulse'
+                  : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:border-[#B3121B] hover:text-[#B3121B] hover:shadow-[0_8px_20px_rgba(179,18,27,0.35)]'
                   }`}
               >
                 <svg viewBox="0 0 24 24" className={`w-[18px] h-[18px] fill-none stroke-current stroke-2 shrink-0 transition-transform duration-300 ${speaking ? 'animate-bounce' : 'group-hover:rotate-[12deg]'}`} strokeLinecap="round" strokeLinejoin="round">
@@ -930,77 +1197,41 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 </svg>
               </button>
             </div>
-
-            <div className="article-body space-y-4">
-              {displayParagraphs.map((p, idx) => {
-                const trimmed = p.trim();
-                if (!trimmed) return null;
-
-                // 1. Check if this paragraph is a Blockquote (Quote Callout)
-                if (trimmed.startsWith('> ') || trimmed.startsWith('>"') || trimmed.startsWith('> "')) {
-                  const lines = trimmed.split('\n');
-                  const quoteText = lines
-                    .filter((l) => l.startsWith('>') && !l.includes('> —') && !l.includes('> -'))
-                    .map((l) => l.replace(/^>\s*"?/, '').replace(/"?$/, ''))
-                    .join(' ');
-                  const citeLine = lines.find((l) => l.includes('> —') || l.includes('> -'));
-                  const citeText = citeLine ? citeLine.replace(/^>\s*—\s*/, '').replace(/^>\s*-\s*/, '').trim() : '';
-
-                  return (
-                    <blockquote key={idx} className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/40 p-4 dark:bg-red-950/20 shadow-sm">
-                      <p className="text-base font-bold text-neutral-900 dark:text-white leading-relaxed">
-                        "{quoteText || trimmed.replace(/^>\s*/, '')}"
-                      </p>
-                      {citeText && (
-                        <cite className="block mt-2 text-xs font-bold text-neutral-600 dark:text-neutral-400 not-italic">
-                          — {citeText}
-                        </cite>
-                      )}
-                    </blockquote>
-                  );
+            {/* Article Main Content Body — split at 3rd paragraph to inject in-article ad */}
+            {(() => {
+              const SPLIT_AT = 3;
+              const splitHtml = (html: string, atPara: number): [string, string] => {
+                if (!html) return ['', ''];
+                let count = 0;
+                let idx = -1;
+                let search = 0;
+                while (count < atPara) {
+                  const next = html.indexOf('</p>', search);
+                  if (next === -1) break;
+                  count++;
+                  idx = next + 4;
+                  search = idx;
                 }
-
-                // 2. Check if this paragraph is an Embedded Image markdown ![alt](url)
-                const imgMatch = trimmed.match(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
-                if (imgMatch) {
-                  const imgAlt = imgMatch[1];
-                  const imgUrl = imgMatch[2];
-                  return (
-                    <figure key={idx} className="my-6 space-y-2">
-                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm">
-                        <Image
-                          src={imgUrl}
-                          alt={imgAlt || title}
-                          fill
-                          unoptimized={imgUrl.includes('localhost')}
-                          className="object-cover"
-                        />
-                      </div>
-                      <figcaption className="flex items-center justify-between text-xs text-neutral-500 font-medium">
-                        <span>{title}</span>
-                        <span>{language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}</span>
-                      </figcaption>
-                    </figure>
-                  );
-                }
-
-                const cleanedParagraph = sanitizeParagraphHtml(trimmed);
-                if (!cleanedParagraph) return null;
-
-                // 3. Formatted text paragraph with HTML & Markdown rendering
-                return (
-                  <div
-                    key={idx}
-                    className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
-                    dangerouslySetInnerHTML={{ __html: cleanedParagraph }}
-                  />
-                );
-              })}
-            </div>
+                if (idx === -1 || count < atPara) return [html, ''];
+                return [html.slice(0, idx), html.slice(idx)];
+              };
+              const [topHtml, bottomHtml] = splitHtml(formattedArticleBodyHtml, SPLIT_AT);
+              return (
+                <>
+                  <ArticleContentBody html={topHtml || formattedArticleBodyHtml} />
+                  {bottomHtml && (
+                    <>
+                      <AdSectionBanner section="IN_ARTICLE" className="my-4" />
+                      <ArticleContentBody html={bottomHtml} />
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
           </article>
 
-          <aside className="side select-none" style={{ alignSelf: 'stretch' }}>
+          <aside className="side select-none" style={{ alignSelf: 'stretch' }} suppressHydrationWarning>
             <div className="side-sticky" style={{ top: '24px' }}>
               {/* Most Read widget */}
               <div className="mostread">
@@ -1009,7 +1240,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'સૌથી વધુ વંચાયેલા' : language === 'hi' ? 'सबसे ज्यादा पढ़े गए' : 'Most Read'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {trending.slice(0, trendingLimit).map((item, index) => {
+                  {mostReadArticles.slice(0, trendingLimit).map((item, index) => {
                     const rankNum = String(index + 1);
 
                     return (
@@ -1032,7 +1263,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {related.slice(0, recommendedLimit).map((item, index) => {
+                  {sidebarRecommendedPool.slice(0, 4).map((item, index) => {
                     const itemTitle = getArticleTitle(item, language);
                     const itemCategory = getCategoryLabel(item, language);
                     return (
@@ -1094,77 +1325,103 @@ export default function NewsDetailClient({ article, related, trending, articleUr
           </aside>
         </div>
 
-        <section className="art-related select-none w-full">
-          <div className="deskhead">
-            <h2>{getLocalized(language, { en: 'Related Stories', gu: 'સંબંધિત સમાચાર', hi: 'संबंधित खबरें' })}</h2>
-            <span className="spacer"></span>
+        <section className="art-related select-none w-full mt-8">
+          {/* Section Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex items-center gap-1.5">
+              <span className="block w-[4px] h-6 rounded-full bg-[#B3121B]"></span>
+            </div>
+            <h2 className="text-xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+              {getLocalized(language, { en: 'Related Stories', gu: 'સંબંધિત સમાચાર', hi: 'संबंधित खबरें' })}
+            </h2>
+            <div className="flex-1 h-px bg-gradient-to-r from-neutral-200 dark:from-neutral-700 to-transparent"></div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {related.slice(0, relatedLimit).map((item, index) => {
               const itemTitle = getArticleTitle(item, language);
               const itemCategory = getCategoryLabel(item, language);
               const isSaved = savedIds.includes(item.id);
               return (
-                <div key={item.id} className="zoomhost relative group flex flex-col">
-                  <Link href={`/news/${item.slug}`} className="s-standard flex flex-col group">
-                    <div className="imgwrap relative aspect-[3/2] overflow-hidden rounded-md mb-2 bg-neutral-100 dark:bg-neutral-800">
-                      <Image
-                        src={getCardThumbnail(item, index)}
-                        alt={item.title}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover transition duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
-                        }}
-                      />
-                      {isSaved && (
-                        <span className="absolute top-2 right-2 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
-                          🔖
-                        </span>
-                      )}
+                <Link
+                  key={item.id}
+                  href={`/news/${item.slug}`}
+                  className="group relative flex flex-col rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-[#B3121B]/20 hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:-translate-y-1 transition-all duration-300"
+                >
+                  {/* Image */}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                    <Image
+                      src={getCardThumbnail(item, index)}
+                      alt={itemTitle}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
+                      }}
+                    />
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                    {/* Category badge */}
+                    <span className="absolute top-3 left-3 z-10 bg-[#B3121B] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-md">
+                      {itemCategory}
+                    </span>
+                    {isSaved && (
+                      <span className="absolute top-3 right-3 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
+                        🔖
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex flex-col flex-1 p-3.5 gap-2">
+                    <h3 className="line-clamp-3 text-[14px] font-bold leading-snug text-neutral-900 dark:text-neutral-100 group-hover:text-[#B3121B] dark:group-hover:text-red-400 transition-colors duration-200">
+                      {itemTitle}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-auto pt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
+                      <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      <span>{formatDate(item.publishedAt)}</span>
                     </div>
-                    <div>
-                      <span className="kick mb-1 mt-0.5">{itemCategory}</span>
-                      <h3 className="line-clamp-3 leading-snug text-foreground hover:text-accent transition-colors">
-                        {itemTitle}
-                      </h3>
-                      <div className="meta select-none">
-                        <span>{formatDate(item.publishedAt)}</span>
-                      </div>
-                    </div>
-                  </Link>
-                </div>
+                  </div>
+                </Link>
               );
             })}
           </div>
-          <div style={{ textAlign: 'center', padding: '42px 0 4px' }}>
+
+          <div className="flex justify-center mt-8">
             {relatedLimit < related.length ? (
               <button
                 type="button"
                 onClick={() => setRelatedLimit((prev) => prev + 4)}
-                className="art-more-btn cursor-pointer hover:bg-[#B3121B] hover:text-white transition-all shadow-sm active:scale-95"
+                className="group flex items-center gap-2 px-7 py-3 rounded-full border-2 border-[#B3121B] text-[#B3121B] font-black text-sm hover:bg-[#B3121B] hover:text-white transition-all duration-300 shadow-sm hover:shadow-[0_4px_20px_rgba(179,18,27,0.3)] active:scale-95"
               >
-                {language === 'gu' ? 'વધુ જુઓ ↓' : language === 'hi' ? 'अधिक देखें ↓' : 'View More ↓'}
+                {language === 'gu' ? 'વધુ જુઓ' : language === 'hi' ? 'अधिक देखें' : 'View More'}
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.5] transition-transform duration-300 group-hover:translate-y-0.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
               </button>
             ) : (
               <Link
                 href={`/category/${(article.category || 'all').toLowerCase().replace(/\s+/g, '-')}`}
-                className="art-more-btn inline-block cursor-pointer hover:bg-[#B3121B] hover:text-white transition-all shadow-sm active:scale-95"
+                className="group flex items-center gap-2 px-7 py-3 rounded-full border-2 border-[#B3121B] text-[#B3121B] font-black text-sm hover:bg-[#B3121B] hover:text-white transition-all duration-300 shadow-sm hover:shadow-[0_4px_20px_rgba(179,18,27,0.3)] active:scale-95"
               >
-                {language === 'gu' ? 'બધા સમાચાર જુઓ →' : language === 'hi' ? 'सभी समाचार देखें →' : 'View All News →'}
+                {language === 'gu' ? 'બધા સમાચાર જુઓ' : language === 'hi' ? 'सभी समाचार देखें' : 'View All News'}
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-[2.5] transition-transform duration-300 group-hover:translate-x-0.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
               </Link>
             )}
           </div>
         </section>
 
-        <div className="article-grid mt-8 border-t border-neutral-200 dark:border-neutral-800 !pt-8">
-          <article className="article-stream-container select-none w-full">
-            <div className="space-y-5">
-              {(() => {
-                const streamList = [...related, ...trending]
-                  .filter((item, index, self) => self.findIndex(t => t.id === item.id) === index && item.id !== article.id)
-                  .slice(0, 8);
+        <div className="article-grid mt-8 border-t border-neutral-200 dark:border-neutral-800 !pt-8" suppressHydrationWarning>
+          <article className="article-stream-container select-none w-full" suppressHydrationWarning>
+            <div className="space-y-5" suppressHydrationWarning>
+              {mounted && (() => {
+                // Global set to track used Read Also article IDs across all stream items
+                const usedReadAlsoIds = new Set<string>();
 
                 return streamList.map((streamArticle) => {
                   const streamTitle = getArticleTitle(streamArticle, language);
@@ -1174,9 +1431,80 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   const streamParagraphs = parseArticleBodyBlocks(streamBody);
                   const streamCity = language === 'gu' ? 'અમદાવાદ' : language === 'hi' ? 'अहमदाबाद' : 'Ahmedabad';
 
-                  const readAlsoArticles = [...related, ...trending]
-                    .filter(a => a.id !== streamArticle.id && a.id !== article.id)
-                    .slice(0, 4);
+                  const mainId = String(article.id);
+                  const streamArtId = String(streamArticle.id);
+
+                  // Calculate compulsory 4 Read Also articles ensuring 4 STRICTLY DIFFERENT categories
+                  const rawPool = [...mostReadArticles, ...trending, ...related].filter(
+                    (a, idx, self) => String(a.id) !== mainId && String(a.id) !== streamArtId && self.findIndex(t => String(t.id) === String(a.id)) === idx
+                  );
+
+                  const streamCatSlug = (streamArticle.category || '').toLowerCase().replace(/\s+/g, '-');
+                  const streamCatName = (streamArticle.category || '').toLowerCase().trim() || 'general';
+
+                  // Prefer unused articles first
+                  let availablePool = rawPool.filter(cand => !usedReadAlsoIds.has(String(cand.id)));
+                  if (availablePool.length < 4) {
+                    availablePool = rawPool.filter(cand => String(cand.id) !== streamArtId);
+                  }
+
+                  // Group candidates by unique category name
+                  const byCategory = new Map<string, Article[]>();
+                  for (const cand of availablePool) {
+                    const cSlug = (cand.category || '').toLowerCase().replace(/\s+/g, '-');
+                    const cName = (cand.category || '').toLowerCase().trim() || 'general';
+
+                    if ((cSlug === streamCatSlug || cName === streamCatName) && availablePool.length >= 8) {
+                      continue;
+                    }
+                    if (!byCategory.has(cName)) {
+                      byCategory.set(cName, []);
+                    }
+                    byCategory.get(cName)!.push(cand);
+                  }
+
+                  if (byCategory.size < 4) {
+                    for (const cand of availablePool) {
+                      const cName = (cand.category || '').toLowerCase().trim() || 'general';
+                      if (!byCategory.has(cName)) {
+                        byCategory.set(cName, []);
+                      }
+                      byCategory.get(cName)!.push(cand);
+                    }
+                  }
+
+                  const categoryTopArticles: Article[] = [];
+                  for (const [, catArts] of byCategory.entries()) {
+                    const sortedCatArts = [...catArts].sort((a, b) => {
+                      const isMostReadA = mostReadArticles.some(m => m.id === a.id) ? 20 : 0;
+                      const isMostReadB = mostReadArticles.some(m => m.id === b.id) ? 20 : 0;
+                      const scoreA = isMostReadA + (a.isTrending ? 10 : 0) + (a.isFeatured ? 5 : 0) + Math.min((a.views || 0) / 100, 5);
+                      const scoreB = isMostReadB + (b.isTrending ? 10 : 0) + (b.isFeatured ? 5 : 0) + Math.min((b.views || 0) / 100, 5);
+                      return scoreB - scoreA;
+                    });
+                    categoryTopArticles.push(sortedCatArts[0]);
+                  }
+
+                  categoryTopArticles.sort((a, b) => {
+                    const isMostReadA = mostReadArticles.some(m => m.id === a.id) ? 20 : 0;
+                    const isMostReadB = mostReadArticles.some(m => m.id === b.id) ? 20 : 0;
+                    const scoreA = isMostReadA + (a.isTrending ? 10 : 0) + (a.isFeatured ? 5 : 0) + Math.min((a.views || 0) / 100, 5);
+                    const scoreB = isMostReadB + (b.isTrending ? 10 : 0) + (b.isFeatured ? 5 : 0) + Math.min((b.views || 0) / 100, 5);
+                    return scoreB - scoreA;
+                  });
+
+                  const readAlsoArticles = categoryTopArticles.slice(0, 4);
+
+                  if (readAlsoArticles.length < 4) {
+                    for (const cand of availablePool) {
+                      if (readAlsoArticles.length >= 4) break;
+                      if (!readAlsoArticles.some(r => r.id === cand.id)) {
+                        readAlsoArticles.push(cand);
+                      }
+                    }
+                  }
+
+                  readAlsoArticles.forEach(a => usedReadAlsoIds.add(String(a.id)));
 
                   return (
                     <div key={streamArticle.id} className="article-stream-item border-b border-neutral-200 dark:border-neutral-800 pb-5 last:border-b-0 text-left flex flex-col items-start w-full">
@@ -1238,13 +1566,14 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                             );
                           }
 
-                          const cleanedParagraph = sanitizeParagraphHtml(trimmed);
+                          const cleanedParagraph = sanitizeParagraphHtml(trimmed, language);
                           if (!cleanedParagraph) return null;
 
                           return (
                             <div
                               key={pIdx}
                               className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+                              suppressHydrationWarning
                               dangerouslySetInnerHTML={{ __html: cleanedParagraph }}
                             />
                           );
@@ -1252,42 +1581,58 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       </div>
 
                       {readAlsoArticles.length > 0 && (
-                        <div className="read-also-box w-full mt-2.5 mb-5 bg-neutral-50/50 dark:bg-neutral-900/40 border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl pt-3.5 pb-4 px-4 shadow-sm">
-                          <div className="flex items-center gap-2 mb-2.5">
-                            <span className="w-1.5 h-5 bg-red-600 rounded-full"></span>
-                            <h4 className="font-extrabold text-[16.5px] uppercase tracking-wide text-red-600 dark:text-red-400">
+                        <div className="w-full mt-4 mb-5">
+                          {/* Section header */}
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="block w-[4px] h-5 rounded-full bg-[#B3121B]"></span>
+                            </div>
+                            <h4 className="font-extrabold text-[15px] uppercase tracking-widest text-[#B3121B]">
                               {language === 'gu' ? 'આ પણ વાંચો' : language === 'hi' ? 'यह भी पढ़ें' : 'Read Also'}
                             </h4>
+                            <div className="flex-1 h-px bg-gradient-to-r from-[#B3121B]/20 to-transparent"></div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {readAlsoArticles.map((raArt, index) => {
-                              const raTitle = getArticleTitle(raArt, language);
+                              const raTitle = getArticleTitle(raArt, language) || raArt.title || '';
+                              const raCat = getCategoryLabel(raArt, language) || raArt.category || '';
+                              if (!raTitle) return null;
                               return (
                                 <Link
-                                  key={raArt.id}
+                                  key={`stream-${streamArticle.id}-ra-${raArt.id}-${index}`}
                                   href={`/news/${raArt.slug}`}
-                                  className="read-also-card group flex gap-4 p-2.5 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-800/80 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:border-red-500/30 hover:shadow-sm transition-all duration-300 items-center text-left"
+                                  className="group flex items-start gap-3 p-3 rounded-xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 hover:border-[#B3121B]/30 hover:shadow-[0_4px_20px_rgba(179,18,27,0.1)] dark:hover:shadow-[0_4px_20px_rgba(179,18,27,0.15)] hover:-translate-y-0.5 transition-all duration-300 text-left"
                                 >
-                                  <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 shadow-sm animate-pulse-once">
+                                  {/* Thumbnail Image */}
+                                  <div className="relative h-[70px] w-[90px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800 shadow-sm">
                                     <Image
                                       src={getCardThumbnail(raArt, index)}
                                       alt={raTitle}
                                       fill
-                                      sizes="96px"
-                                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                      sizes="90px"
+                                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
+                                      }}
                                     />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="line-clamp-2 text-[13.5px] font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors duration-200 leading-snug">
+                                  {/* Content */}
+                                  <div className="min-w-0 flex-1 flex flex-col gap-1">
+                                    <span className="block text-[10.5px] font-black uppercase tracking-wider text-[#B3121B] opacity-85">{raCat}</span>
+                                    <p className="line-clamp-3 text-[13px] font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-[#B3121B] dark:group-hover:text-red-400 transition-colors duration-200 leading-snug">
                                       {raTitle}
                                     </p>
                                   </div>
+                                  {/* Arrow indicator */}
+                                  <span className="shrink-0 mt-1 text-neutral-400 group-hover:text-[#B3121B] transition-colors duration-200 text-sm">→</span>
                                 </Link>
                               );
                             })}
                           </div>
                         </div>
                       )}
+
 
                       <div className="flex flex-wrap items-center gap-2 mt-5 select-none">
                         <span className="topics-title font-extrabold text-neutral-900 dark:text-white mr-2 text-[14.5px] tracking-wide uppercase border-b-2 border-[#B3121B] pb-0.5">
@@ -1311,33 +1656,42 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
             {/* Read Also Section for Primary Article */}
             {related.length > 0 && (
-              <div className="read-also-box w-full mt-6 mb-6 bg-neutral-50/50 dark:bg-neutral-900/40 border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl pt-3.5 pb-4 px-4 shadow-sm">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <span className="w-1.5 h-5 bg-red-600 rounded-full"></span>
-                  <h4 className="font-extrabold text-[16.5px] uppercase tracking-wide text-red-600 dark:text-red-400">
+              <div className="w-full mt-6 mb-6">
+                {/* Section header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="block w-[4px] h-5 rounded-full bg-[#B3121B]"></span>
+                    <span className="block w-[3px] h-3.5 rounded-full bg-[#B3121B]/40"></span>
+                  </div>
+                  <h4 className="font-extrabold text-[15px] uppercase tracking-widest text-[#B3121B]">
                     {language === 'gu' ? 'આ પણ વાંચો' : language === 'hi' ? 'यह भी पढ़ें' : 'Read Also'}
                   </h4>
+                  <div className="flex-1 h-px bg-gradient-to-r from-[#B3121B]/20 to-transparent"></div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {related.slice(0, 4).map((raArt, index) => {
                     const raTitle = getArticleTitle(raArt, language);
+                    const raCat = getCategoryLabel(raArt, language);
                     return (
                       <Link
-                        key={raArt.id}
+                        key={`bottom-ra-${raArt.id}-${index}`}
                         href={`/news/${raArt.slug}`}
-                        className="read-also-card group flex gap-4 p-2.5 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-800/80 hover:bg-neutral-50 dark:hover:bg-neutral-800 hover:border-red-500/30 hover:shadow-sm transition-all duration-300 items-center text-left"
+                        className="group flex gap-3 p-3 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-[#B3121B]/30 hover:shadow-[0_4px_20px_rgba(179,18,27,0.1)] dark:hover:shadow-[0_4px_20px_rgba(179,18,27,0.15)] hover:-translate-y-0.5 transition-all duration-300 items-start text-left"
                       >
-                        <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900 shadow-sm animate-pulse-once">
+                        <div className="relative h-[70px] w-[90px] shrink-0 overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-800 shadow-sm">
                           <Image
                             src={getCardThumbnail(raArt, index)}
                             alt={raTitle}
                             fill
-                            sizes="96px"
-                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            sizes="90px"
+                            className="object-cover transition-transform duration-500 group-hover:scale-110"
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/90x70/e2e8f0/94a3b8?text=GP'; }}
                           />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="line-clamp-2 text-[13.5px] font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors duration-200 leading-snug">
+                        <div className="min-w-0 flex-1 flex flex-col gap-1">
+                          <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#B3121B] opacity-80">{raCat}</span>
+                          <p className="line-clamp-3 text-[13px] font-bold text-neutral-800 dark:text-neutral-100 group-hover:text-[#B3121B] dark:group-hover:text-red-400 transition-colors duration-200 leading-snug">
                             {raTitle}
                           </p>
                         </div>
@@ -1365,14 +1719,14 @@ export default function NewsDetailClient({ article, related, trending, articleUr
             </div>
           </article>
 
-          <aside className="select-none h-fit sticky top-[100px]" style={{ width: '100%', maxWidth: '336px' }}>
+          <aside className="select-none h-fit sticky top-[100px]" style={{ width: '100%', maxWidth: '336px' }} suppressHydrationWarning>
             {/* Heading and recommended stories stick together below header */}
             <div className="wtitle mb-3">
               <span className="d"></span>
               <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
             </div>
             <div className="space-y-0">
-              {related.slice(0, 4).map((item) => {
+              {sidebarRecommendedPool.slice(0, 4).map((item, index) => {
                 const itemTitle = getArticleTitle(item, language);
                 const itemCategory = getCategoryLabel(item, language);
                 return (
@@ -1385,7 +1739,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       </div>
                     </div>
                     <div className="imgwrap">
-                      <Image src={item.image} alt={item.title} fill sizes="92px" className="object-cover" />
+                      <Image src={getCardThumbnail(item, index)} alt={item.title} fill sizes="92px" className="object-cover" />
                     </div>
                   </Link>
                 );

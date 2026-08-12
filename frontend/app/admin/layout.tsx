@@ -71,6 +71,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: 'Videos', href: '/admin/videos', icon: Video },
     { label: 'Reels', href: '/admin/reels', icon: Smartphone },
     { label: 'Web Stories', href: '/admin/web-stories', icon: BookOpen },
+    { label: 'E-Paper (ઈ-પેપર)', href: '/admin/epaper', icon: Newspaper },
     { label: 'Users', href: '/admin/users', icon: Users },
   ];
 

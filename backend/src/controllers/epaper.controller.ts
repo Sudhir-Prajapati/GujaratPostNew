@@ -24,7 +24,7 @@ export class EPaperController {
         const nowMinutes = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
 
         // Fetch all drafts whose date <= today
-        const scheduledDrafts = await prisma.ePaperEdition.findMany({
+        const scheduledDrafts = await (prisma as any).ePaperEdition.findMany({
           where: { status: 'DRAFT', date: { lte: todayStr } },
           select: { id: true, date: true, publishTime: true },
         });
@@ -57,7 +57,7 @@ export class EPaperController {
         }
 
         if (toPublishIds.length > 0) {
-          await prisma.ePaperEdition.updateMany({
+          await (prisma as any).ePaperEdition.updateMany({
             where: { id: { in: toPublishIds } },
             data: { status: 'PUBLISHED' },
           });
@@ -100,7 +100,7 @@ export class EPaperController {
         ];
       }
 
-      let editions = await prisma.ePaperEdition.findMany({
+      let editions = await (prisma as any).ePaperEdition.findMany({
         where: whereClause,
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       });
@@ -150,7 +150,7 @@ export class EPaperController {
         ];
       }
 
-      const editions = await prisma.ePaperEdition.findMany({
+      const editions = await (prisma as any).ePaperEdition.findMany({
         where: whereClause,
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       });
@@ -181,7 +181,7 @@ export class EPaperController {
 
       // Safely check for duplicate edition with the same title on the exact same date and city
       try {
-        const existing = await prisma.ePaperEdition.findFirst({
+        const existing = await (prisma as any).ePaperEdition.findFirst({
           where: {
             city: String(city),
             date: String(date),
@@ -199,7 +199,7 @@ export class EPaperController {
         console.warn('Duplicate check warning in createEdition:', err);
       }
 
-      const edition = await prisma.ePaperEdition.create({
+      const edition = await (prisma as any).ePaperEdition.create({
         data: {
           title: finalTitle,
           city: String(city),
@@ -232,7 +232,7 @@ export class EPaperController {
 
       if (title && city && date) {
         try {
-          const existing = await prisma.ePaperEdition.findFirst({
+          const existing = await (prisma as any).ePaperEdition.findFirst({
             where: {
               city: String(city),
               date: String(date),
@@ -252,7 +252,7 @@ export class EPaperController {
         }
       }
 
-      const edition = await prisma.ePaperEdition.update({
+      const edition = await (prisma as any).ePaperEdition.update({
         where: { id },
         data: {
           title,
@@ -278,7 +278,7 @@ export class EPaperController {
   static async deleteEdition(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await prisma.ePaperEdition.delete({ where: { id } });
+      await (prisma as any).ePaperEdition.delete({ where: { id } });
       return sendSuccess(res, null, 'E-Paper edition deleted successfully');
     } catch (error) {
       next(error);
@@ -296,22 +296,22 @@ export class EPaperController {
     ];
 
     try {
-      let dbCities = await prisma.ePaperCity.findMany({
+      let dbCities = await (prisma as any).ePaperCity.findMany({
         orderBy: { createdAt: 'asc' },
       });
 
       // Seed database once if table is completely empty
       if (dbCities.length === 0) {
-        await prisma.ePaperCity.createMany({
+        await (prisma as any).ePaperCity.createMany({
           data: defaults,
           skipDuplicates: true,
         });
-        dbCities = await prisma.ePaperCity.findMany({
+        dbCities = await (prisma as any).ePaperCity.findMany({
           orderBy: { createdAt: 'asc' },
         });
       }
 
-      const editionCities = await prisma.ePaperEdition.findMany({
+      const editionCities = await (prisma as any).ePaperEdition.findMany({
         select: { city: true, cityGu: true },
         distinct: ['city'],
       });
@@ -363,7 +363,7 @@ export class EPaperController {
       const trimCity = String(city).trim();
       const trimGu = cityGu ? String(cityGu).trim() : trimCity;
 
-      const existing = await prisma.ePaperCity.findFirst({
+      const existing = await (prisma as any).ePaperCity.findFirst({
         where: {
           OR: [
             { city: { equals: trimCity } },
@@ -378,7 +378,7 @@ export class EPaperController {
         return sendSuccess(res, { city: existing }, 'City already exists in active cities list');
       }
 
-      const newCity = await prisma.ePaperCity.create({
+      const newCity = await (prisma as any).ePaperCity.create({
         data: {
           city: trimCity,
           cityGu: trimGu,
@@ -403,7 +403,7 @@ export class EPaperController {
       const searchTerm = String(id).trim();
 
       // Delete all matching city records by ID or by city / cityGu name
-      await prisma.ePaperCity.deleteMany({
+      await (prisma as any).ePaperCity.deleteMany({
         where: {
           OR: [
             { id: searchTerm },

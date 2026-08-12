@@ -112,14 +112,22 @@ export default function YouTubeLatest() {
     try {
       const liveRes = await getPublicVideos('video');
       if (liveRes && liveRes.length > 0) {
-        const mapped: VideoItem[] = liveRes.map((v) => ({
-          id: v.youtubeId || v.id,
-          title: v.titleGu || v.title,
-          publishedAt: v.publishedAt || new Date().toISOString(),
-          thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
-          videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
-        }));
-        setVideos(mapped);
+        const seen = new Set<string>();
+        const mapped: VideoItem[] = [];
+        for (const v of liveRes) {
+          const key = v.youtubeId?.trim() || v.id;
+          if (key && !seen.has(key)) {
+            seen.add(key);
+            mapped.push({
+              id: v.youtubeId || v.id,
+              title: v.titleGu || v.title,
+              publishedAt: v.publishedAt || new Date().toISOString(),
+              thumbnail: v.thumbnail || `https://i.ytimg.com/vi/${v.youtubeId}/hqdefault.jpg`,
+              videoUrl: `https://www.youtube.com/watch?v=${v.youtubeId || v.id}`,
+            });
+          }
+        }
+        setVideos(mapped.slice(0, 20));
       } else {
         setVideos(FALLBACK_VIDEOS);
       }

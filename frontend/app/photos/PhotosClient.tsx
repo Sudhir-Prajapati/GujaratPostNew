@@ -23,7 +23,7 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
       }
     }
   }
-  const gallery = photoList.slice(0, 5);
+  const gallery = photoList;
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -78,7 +78,11 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
               {/* Soft dark gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-black/5" />
 
-
+              {/* Photo Count Badge */}
+              <div className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-full bg-red-600/90 text-white backdrop-blur-md px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-md">
+                <Camera className="h-3 w-3" />
+                <span>{mockCount} {getLocalized(language, { en: 'Photos', gu: 'ફોટા', hi: 'तस्वीरें' })}</span>
+              </div>
 
               {/* Title overlay */}
               <div className="absolute bottom-0 inset-x-0 p-4 pt-8 bg-gradient-to-t from-black/95 via-black/50 to-transparent">

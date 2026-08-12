@@ -10,10 +10,22 @@ import { useApp } from '@/components/AppProvider';
 import { toGuDigits } from '@/lib/utils';
 import type { Article, Language } from '@/types';
 
-export default function LatestUpdatesSection({ view = 'all' }: { view?: 'timeline' | 'sidebar' | 'all' }) {
+export default function LatestUpdatesSection({
+  view = 'all',
+  initialArticles,
+  initialMostRead,
+}: {
+  view?: 'timeline' | 'sidebar' | 'all';
+  initialArticles?: Article[];
+  initialMostRead?: Article[];
+}) {
   const { language } = useApp();
-  const [latestNews, setLatestNews] = useState<Article[]>([]);
-  const [mostRead, setMostRead] = useState<Article[]>([]);
+  const [latestNews, setLatestNews] = useState<Article[]>(
+    initialArticles ? initialArticles.slice(0, 10) : []
+  );
+  const [mostRead, setMostRead] = useState<Article[]>(
+    initialMostRead || (initialArticles && initialArticles.length > 10 ? initialArticles.slice(10, 16) : [])
+  );
 
   // Gold and Silver rates (replicated from the screenshot layout)
   const goldPrice = 73450;
@@ -21,6 +33,16 @@ export default function LatestUpdatesSection({ view = 'all' }: { view?: 'timelin
   const silverPrice = 82800;
 
   useEffect(() => {
+    if (initialArticles && initialArticles.length > 0) {
+      setLatestNews(initialArticles.slice(0, 10));
+      if (initialMostRead && initialMostRead.length > 0) {
+        setMostRead(initialMostRead);
+      } else {
+        setMostRead(initialArticles.length > 10 ? initialArticles.slice(10, 16) : initialArticles.slice(0, 6));
+      }
+      return;
+    }
+
     Promise.all([
       getPublicArticles({ limit: 20 }),
       getHeroSettings(),
@@ -34,7 +56,7 @@ export default function LatestUpdatesSection({ view = 'all' }: { view?: 'timelin
         setMostRead(res.articles.length > 10 ? res.articles.slice(10, 16) : res.articles.slice(0, 6));
       }
     });
-  }, []);
+  }, [initialArticles, initialMostRead]);
 
   if (!latestNews.length) return null;
 

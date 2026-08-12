@@ -27,6 +27,7 @@ export interface Article {
   contentHi: string;
   image: string;
   category: string;
+  categorySlug?: string;
   categoryGu: string;
   categoryHi: string;
   location?: string;

@@ -57,6 +57,9 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
 
   // Get localized category name aligned exactly with the header menu links
   const getCategoryTitleLocalized = () => {
+    if (slug === 'other-cities' || slug === 'otherCities') {
+      return getLocalized(language, { en: 'Other Cities', gu: 'અન્ય શહેરો', hi: 'अन्य शहर' });
+    }
     if (slug === 'gujarat' || slug === 'state') {
       return getLocalized(language, { en: 'Gujarat', gu: 'ગુજરાત', hi: 'गुजरात' });
     }

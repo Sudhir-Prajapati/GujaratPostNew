@@ -31,6 +31,7 @@ const HOME_SECTIONS = [
   { id: 'AFTER_WEBSTORIES', label: 'After Web Stories', description: 'Placed below interactive web stories bar' },
   { id: 'AFTER_VIDEOS', label: 'After Latest Videos', description: 'Placed below video section' },
   { id: 'AFTER_GALLERY', label: 'After Photo Gallery', description: 'Placed below photo gallery section' },
+  { id: 'IN_ARTICLE', label: 'In-Article Ad (Inside Article Body)', description: 'Shown after paragraph 3 inside every article — 728×90 or 300×250 recommended' },
 ];
 
 const FIXED_SIDEBAR_SLOTS = [
