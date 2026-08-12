@@ -20,6 +20,7 @@ interface ReelData {
   headingHi: string;
   videoUrl: string | null;
   instaUrl: string | null;
+  thumbnail: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -42,11 +43,14 @@ export default function ReelsPage() {
   const [headingHi, setHeadingHi] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [instaUrl, setInstaUrl] = useState('');
+  const [thumbnail, setThumbnail] = useState('');
   const [isActive, setIsActive] = useState(true);
 
   // File upload states
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingThumb, setUploadingThumb] = useState(false);
 
   // Fetch reels
   const loadReels = async () => {
@@ -74,6 +78,7 @@ export default function ReelsPage() {
     setHeadingHi('');
     setVideoUrl('');
     setInstaUrl('');
+    setThumbnail('');
     setIsActive(true);
     setSelectedReel(null);
   };
@@ -92,6 +97,7 @@ export default function ReelsPage() {
     setHeadingHi(reel.headingHi);
     setVideoUrl(reel.videoUrl || '');
     setInstaUrl(reel.instaUrl || '');
+    setThumbnail(reel.thumbnail || '');
     setIsActive(reel.isActive);
     setEditModalOpen(true);
   };
@@ -119,6 +125,29 @@ export default function ReelsPage() {
     }
   };
 
+  const handleThumbUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingThumb(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Upload failed');
+      setThumbnail(json.url || json.data?.url);
+    } catch (err: any) {
+      alert(err.message || 'Failed to upload thumbnail');
+    } finally {
+      setUploadingThumb(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!heading) return alert('English heading is required');
@@ -140,6 +169,7 @@ export default function ReelsPage() {
           headingHi,
           videoUrl: type === 'VIDEO' ? videoUrl : null,
           instaUrl: type === 'INSTAGRAM' ? instaUrl : null,
+          thumbnail: thumbnail || null,
           isActive,
         }),
       });
@@ -203,6 +233,7 @@ export default function ReelsPage() {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
               <tr>
+                <th className="px-6 py-4">Thumbnail</th>
                 <th className="px-6 py-4">Type</th>
                 <th className="px-6 py-4">Heading (EN / GU / HI)</th>
                 <th className="px-6 py-4">Content</th>
@@ -213,20 +244,32 @@ export default function ReelsPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-[#B3121B]" />
                     <p className="font-semibold">Loading reels...</p>
                   </td>
                 </tr>
               ) : reels.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-semibold">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-semibold">
                     No reels found.
                   </td>
                 </tr>
               ) : (
                 reels.map((reel) => (
                   <tr key={reel.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="px-6 py-4">
+                      {reel.thumbnail ? (
+                        <div className="relative w-12 h-16 rounded-md overflow-hidden bg-slate-100 border border-slate-200 shadow-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={reel.thumbnail} alt={reel.heading} className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-16 rounded-md bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-white text-[10px] font-bold">
+                          Insta
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       {reel.type === 'VIDEO' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 text-xs font-black">
@@ -406,6 +449,46 @@ export default function ReelsPage() {
                     </div>
                   </div>
                 )}
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    Cover Thumbnail Image (Optional)
+                  </label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <input
+                      type="url"
+                      value={thumbnail}
+                      onChange={(e) => setThumbnail(e.target.value)}
+                      className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-4 py-2.5 text-sm focus:border-[#B3121B] focus:ring-[#B3121B]"
+                      placeholder="Paste Image URL or Upload below..."
+                    />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={thumbInputRef}
+                      onChange={handleThumbUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => thumbInputRef.current?.click()}
+                      disabled={uploadingThumb}
+                      className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+                    >
+                      {uploadingThumb ? (
+                        <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
+                      ) : (
+                        'Upload Image'
+                      )}
+                    </button>
+                  </div>
+                  {thumbnail && (
+                    <div className="mt-2 relative w-20 aspect-[9/16] rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbnail} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2 pt-2">
                   <input

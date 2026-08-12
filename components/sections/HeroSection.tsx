@@ -647,24 +647,13 @@ export default function HeroSection({
                       onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
                     />
                   </div>
-                  {/* Category tags */}
-                  <div className="flex items-center gap-1.5 mt-2.5">
-                    {uniqueTopStories[0].isLive || uniqueTopStories[0].isBreaking ? (
-                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 shadow-sm">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                        LIVE
-                      </span>
-                    ) : uniqueTopStories[0].isTrending ? (
-                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
-                        {language === 'gu' ? 'ટ્રેન્ડ' : 'Trending'}
-                      </span>
-                    ) : (
-                      <span className="bg-zinc-800 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
-                        {getCategoryLabel(uniqueTopStories[0], language)}
-                      </span>
-                    )}
-
-                    <span className="text-muted-foreground text-[11px] font-semibold">
+                  {/* Category & Live Badge tags */}
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <span className="bg-[#B3121B] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 shadow-sm">
+                      <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+                      {language === 'gu' ? 'લાઇવ' : language === 'hi' ? 'लाइव' : 'LIVE'}
+                    </span>
+                    <span className="text-muted-foreground text-[12px] font-bold">
                       {getCategoryLabel(uniqueTopStories[0], language)}
                     </span>
                   </div>
