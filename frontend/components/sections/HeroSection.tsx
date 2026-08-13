@@ -37,6 +37,7 @@ import Advertisement from '@/components/ads/Advertisement';
 import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
+import RandomAdsSection from '@/components/ads/RandomAdsSection';
 
 const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 
@@ -472,12 +473,18 @@ export default function HeroSection({
     })
     .catch(() => {})
     .finally(() => {
-      setTimeout(() => {
-        setIsInitialLoading(false);
-      }, 300);
+      if (typeof window !== 'undefined') {
+        (window as any).__gpDataReady = true;
+        window.dispatchEvent(new CustomEvent('gp-data-ready'));
+      }
+      setIsInitialLoading(false);
     });
 
     const safetyTimer = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        (window as any).__gpDataReady = true;
+        window.dispatchEvent(new CustomEvent('gp-data-ready'));
+      }
       setIsInitialLoading(false);
     }, 2000);
 
@@ -1107,8 +1114,8 @@ export default function HeroSection({
         <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
-      {/* Native Sponsored Ads Section */}
-      <NativeAdsSection language={language} />
+      {/* Native Random Sponsored Ads Section (7-Ad Grid Layout) */}
+      <RandomAdsSection />
     </div>
   );
 }

@@ -38,6 +38,14 @@ async function ensureAdsTableExists() {
           `ALTER TABLE \`advertisements\` ADD COLUMN \`mediaType\` VARCHAR(50) NOT NULL DEFAULT 'IMAGE'`
         );
       }
+      const randomCols: any[] = await prisma.$queryRawUnsafe(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'advertisements' AND COLUMN_NAME = 'includeInRandom'`
+      );
+      if (randomCols.length === 0) {
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE \`advertisements\` ADD COLUMN \`includeInRandom\` TINYINT(1) NOT NULL DEFAULT 0`
+        );
+      }
     } catch (_) {
       // Ignore if column check or alter fails
     }
@@ -238,6 +246,32 @@ export class AdController {
       });
 
       return sendSuccess(res, { ad }, 'Advertisement status updated');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Toggle random pool status
+  static async toggleIncludeInRandom(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ensureAdsTableExists();
+      const { id } = req.params;
+      const { includeInRandom } = req.body;
+      const val = includeInRandom ? 1 : 0;
+
+      await prisma.$executeRawUnsafe(
+        `UPDATE \`advertisements\` SET \`includeInRandom\` = ? WHERE \`id\` = ?`,
+        val,
+        id
+      );
+
+      const adList: any[] = await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`advertisements\` WHERE \`id\` = ? LIMIT 1`,
+        id
+      );
+      const ad = adList[0] || null;
+
+      return sendSuccess(res, { ad }, 'Random pool status updated');
     } catch (error) {
       next(error);
     }

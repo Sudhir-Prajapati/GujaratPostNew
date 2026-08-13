@@ -14,6 +14,7 @@ import {
 } from '@/data';
 import { getCategoryColor, toGu } from '@/lib/utils';
 import { useApp } from '@/components/AppProvider';
+import { useAutoTranslate } from '@/lib/translate';
 
 interface NewsCardProps {
   article: Article;
@@ -22,8 +23,10 @@ interface NewsCardProps {
 
 export default function NewsCard({ article, variant = 'default' }: NewsCardProps) {
   const { language } = useApp();
-  const title = getArticleTitle(article, language);
-  const excerpt = getArticleExcerpt(article, language);
+  const rawTitle = getArticleTitle(article, language);
+  const rawExcerpt = getArticleExcerpt(article, language);
+  const title = useAutoTranslate(rawTitle, language);
+  const excerpt = useAutoTranslate(rawExcerpt, language);
   const category = getCategoryLabel(article, language);
   const categoryColor = getCategoryColor(article.category);
 

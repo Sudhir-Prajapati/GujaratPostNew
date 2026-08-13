@@ -8,24 +8,57 @@ export default function SplashLoader() {
   const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
-    // Lock body scrolling so no content behind loader can be scrolled
+    // Lock both html and body scrolling so no vertical scrollbar or scrolling occurs during loader
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+
+    document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
 
-    // Show 3D Microphone Loader on page load until homepage is fully ready
-    const fadeTimer = setTimeout(() => {
-      setVisible(false);
-      document.body.style.overflow = '';
-    }, 2200); // 2.2s display time for website initial load
+    let minTimePassed = false;
+    let dataReady = typeof window !== 'undefined' && (window as any).__gpDataReady === true;
 
-    const destroyTimer = setTimeout(() => {
-      setShouldRender(false);
-      document.body.style.overflow = '';
-    }, 2600); // Unmount after smooth fade out
+    const finishLoading = () => {
+      setVisible(false);
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      setTimeout(() => {
+        setShouldRender(false);
+      }, 500);
+    };
+
+    // Show 3D Microphone Loader for minimum 1.6s for smooth aesthetic UX
+    const minTimer = setTimeout(() => {
+      minTimePassed = true;
+      if (dataReady) {
+        finishLoading();
+      }
+    }, 1600);
+
+    // Safety fallback so loader never hangs if network is offline
+    const maxTimer = setTimeout(() => {
+      finishLoading();
+    }, 3500);
+
+    const handleDataReady = () => {
+      dataReady = true;
+      if (minTimePassed) {
+        finishLoading();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('gp-data-ready', handleDataReady);
+    }
 
     return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(destroyTimer);
-      document.body.style.overflow = '';
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('gp-data-ready', handleDataReady);
+      }
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
     };
   }, []);
 
@@ -33,7 +66,7 @@ export default function SplashLoader() {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-[#040810] transition-opacity duration-500 ease-in-out select-none ${
+      className={`fixed inset-0 z-[9999999] flex flex-col items-center justify-center bg-[#040810] transition-opacity duration-500 ease-in-out select-none overflow-hidden h-screen w-screen ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
     >

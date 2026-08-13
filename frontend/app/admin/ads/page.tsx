@@ -40,6 +40,9 @@ const HOME_SECTIONS = [
   { id: 'AFTER_WEBSTORIES', label: 'After Web Stories', description: 'Placed below interactive web stories bar' },
   { id: 'AFTER_VIDEOS', label: 'After Latest Videos', description: 'Placed below video section' },
   { id: 'AFTER_GALLERY', label: 'After Photo Gallery', description: 'Placed below photo gallery section' },
+  { id: 'RANDOM_ADS_1', label: 'Random Bottom Ads (Section 1 - 7 Cards)', description: 'Displays in 7-card grid section at bottom of website' },
+  { id: 'RANDOM_ADS_2', label: 'Random Bottom Ads (Section 2 - 7 Cards)', description: 'Displays in 2nd 7-card grid section at bottom of website' },
+  { id: 'RANDOM_ADS_3', label: 'Random Bottom Ads (Section 3 - 7 Cards)', description: 'Displays in 3rd 7-card grid section at bottom of website' },
 ];
 
 const FIXED_SIDEBAR_SLOTS = [
@@ -83,7 +86,7 @@ const isValidMediaUrl = (url: string | null | undefined): boolean => {
 };
 
 export default function AdminAdsPage() {
-  const [activeTab, setActiveTab] = useState<'header' | 'section' | 'sidebar'>('header');
+  const [activeTab, setActiveTab] = useState<'header' | 'section' | 'sidebar' | 'random'>('header');
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -140,6 +143,8 @@ export default function AdminAdsPage() {
       setSelectedSection('HEADER');
     } else if (activeTab === 'sidebar') {
       setSelectedSection('SIDEBAR_HERO_TOP');
+    } else if (activeTab === 'random') {
+      setSelectedSection('RANDOM_ADS_1');
     } else {
       setSelectedSection('AFTER_HERO');
     }
@@ -159,13 +164,15 @@ export default function AdminAdsPage() {
   };
 
   // Switch tab resets form state accordingly
-  const handleTabChange = (tab: 'header' | 'section' | 'sidebar') => {
+  const handleTabChange = (tab: 'header' | 'section' | 'sidebar' | 'random') => {
     setActiveTab(tab);
     resetForm();
     if (tab === 'header') {
       setSelectedSection('HEADER');
     } else if (tab === 'sidebar') {
       setSelectedSection('SIDEBAR_HERO_TOP');
+    } else if (tab === 'random') {
+      setSelectedSection('RANDOM_ADS_1');
     } else {
       setSelectedSection('AFTER_HERO');
     }
@@ -176,6 +183,8 @@ export default function AdminAdsPage() {
       setActiveTab('header');
     } else if (FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section)) {
       setActiveTab('sidebar');
+    } else if (ad.section.includes('RANDOM') || ad.section.includes('BOTTOM')) {
+      setActiveTab('random');
     } else {
       setActiveTab('section');
     }
@@ -329,6 +338,23 @@ export default function AdminAdsPage() {
     }
   };
 
+  const handleToggleRandom = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/ads/${id}/toggle-random`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeInRandom: !currentStatus }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAds(ads.map((a) => (a.id === id ? { ...a, includeInRandom: !currentStatus } : a)));
+        setSuccessMessage('Random pool status updated successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to toggle random status:', err);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this advertisement configuration?')) return;
 
@@ -420,7 +446,156 @@ export default function AdminAdsPage() {
           <Sidebar className="h-4 w-4 text-blue-500" />
           <span>Fixed Sidebar Ads</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('random')}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            activeTab === 'random'
+              ? 'bg-white dark:bg-zinc-900 text-[#B3121B] dark:text-red-400 shadow-sm border border-red-200 dark:border-red-900/50'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+          }`}
+        >
+          <Layers className="h-4 w-4 text-[#B3121B]" />
+          <span>Random Bottom Ads</span>
+        </button>
       </div>
+
+      {/* Option 1: Existing Advertisements Selector for Random Bottom Ads Tab */}
+      {activeTab === 'random' && (
+        <div className="space-y-6">
+          {/* Header Banner for Random Ads Tab with Brand Red Color & Gujarat Post Logo */}
+          <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-[#700910] via-[#B3121B] to-[#420407] text-white shadow-lg border border-red-500/30 space-y-3 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/15 backdrop-blur-xs border border-white/20">
+                  <Sparkles className="h-5 w-5 text-amber-300" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-white">
+                    Random Bottom Advertisements Pool
+                  </h2>
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300">
+                    7-Card Grid Layout • Gujarat Post Sponsored Ads
+                  </span>
+                </div>
+              </div>
+              <div className="shrink-0 bg-white px-2 py-1 rounded-lg shadow-2xs border border-white/30">
+                <Image
+                  src="/assets/gujarat-post-logo-chip.png"
+                  alt="Gujarat Post"
+                  width={90}
+                  height={20}
+                  className="h-5 w-auto object-contain"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-red-100/90 leading-relaxed font-medium pt-2 border-t border-white/15">
+              • <strong>Option 1:</strong> Select & toggle any existing website advertisement into the bottom Random 7-card grid pool.<br />
+              • <strong>Option 2:</strong> Create a brand new custom advertisement specifically for the bottom random section.
+            </p>
+          </div>
+
+          {/* Option 1 Card: Select Existing Ads */}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-200 dark:border-red-950/60 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <LayoutGrid className="h-4 w-4 text-[#B3121B]" /> Option 1: Select Existing Website Advertisements
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Toggle on any existing ad (Header, Sidebar, In-between section) to automatically display it in the bottom Random Ads grid!
+                </p>
+              </div>
+              <span className="text-xs font-black text-[#B3121B] dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-3.5 py-1 rounded-full border border-red-200 dark:border-red-900/60">
+                {ads.filter((a) => a.includeInRandom || a.section?.includes('RANDOM')).length} Active in Pool
+              </span>
+            </div>
+
+            {ads.length === 0 ? (
+              <div className="py-6 text-center text-zinc-400 text-xs">
+                No existing advertisements found on website. You can create a new advertisement below.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ads.map((ad) => {
+                  const isIncluded = Boolean(ad.includeInRandom) || ad.section?.includes('RANDOM');
+                  const secLabel =
+                    HEADER_SLOTS.find((s) => s.id === ad.section)?.label ||
+                    FIXED_SIDEBAR_SLOTS.find((s) => s.id === ad.section)?.label ||
+                    HOME_SECTIONS.find((s) => s.id === ad.section)?.label ||
+                    ad.section;
+
+                  return (
+                    <div
+                      key={ad.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-4 ${
+                        isIncluded
+                          ? 'border-red-300 dark:border-red-800 bg-red-50/40 dark:bg-red-950/20 shadow-sm'
+                          : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        {/* Thumbnail */}
+                        <div className="relative h-14 w-20 shrink-0 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-800">
+                          {ad.image1 ? (
+                            <Image src={ad.image1} alt={ad.title || 'Ad'} fill unoptimized={true} className="object-cover" />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-[10px] text-zinc-400 font-bold">AD</div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 space-y-1">
+                          <span className="inline-block text-[9px] font-black uppercase text-[#B3121B] dark:text-red-300 bg-red-100/80 dark:bg-red-950/60 px-2 py-0.5 rounded truncate max-w-full">
+                            {secLabel}
+                          </span>
+                          <h4 className="text-xs font-black text-zinc-900 dark:text-zinc-100 truncate">
+                            {ad.title || 'Untitled Ad'}
+                          </h4>
+                          <p className="text-[10px] font-bold text-zinc-500">
+                            {isIncluded ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                ● Visible in Random Section
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 flex items-center gap-1">
+                                ○ Deselected (Hidden from Random)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Deselect / Select Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRandom(ad.id, isIncluded)}
+                        className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all shadow-sm ${
+                          isIncluded
+                            ? 'bg-[#B3121B] hover:bg-zinc-900 text-white'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white border border-zinc-300 dark:border-zinc-700'
+                        }`}
+                      >
+                        {isIncluded ? (
+                          <>
+                            <X className="h-3.5 w-3.5" />
+                            <span>Deselect from Random Pool (Hide)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-[#B3121B]" />
+                            <span>+ Select for Random Pool (Show)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Form & Preview Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -435,8 +610,12 @@ export default function AdminAdsPage() {
                       ? 'Header Ad Banner'
                       : activeTab === 'sidebar'
                       ? 'Fixed Sidebar Ad'
+                      : activeTab === 'random'
+                      ? 'Random Bottom Ad'
                       : 'Section Ad'
                   }`
+                : activeTab === 'random'
+                ? 'Option 2: Create New Custom Random Ad'
                 : `Add ${
                     activeTab === 'header'
                       ? 'Header Ad Banner'

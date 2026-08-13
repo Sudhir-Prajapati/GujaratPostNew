@@ -33,6 +33,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [fsLevel, setFsLevel] = useState<number>(1);
   const hydrated = useRef(false);
 
+  // Clear any existing Google Translate cookies & remove script tag if present
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      // Clear googtrans cookie
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+
+      const script = document.getElementById('google-translate-script');
+      if (script) script.remove();
+
+      const element = document.getElementById('google_translate_element');
+      if (element) element.remove();
+    } catch (e) {
+      console.warn('Cookie cleanup:', e);
+    }
+  }, []);
+
   useEffect(() => {
     let savedTheme: string | null = null;
     let savedLanguage: string | null = null;
@@ -51,7 +70,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (savedLanguage === 'gu' || savedLanguage === 'en' || savedLanguage === 'hi') {
-        setLanguage(savedLanguage);
+        setLanguage(savedLanguage as Language);
       }
 
       if (savedFsLevel) {
@@ -66,8 +85,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return () => window.cancelAnimationFrame(frame);
   }, []);
-
-
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');

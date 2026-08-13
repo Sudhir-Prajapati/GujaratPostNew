@@ -161,6 +161,7 @@ router.delete('/epaper/cities/:id', requireAuth, EPaperController.deleteCity);
 router.get('/ads', requireAuth, AdController.getAllAds);
 router.post('/ads', requireAuth, AdController.createOrUpdateAd);
 router.put('/ads/:id/toggle', requireAuth, AdController.toggleActive);
+router.put('/ads/:id/toggle-random', requireAuth, AdController.toggleIncludeInRandom);
 router.delete('/ads/:id', requireAuth, AdController.deleteAd);
 
 export default router;
