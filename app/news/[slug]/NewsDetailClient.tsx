@@ -1033,24 +1033,36 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   </>
                 )}
 
-                {slideImages.map((src, index) => (
-                  <div
-                    key={src + index}
-                    className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
-                      }`}
-                  >
-                    <Image
-                      src={src || '/assets/placeholder.jpg'}
-                      alt={`${article.title} slide ${index + 1}`}
-                      fill
-                      unoptimized={src?.includes('localhost')}
-                      sizes="(max-width: 1024px) 100vw, 66vw"
-                      className="object-cover"
-                      loading={index === 0 ? 'eager' : 'lazy'}
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
-                    />
-                  </div>
-                ))}
+                {slideImages.map((src, index) => {
+                  const isVideo = Boolean(src && (src.match(/\.(mp4|webm|mov|m4v|avi|mkv)(\?.*)?$/i) || src.includes('/video/upload/')));
+                  return (
+                    <div
+                      key={src + index}
+                      className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                        }`}
+                    >
+                      {isVideo ? (
+                        <video
+                          src={src}
+                          controls
+                          className="h-full w-full object-cover"
+                          poster="/assets/placeholder.jpg"
+                        />
+                      ) : (
+                        <Image
+                          src={src || '/assets/placeholder.jpg'}
+                          alt={`${article.title} slide ${index + 1}`}
+                          fill
+                          unoptimized={src?.includes('localhost')}
+                          sizes="(max-width: 1024px) 100vw, 66vw"
+                          className="object-cover"
+                          loading={index === 0 ? 'eager' : 'lazy'}
+                          onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <figcaption>
                 <span>
