@@ -175,10 +175,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     if (sliced.length >= 4) return sliced;
 
     const usedIds = new Set([heroArticle?.id, subHeroArticle?.id, ...sliced.map((a) => a.id)].filter(Boolean));
-    const pool = displayArticles.length > 2 ? displayArticles : (GUJARAT_MOCK_ARTICLES as any[]);
+    const pool = filteredArticles.length > 2 ? filteredArticles : sliced;
     const fallbacks = pool.filter((a: any) => !usedIds.has(a.id));
     return [...sliced, ...fallbacks].slice(0, 4);
-  }, [filteredArticles, heroArticle, subHeroArticle, displayArticles]);
+  }, [filteredArticles, heroArticle, subHeroArticle]);
 
   const topStoriesIds = useMemo(() => new Set([heroArticle?.id, subHeroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, subHeroArticle, topStories]);
 
@@ -407,9 +407,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
             </div>
           )}
         </div>
-      </>
-        )}
+      </div>
     </div>
-    </div >
   );
 }
