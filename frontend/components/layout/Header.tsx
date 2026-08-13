@@ -236,37 +236,36 @@ export default function Header() {
   }, []);
 
   const { navLinks, otherLinks } = useMemo(() => {
-    if (!dbCategories || dbCategories.length === 0) {
-      return { navLinks: NAV_LINKS, otherLinks: OTHER_LINKS };
-    }
+    // Fixed standard main navigation links matching exact screenshot design
+    const mainNav = NAV_LINKS;
 
-    const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
-    const videosLink = { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' };
-    const photosLink = { label: 'Photos', labelGu: 'ફોટો ગેલેરી', labelHi: 'फोटो गैलરી', href: '/photos' };
+    // Collect all hrefs already present in mainNav
+    const existingHrefs = new Set(mainNav.map((link) => link.href.toLowerCase()));
 
-    // DB categories filtered by showInHeader !== false and sorted by displayOrder asc
-    const validHeaderCategories = dbCategories
+    // Extra dynamic categories from DB that are not in mainNav
+    const extraDbLinks = (dbCategories || [])
       .filter((c) => c.showInHeader !== false)
-      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+      .map((c) => ({
+        label: c.name,
+        labelGu: c.nameGu || c.name,
+        labelHi: c.nameHi || c.name,
+        href: `/category/${c.slug}`,
+      }))
+      .filter((link) => !existingHrefs.has(link.href.toLowerCase()));
 
-    const categoryLinks = validHeaderCategories.map((c) => ({
-      label: c.name,
-      labelGu: c.nameGu || c.name,
-      labelHi: c.nameHi || c.name,
-      href: `/category/${c.slug}`,
-    }));
+    // Combine default OTHER_LINKS and extra DB categories without duplicates
+    const otherHrefs = new Set<string>();
+    const combinedOtherLinks: Array<{ label: string; labelGu: string; labelHi: string; href: string }> = [];
 
-    const specialOtherLinks = [
-      { label: 'Webstory', labelGu: 'વેબસ્ટોરી', labelHi: 'વેબ સ્ટોરીઝ', href: '/category/webstory' },
-      { label: 'Weather', labelGu: 'હવામાન', labelHi: 'मौसम', href: '/category/weather' },
-    ];
+    [...OTHER_LINKS, ...extraDbLinks].forEach((link) => {
+      const lowerHref = link.href.toLowerCase();
+      if (!existingHrefs.has(lowerHref) && !otherHrefs.has(lowerHref)) {
+        otherHrefs.add(lowerHref);
+        combinedOtherLinks.push(link);
+      }
+    });
 
-    const allCombined = [homeLink, videosLink, ...categoryLinks, photosLink];
-    const mainNav = allCombined.slice(0, 14);
-    const overflow = allCombined.slice(14);
-    const otherNav = [...overflow, ...specialOtherLinks];
-
-    return { navLinks: mainNav, otherLinks: otherNav };
+    return { navLinks: mainNav, otherLinks: combinedOtherLinks };
   }, [dbCategories]);
 
   // Determine active link: exact match for home, startsWith for others

@@ -1,13 +1,13 @@
 import { MessageCircle, Newspaper, Send } from 'lucide-react';
 
 export const SOCIAL_LINKS = [
-  { label: 'Facebook', platform: 'facebook', href: '#', hover: 'hover:bg-[#1877f2]', hoverBg: '#1877f2' },
-  { label: 'Instagram', platform: 'instagram', href: '#', hover: 'hover:bg-gradient-to-br hover:from-[#833ab4] hover:via-[#fd1d1d] hover:to-[#fcb045]', hoverBg: '#c13584' },
+  { label: 'Facebook', platform: 'facebook', href: 'https://www.facebook.com/gujaratpostnews', hover: 'hover:bg-[#1877f2]', hoverBg: '#1877f2' },
+  { label: 'Instagram', platform: 'instagram', href: 'https://www.instagram.com/gujaratpost.in/', hover: 'hover:bg-gradient-to-br hover:from-[#833ab4] hover:via-[#fd1d1d] hover:to-[#fcb045]', hoverBg: '#c13584' },
   { label: 'YouTube', platform: 'youtube', href: 'https://www.youtube.com/@Gujaratpostnews', hover: 'hover:bg-[#ff0000]', hoverBg: '#ff0000' },
-  { label: 'Telegram', platform: 'telegram', href: '#', hover: 'hover:bg-[#229ed9]', hoverBg: '#229ed9' },
-  { label: 'WhatsApp', platform: 'whatsapp', href: '#', hover: 'hover:bg-[#25d366]', hoverBg: '#25d366' },
-  { label: 'X', platform: 'x', href: '#', hover: 'hover:bg-black', hoverBg: '#000000' },
-  { label: 'Google News', platform: 'news', href: '#', hover: 'hover:bg-[#4285f4]', hoverBg: '#4285f4' },
+  { label: 'Telegram', platform: 'telegram', href: 'https://t.me/gujaratpostnews', hover: 'hover:bg-[#229ed9]', hoverBg: '#229ed9' },
+  { label: 'WhatsApp', platform: 'whatsapp', href: 'https://whatsapp.com/channel/0029Va9y6Xn9RZAY5m4f8V1a', hover: 'hover:bg-[#25d366]', hoverBg: '#25d366' },
+  { label: 'X', platform: 'x', href: 'https://x.com/gujaratpostnews', hover: 'hover:bg-black', hoverBg: '#000000' },
+  { label: 'Google News', platform: 'news', href: 'https://news.google.com/publications/CAAqBwgKMMT_nwsw5-axAw', hover: 'hover:bg-[#4285f4]', hoverBg: '#4285f4' },
 ] as const;
 
 export type SocialPlatform = (typeof SOCIAL_LINKS)[number]['platform'];
@@ -33,7 +33,15 @@ export function SocialLinks({ size = 'md', className = '' }: { size?: 'sm' | 'md
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
       {SOCIAL_LINKS.map((item) => (
-        <a key={item.label} href={item.href} target={item.platform === 'youtube' ? '_blank' : undefined} rel={item.platform === 'youtube' ? 'noreferrer' : undefined} aria-label={item.label} title={item.label} className={`group inline-flex ${dimensions} items-center justify-center rounded-full border border-current/15 bg-current/8 text-current shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-transparent hover:text-white hover:shadow-lg ${item.hover}`}>
+        <a
+          key={item.label}
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={item.label}
+          title={item.label}
+          className={`group inline-flex ${dimensions} items-center justify-center rounded-full border border-current/15 bg-current/8 text-current shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-transparent hover:text-white hover:shadow-lg ${item.hover}`}
+        >
           <SocialIcon platform={item.platform} className={`${iconSize} transition-transform duration-200 group-hover:scale-110`} />
         </a>
       ))}

@@ -25,13 +25,31 @@ export default function VideosPageClient() {
   const [activeTab, setActiveTab] = useState<TabType>('video');
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [videoList, setVideoList] = useState<any[]>([]);
+  const [shortsList, setShortsList] = useState<any[]>([]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    getPublicVideos().then((res) => {
+    getPublicVideos('video').then((res) => {
       setVideoList(res || []);
     });
+    getPublicVideos('short').then((res) => {
+      setShortsList(res || []);
+    });
   }, []);
+
+  // Strict deduplication by youtubeId
+  const cleanVideos = useMemo(() => {
+    const seen = new Set<string>();
+    const result: any[] = [];
+    for (const item of videoList) {
+      const key = item.youtubeId?.trim() || item.id;
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        result.push(item);
+      }
+    }
+    return result;
+  }, [videoList]);
 
   // Tab definitions
   const tabs = [
@@ -56,27 +74,60 @@ export default function VideosPageClient() {
     }
   };
 
-  // Mock featured video (sabarkantha Union)
+  // Dynamic featured video from latest YouTube video (Top 1)
   const featuredVideo = useMemo(() => {
+    if (cleanVideos.length > 0) {
+      const top = cleanVideos[0];
+      return {
+        id: top.id,
+        youtubeId: top.youtubeId,
+        title: top.title,
+        titleGu: top.titleGu || top.title,
+        titleHi: top.titleHi || top.title,
+        thumbnail: top.thumbnail || `https://img.youtube.com/vi/${safeYouTubeId(top.youtubeId)}/maxresdefault.jpg`,
+        duration: top.duration || '10:00',
+        views: top.views ? formatViews(top.views) : '46K',
+        type: top.type || 'video',
+      };
+    }
     return {
       id: 'f1',
-      youtubeId: 'sA6BrUmBXiA',
-      title: 'Sabarkantha District Cooperative purchase and Sales Union scam',
-      titleGu: 'ધી સાબરકાંઠા જિલ્લા સહકારી સંઘ ભ્રષ્ટાચારનો અડ્ડો',
-      titleHi: 'साबरकांठा जिला सहकारी संघ भ्रष्टाचार का अड्डा',
-      thumbnail: 'https://i.ytimg.com/vi/sA6BrUmBXiA/hqdefault.jpg',
-      duration: '4:38',
+      youtubeId: 'ituhQR8gwas',
+      title: 'Gujarat Post News Live',
+      titleGu: 'ગુજરાત પોસ્ટ ન્યૂઝ — તાજા સમાચાર',
+      titleHi: 'गुजरात पोस्ट न्यूज़ — ताजा समाचार',
+      thumbnail: 'https://i.ytimg.com/vi/ituhQR8gwas/hqdefault.jpg',
+      duration: '16:17',
       views: '46K',
       type: 'video',
     };
-  }, []);
+  }, [cleanVideos]);
 
-  // Filter video lists
+  // Top 20 latest videos from YouTube (excluding the active featured video to avoid duplicate on page)
   const latestVideos = useMemo(() => {
-    return videoList.length > 0 ? videoList.slice(0, 6) : [];
-  }, [videoList]);
+    if (cleanVideos.length <= 1) return cleanVideos;
+    return cleanVideos.filter((v) => v.youtubeId !== featuredVideo.youtubeId).slice(0, 20);
+  }, [cleanVideos, featuredVideo.youtubeId]);
 
   const shortsVideos = useMemo(() => {
+    if (shortsList.length > 0) {
+      const seen = new Set<string>();
+      const list: any[] = [];
+      for (const s of shortsList) {
+        const key = s.youtubeId?.trim() || s.id;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          list.push({
+            id: s.id,
+            youtubeId: s.youtubeId,
+            titleGu: s.titleGu || s.title,
+            hash: '#GujaratPost',
+            thumbnail: s.thumbnail || `https://i.ytimg.com/vi/${s.youtubeId}/frame0.jpg`,
+          });
+        }
+      }
+      return list.slice(0, 5);
+    }
     return [
       { id: 's1', youtubeId: 'sA6BrUmBXiA', titleGu: 'કઠલાલના ભાજપ નેતાના બખેડા', hash: '#kathlal', thumbnail: '/assets/demo/1.jpg' },
       { id: 's2', youtubeId: 'rQHoqCTiQvI', titleGu: 'કપડવંજ જીઆઈડીસીમાં આત્મહત્યાનો પ્રયાસ', hash: '#kapadvanj', thumbnail: '/assets/demo/4.jpg' },
@@ -84,11 +135,15 @@ export default function VideosPageClient() {
       { id: 's4', youtubeId: 'LDDtOMwdJ_0', titleGu: 'વેનેઝુએલામાં મહાવિનાશ', hash: '#venezuela', thumbnail: '/assets/demo/6.jpg' },
       { id: 's5', youtubeId: '-iXZuFoHqiw', titleGu: 'ભયાનક પૂરની વિડિઓ', hash: '#flood', thumbnail: '/assets/demo/3.jpg' },
     ];
-  }, []);
+  }, [shortsList]);
 
+  // Distinct videos for exclusive investigation section without duplicating top 20
   const exclusiveVideos = useMemo(() => {
-    return videoList.slice(0, 8);
-  }, [videoList]);
+    if (cleanVideos.length > 21) {
+      return cleanVideos.slice(21, 29);
+    }
+    return cleanVideos.slice(8, 16);
+  }, [cleanVideos]);
 
   const bulletinVideos = useMemo(() => {
     return [
@@ -100,6 +155,14 @@ export default function VideosPageClient() {
   }, []);
 
   const popularSidebarVideos = useMemo(() => {
+    if (cleanVideos.length >= 6) {
+      return cleanVideos.slice(3, 8).map((v) => ({
+        id: v.id,
+        youtubeId: v.youtubeId,
+        titleGu: v.titleGu || v.title,
+        views: `${formatViews(v.views || 46000)} views`,
+      }));
+    }
     return [
       { id: 'p1', titleGu: 'ધી સાબરકાંઠા જિલ્લા સહકારી સંઘ ભ્રષ્ટાચારનો અડ્ડો', views: '46K views' },
       { id: 'p2', titleGu: 'કપડવંજ TDO કચેરીમાં ભ્રષ્ટાચારનો સડો, વિસ્તરણ અધિકારીએ ગરીબોને લૂંટ્યા', views: '1.3M views' },
@@ -107,7 +170,7 @@ export default function VideosPageClient() {
       { id: 'p4', titleGu: 'રાજકોટોમાં IPS એ પત્રકારની ગુદામાં પ્રવેશ કર્યો?', views: '464K views' },
       { id: 'p5', titleGu: 'સંમેલન SPG નું કે ભાજપનું? નીતિન પટેલની વાહવાહી', views: '33K views' },
     ];
-  }, []);
+  }, [cleanVideos]);
 
   return (
     <div className="bg-background min-h-screen">

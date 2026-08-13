@@ -70,91 +70,6 @@ export default function SplashLoader() {
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
     >
-      <style>{`
-        .perspective-container {
-          perspective: 1400px;
-          perspective-origin: 50% 40%;
-        }
-
-        @keyframes mic-spin-3d {
-          0% {
-            transform: translateY(0px) rotateY(0deg) rotateX(8deg);
-          }
-          25% {
-            transform: translateY(-14px) rotateY(90deg) rotateX(-2deg);
-          }
-          50% {
-            transform: translateY(-22px) rotateY(180deg) rotateX(8deg);
-          }
-          75% {
-            transform: translateY(-14px) rotateY(270deg) rotateX(-2deg);
-          }
-          100% {
-            transform: translateY(0px) rotateY(360deg) rotateX(8deg);
-          }
-        }
-
-        @keyframes floor-shadow {
-          0%, 100% { transform: scale(1); opacity: 0.7; }
-          50% { transform: scale(0.75); opacity: 0.35; }
-        }
-
-        @keyframes ripple {
-          0% { transform: scale(0.8); opacity: 0.9; }
-          100% { transform: scale(1.45); opacity: 0; }
-        }
-
-        @keyframes glow {
-          0%, 100% { opacity: 0.35; }
-          50% { opacity: 0.9; }
-        }
-
-        @keyframes sweep {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-
-        @keyframes rotate-orbit {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-
-        .animate-mic-3d {
-          animation: mic-spin-3d 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-          transform-style: preserve-3d;
-        }
-
-        .animate-floor-shadow {
-          animation: floor-shadow 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-        }
-
-        .animate-pulse-glow {
-          animation: glow 2s ease-in-out infinite;
-        }
-
-        .animate-ripple-1 {
-          animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
-          transform-origin: center;
-        }
-
-        .animate-ripple-2 {
-          animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
-          animation-delay: 1.2s;
-          transform-origin: center;
-        }
-
-        .animate-sweep {
-          animation: sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-
-        .animate-rotate-orbit {
-          animation: rotate-orbit 14s linear infinite;
-        }
-
-        .cube-flag {
-          transform-style: preserve-3d;
-        }
-      `}</style>
 
       {/* 3D Perspective Animation Container */}
       <div className="perspective-container relative mb-8 flex items-center justify-center h-84 w-84">
@@ -201,16 +116,16 @@ export default function SplashLoader() {
             {/* FRONT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(0deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(0deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
-              <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div className="relative w-full h-full bg-[#080808] rounded-lg p-2 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 {/* Specular Light Sweep */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
                 <Image
                   src="/assets/logoblack.png"
                   alt="Gujarat Post Logo"
                   fill
-                  className="object-contain scale-110 drop-shadow-md"
+                  className="object-contain drop-shadow-md"
                   priority
                 />
               </div>
@@ -219,15 +134,16 @@ export default function SplashLoader() {
             {/* BACK FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(180deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(180deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
-              <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div className="relative w-full h-full bg-[#080808] rounded-lg p-2 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
                 <Image
                   src="/assets/logoblack.png"
                   alt="Gujarat Post Logo"
                   fill
-                  className="object-contain scale-110 drop-shadow-md"
+                  className="object-contain drop-shadow-md"
+                  priority
                 />
               </div>
             </div>
@@ -235,15 +151,16 @@ export default function SplashLoader() {
             {/* RIGHT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(90deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(90deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
-              <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div className="relative w-full h-full bg-[#080808] rounded-lg p-2 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
                 <Image
                   src="/assets/logoblack.png"
                   alt="Gujarat Post Logo"
                   fill
-                  className="object-contain scale-110 drop-shadow-md"
+                  className="object-contain drop-shadow-md"
+                  priority
                 />
               </div>
             </div>
@@ -251,15 +168,16 @@ export default function SplashLoader() {
             {/* LEFT FACE */}
             <div
               className="absolute inset-0 bg-gradient-to-br from-[#c8000a] via-[#e62117] to-[#780005] border-2 border-red-300/80 shadow-[0_15px_35px_rgba(0,0,0,0.95)] rounded-xl flex items-center justify-center p-1.5 overflow-hidden"
-              style={{ transform: 'rotateY(-90deg) translateZ(80px)' }}
+              style={{ transform: 'rotateY(-90deg) translateZ(80px)', backfaceVisibility: 'hidden' }}
             >
-              <div className="relative w-full h-full bg-[#080808] rounded-lg p-1 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
+              <div className="relative w-full h-full bg-[#080808] rounded-lg p-2 border border-zinc-800 flex items-center justify-center overflow-hidden shadow-inner">
                 <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none z-10" />
                 <Image
                   src="/assets/logoblack.png"
                   alt="Gujarat Post Logo"
                   fill
-                  className="object-contain scale-110 drop-shadow-md"
+                  className="object-contain drop-shadow-md"
+                  priority
                 />
               </div>
             </div>

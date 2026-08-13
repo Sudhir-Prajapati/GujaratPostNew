@@ -63,8 +63,8 @@ function LoginForm() {
         }
       }
 
-      // Success! Redirect to target page
-      window.location.href = redirectPath;
+      // Success! Redirect to target page (replace history entry so back button doesn't hit login)
+      window.location.replace(redirectPath);
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
       setLoading(false);

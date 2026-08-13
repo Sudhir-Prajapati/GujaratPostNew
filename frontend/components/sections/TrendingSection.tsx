@@ -30,15 +30,20 @@ function getDistinctArticleImage(article: Article, index: number): string {
   return DEMO_CARD_IMAGES[index % DEMO_CARD_IMAGES.length];
 }
 
-export default function TrendingSection() {
+export default function TrendingSection({ initialArticles }: { initialArticles?: Article[] }) {
   const { language } = useApp();
-  const [trending, setTrending] = useState<Article[]>([]);
+  const [trending, setTrending] = useState<Article[]>(initialArticles || []);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
   const isPaused = useRef(false);
 
   useEffect(() => {
+    if (initialArticles && initialArticles.length > 0) {
+      setTrending(initialArticles);
+      return;
+    }
+
     Promise.all([
       getHeroSettings(),
       getPublicArticles({ isTrending: true, limit: 10 }),
@@ -52,7 +57,7 @@ export default function TrendingSection() {
         setTrending(latestRes.articles);
       }
     });
-  }, []);
+  }, [initialArticles]);
 
   // Auto-scroll effect
   useEffect(() => {
