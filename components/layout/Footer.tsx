@@ -21,14 +21,14 @@ function SocialIconButton({ item }: { item: typeof SOCIAL_LINKS[number] }) {
     return (
         <a
             href={item.href}
-            target={item.platform === 'youtube' ? '_blank' : undefined}
-            rel={item.platform === 'youtube' ? 'noreferrer' : undefined}
+            target="_blank"
+            rel="noopener noreferrer"
             aria-label={item.label}
             title={item.label}
             onMouseEnter={() => setHovered(true)}
             onMouseLeave={() => setHovered(false)}
             style={hoverStyle}
-            className="h-9 w-9 rounded-full border border-white/20 bg-white/10 text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md"
+            className="h-9 w-9 rounded-full border border-white/20 bg-white/10 text-white flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-md cursor-pointer"
         >
             <SocialIcon platform={item.platform} className="h-4 w-4" />
         </a>
@@ -175,9 +175,9 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                                 className="object-contain object-left"
                             />
                         </Link>
-                        {/* Social Icons Grid (3 logos in line 1, 3 logos in line 2) */}
-                        <div className="grid grid-cols-3 gap-3.5 w-fit mt-3.5 ml-4">
-                            {SOCIAL_LINKS.filter((item) => item.platform !== 'instagram').map((item) => (
+                        {/* Social Icons Grid */}
+                        <div className="grid grid-cols-4 gap-2.5 w-fit mt-3.5 ml-2">
+                            {SOCIAL_LINKS.map((item) => (
                                 <SocialIconButton key={item.label} item={item} />
                             ))}
                         </div>

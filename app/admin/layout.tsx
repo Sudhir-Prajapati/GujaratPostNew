@@ -23,15 +23,100 @@ import {
   BookOpen,
   Megaphone,
   Newspaper,
+  ShieldAlert,
+  ArrowLeft,
+  Sparkles,
 } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+
+interface RoleMeta {
+  title: string;
+  titleGu: string;
+  badgeBg: string;
+  badgeText: string;
+  defaultPath: string;
+  permittedPaths: string[];
+}
+
+export const ROLE_CONFIG: Record<string, RoleMeta> = {
+  SUPER_ADMIN: {
+    title: 'Super Admin',
+    titleGu: 'સુપર એડમિન',
+    badgeBg: 'bg-red-500/10 dark:bg-red-500/20 border-red-500/30',
+    badgeText: 'text-red-600 dark:text-red-400',
+    defaultPath: '/admin',
+    permittedPaths: [
+      '/admin',
+      '/admin/articles',
+      '/admin/hero',
+      '/admin/ads',
+      '/admin/categories',
+      '/admin/gallery',
+      '/admin/videos',
+      '/admin/reels',
+      '/admin/web-stories',
+      '/admin/epaper',
+      '/admin/users',
+    ],
+  },
+  EDITOR: {
+    title: 'Editor',
+    titleGu: 'સંપાદક',
+    badgeBg: 'bg-blue-500/10 dark:bg-blue-500/20 border-blue-500/30',
+    badgeText: 'text-blue-600 dark:text-blue-400',
+    defaultPath: '/admin',
+    permittedPaths: [
+      '/admin',
+      '/admin/articles',
+      '/admin/hero',
+      '/admin/categories',
+      '/admin/gallery',
+      '/admin/videos',
+      '/admin/reels',
+      '/admin/web-stories',
+      '/admin/epaper',
+    ],
+  },
+  REPORTER: {
+    title: 'Reporter',
+    titleGu: 'પત્રકાર',
+    badgeBg: 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/30',
+    badgeText: 'text-emerald-600 dark:text-emerald-400',
+    defaultPath: '/admin/articles',
+    permittedPaths: ['/admin/articles'],
+  },
+  SEO: {
+    title: 'SEO Specialist',
+    titleGu: 'એસઇઓ નિષ્ણાત',
+    badgeBg: 'bg-purple-500/10 dark:bg-purple-500/20 border-purple-500/30',
+    badgeText: 'text-purple-600 dark:text-purple-400',
+    defaultPath: '/admin/articles',
+    permittedPaths: ['/admin/articles', '/admin/categories'],
+  },
+  ADVERTISEMENT: {
+    title: 'Ad Manager',
+    titleGu: 'જાહેરાત મેનેજર',
+    badgeBg: 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30',
+    badgeText: 'text-amber-600 dark:text-amber-400',
+    defaultPath: '/admin/ads',
+    permittedPaths: ['/admin/ads'],
+  },
+  PHOTOGRAPHER: {
+    title: 'Photographer',
+    titleGu: 'ફોટોગ્રાફર',
+    badgeBg: 'bg-cyan-500/10 dark:bg-cyan-500/20 border-cyan-500/30',
+    badgeText: 'text-cyan-600 dark:text-cyan-400',
+    defaultPath: '/admin/gallery',
+    permittedPaths: ['/admin/gallery'],
+  },
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { theme, toggleTheme } = useApp();
-  
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -39,6 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
     authFetch(getBackendApiUrl('/api/auth/me'))
@@ -51,9 +137,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       })
       .then((json) => {
         if (json?.success && json.data?.user) {
-          setUserRole(json.data.user.role);
+          const role = json.data.user.role;
+          setUserRole(role);
           setUserEmail(json.data.user.email);
           setUserName(json.data.user.authorName || json.data.user.email?.split('@')[0]);
+          setAuthChecked(true);
+
+          // If user landed on /admin root but their role does not have Dashboard access,
+          // redirect them automatically to their default feature section
+          const config = ROLE_CONFIG[role];
+          if (config && pathname === '/admin' && role !== 'SUPER_ADMIN' && role !== 'EDITOR') {
+            router.replace(config.defaultPath);
+          }
         } else if (json && !json.success) {
           router.push('/login');
         }
@@ -61,45 +156,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .catch(() => {
         router.push('/login');
       });
-  }, [router]);
+  }, [router, pathname]);
 
   const menuItems = [
-    { label: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-    { label: 'Articles', href: '/admin/articles', icon: FileText },
-    { label: 'Hero Section', href: '/admin/hero', icon: LayoutTemplate },
-    { label: 'Advertisements', href: '/admin/ads', icon: Megaphone },
-    { label: 'Categories', href: '/admin/categories', icon: Layers },
-    { label: 'Gallery', href: '/admin/gallery', icon: ImageIcon },
-    { label: 'Videos', href: '/admin/videos', icon: Video },
-    { label: 'Reels', href: '/admin/reels', icon: Smartphone },
-    { label: 'Web Stories', href: '/admin/web-stories', icon: BookOpen },
+    { label: 'Dashboard (ડેશબોર્ડ)', href: '/admin', icon: LayoutDashboard },
+    { label: 'Articles (સમાચાર)', href: '/admin/articles', icon: FileText },
+    { label: 'Hero Section (મુખ્ય સમાચાર)', href: '/admin/hero', icon: LayoutTemplate },
+    { label: 'Advertisements (જાહેરાતો)', href: '/admin/ads', icon: Megaphone },
+    { label: 'Categories (કેટેગરીઝ)', href: '/admin/categories', icon: Layers },
+    { label: 'Gallery (ફોટો ગેલેરી)', href: '/admin/gallery', icon: ImageIcon },
+    { label: 'Videos (વીડિયોઝ)', href: '/admin/videos', icon: Video },
+    { label: 'Reels (રિલ્સ)', href: '/admin/reels', icon: Smartphone },
+    { label: 'Web Stories (વેબ સ્ટોરીઝ)', href: '/admin/web-stories', icon: BookOpen },
     { label: 'E-Paper (ઈ-પેપર)', href: '/admin/epaper', icon: Newspaper },
-    { label: 'Users', href: '/admin/users', icon: Users },
+    { label: 'Users (યુઝર્સ મેનેજમેન્ટ)', href: '/admin/users', icon: Users },
   ];
 
-  const ROLE_PERMISSIONS: Record<string, string[]> = {
-    SUPER_ADMIN: ["/admin"],
-    EDITOR: ["/admin/articles", "/admin/hero", "/admin/categories", "/admin/gallery", "/admin/videos", "/admin/reels", "/admin/web-stories"],
-    REPORTER: ["/admin/articles"],
-    SEO: ["/admin/articles", "/admin/categories"],
-    ADVERTISEMENT: ["/admin/articles", "/admin/ads"],
-    PHOTOGRAPHER: ["/admin/gallery"],
-  };
+  const currentRoleMeta = userRole ? ROLE_CONFIG[userRole] : null;
 
+  // Filter sidebar navigation strictly based on role
   const filteredMenuItems = menuItems.filter((item) => {
     if (!userRole) return false;
     if (userRole === 'SUPER_ADMIN') return true;
 
-    // Show Dashboard for EDITOR
-    if (item.href === '/admin') {
-      return userRole === 'EDITOR';
-    }
-
-    const permittedPaths = ROLE_PERMISSIONS[userRole] || [];
+    const permittedPaths = currentRoleMeta?.permittedPaths || [];
     return permittedPaths.some(
       (path) => item.href === path || item.href.startsWith(path + '/')
     );
   });
+
+  // Verify whether the currently active route is authorized for this role
+  const isCurrentRoutePermitted = (): boolean => {
+    if (!userRole) return true;
+    if (userRole === 'SUPER_ADMIN') return true;
+
+    const permittedPaths = currentRoleMeta?.permittedPaths || [];
+    return permittedPaths.some(
+      (path) => pathname === path || pathname.startsWith(path + '/')
+    );
+  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -132,7 +227,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800">
-          <a href="/admin" className="flex items-center gap-2">
+          <a href={currentRoleMeta?.defaultPath || '/admin'} className="flex items-center gap-2">
             <div className="relative h-10 w-40 overflow-hidden rounded">
               <Image
                 src="/assets/gujarat-post-logo-chip.png"
@@ -145,30 +240,47 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </a>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden"
+            className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
+        {/* User Role Card in Sidebar */}
+        {userRole && currentRoleMeta && (
+          <div className="mx-4 mt-3 px-3 py-2.5 rounded-xl border bg-zinc-50 dark:bg-zinc-800/60 border-zinc-200/80 dark:border-zinc-700/60 flex items-center justify-between">
+            <div className="min-w-0">
+              <div className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-wider">
+                Logged in as
+              </div>
+              <div className="text-xs font-black text-zinc-800 dark:text-zinc-200 truncate">
+                {userName || 'Admin'}
+              </div>
+            </div>
+            <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${currentRoleMeta.badgeBg} ${currentRoleMeta.badgeText}`}>
+              {currentRoleMeta.titleGu}
+            </span>
+          </div>
+        )}
+
         {/* Navigation Menu (Scrollable) */}
         <nav className="flex-1 overflow-y-auto min-h-0 space-y-1.5 p-4 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
           {filteredMenuItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href + '/'));
             const Icon = item.icon;
-            
+
             return (
               <a
                 key={item.label}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 ${
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
                   isActive
-                    ? 'bg-zinc-950 text-white dark:bg-white dark:text-zinc-900'
+                    ? 'bg-[#B3121B] text-white shadow-md shadow-red-900/20'
                     : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
-                <span>{item.label}</span>
+                <span className="truncate">{item.label}</span>
               </a>
             );
           })}
@@ -179,10 +291,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 disabled:opacity-50"
+            className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 disabled:opacity-50 cursor-pointer transition-colors"
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+            <span>{loggingOut ? 'Signing out...' : 'Sign Out (લૉગ આઉટ)'}</span>
           </button>
         </div>
       </aside>
@@ -196,16 +308,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Left: Hamburger menu toggle for mobile */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="rounded-lg p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden"
+            className="rounded-lg p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden cursor-pointer"
           >
             <Menu className="h-6 w-6" />
           </button>
           
-          <div className="hidden lg:block text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-            {userRole ? (
-              <span>
-                Welcome back, <span className="font-bold text-zinc-800 dark:text-zinc-200">{userName || 'User'}</span> ({userRole === 'SUPER_ADMIN' ? 'Super Admin' : userRole === 'REPORTER' ? 'Reporter' : 'Editor'})
-              </span>
+          <div className="hidden lg:flex items-center gap-3 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+            {userRole && currentRoleMeta ? (
+              <div className="flex items-center gap-2">
+                <span>Welcome back, <span className="font-bold text-zinc-800 dark:text-zinc-200">{userName || 'User'}</span></span>
+                <span className={`inline-flex items-center gap-1 text-xs font-black px-2.5 py-0.5 rounded-full border ${currentRoleMeta.badgeBg} ${currentRoleMeta.badgeText}`}>
+                  <Sparkles className="h-3 w-3" />
+                  {currentRoleMeta.title} ({currentRoleMeta.titleGu})
+                </span>
+              </div>
             ) : (
               'Welcome back to Gujarat Post CMS'
             )}
@@ -217,7 +333,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
+              className="rounded-lg p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 dark:text-zinc-400 cursor-pointer"
             >
               {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
             </button>
@@ -226,10 +342,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative">
               <button
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                className="flex items-center gap-2 rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-250 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                  <User className="h-4 w-4" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs">
+                  {userName ? userName.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
                 </div>
                 <ChevronDown className="h-4 w-4 text-zinc-500" />
               </button>
@@ -240,12 +356,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     onClick={() => setProfileMenuOpen(false)}
                     className="fixed inset-0 z-30"
                   />
-                  <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-xl border border-zinc-200 bg-white p-2 shadow-lg ring-1 ring-black/5 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 z-40">
-                    <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-1">
-                      <div className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                        {userRole === 'SUPER_ADMIN' ? 'Super Admin' : userRole === 'REPORTER' ? 'Reporter' : 'Editor'}
-                      </div>
-                      <div className="text-sm font-bold text-zinc-700 dark:text-zinc-200 mt-0.5 truncate">
+                  <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-xl border border-zinc-200 bg-white p-2 shadow-xl ring-1 ring-black/5 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 z-40">
+                    <div className="px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-800 mb-1">
+                      {currentRoleMeta && (
+                        <span className={`inline-block text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border mb-1.5 ${currentRoleMeta.badgeBg} ${currentRoleMeta.badgeText}`}>
+                          {currentRoleMeta.title} ({currentRoleMeta.titleGu})
+                        </span>
+                      )}
+                      <div className="text-sm font-bold text-zinc-800 dark:text-zinc-200 truncate">
                         {userName || 'User Profile'}
                       </div>
                       <div className="text-xs text-zinc-500 truncate mt-0.5">
@@ -255,10 +373,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <button
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/20 cursor-pointer transition-colors"
                     >
                       <LogOut className="h-4 w-4" />
-                      <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+                      <span>{loggingOut ? 'Signing out...' : 'Sign Out (લૉગ આઉટ)'}</span>
                     </button>
                   </div>
                 </>
@@ -268,9 +386,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
 
-        {/* Content area */}
-        <main className="flex-1 p-6 md:p-8 min-w-0 w-full">
-          {children}
+        {/* Content area with Route Protection Guard */}
+        <main className="flex-1 p-4 md:p-8 min-w-0 w-full">
+          {authChecked && !isCurrentRoutePermitted() ? (
+            <div className="mx-auto max-w-xl text-center py-16 px-4">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 mb-4 border border-red-200 dark:border-red-900/50 shadow-lg">
+                <ShieldAlert className="h-8 w-8" />
+              </div>
+              <h2 className="text-2xl font-black text-zinc-900 dark:text-white">
+                Access Denied (અનધિકૃત પ્રવેશ)
+              </h2>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 max-w-md mx-auto">
+                Your account role <span className="font-bold text-zinc-800 dark:text-zinc-200">({currentRoleMeta?.title || userRole})</span> does not have permission to access this section.
+              </p>
+              <div className="mt-6 flex justify-center">
+                <a
+                  href={currentRoleMeta?.defaultPath || '/admin'}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#B3121B] px-5 py-2.5 text-sm font-bold text-white shadow-md hover:bg-red-700 transition"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Go to My Section ({currentRoleMeta?.titleGu || 'મુખ્ય પેજ'})</span>
+                </a>
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
 
