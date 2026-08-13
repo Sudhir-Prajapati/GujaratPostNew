@@ -353,7 +353,7 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
       const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
       const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
       const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
-      return `<div class="gp-pdf-card"><div style="display:flex;align-items:center;gap:14px;min-width:0"><span class="gp-pdf-icon">📄</span><div style="min-width:0"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" download class="gp-pdf-btn"><span>${btnText}</span><span class="dl-arrow">⬇</span></a></div>`;
+      return `<div class="gp-pdf-card"><div class="gp-pdf-inner"><div class="gp-pdf-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="gp-pdf-text"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" download class="gp-pdf-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>${btnText}</span></a></div>`;
     }
   );
 
@@ -635,19 +635,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
         const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
         const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
         const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
-        return `<div class="gp-pdf-card">
-          <div style="display:flex;align-items:center;gap:14px;min-width:0">
-            <span class="gp-pdf-icon">📄</span>
-            <div style="min-width:0">
-              <span class="gp-pdf-title">${titleText}</span>
-              <span class="gp-pdf-sub">${descText}</span>
-            </div>
-          </div>
-          <a href="${url}" target="_blank" download class="gp-pdf-btn">
-            <span>${btnText}</span>
-            <span class="dl-arrow">⬇</span>
-          </a>
-        </div>`;
+        return `<div class="gp-pdf-card"><div class="gp-pdf-inner"><div class="gp-pdf-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="gp-pdf-text"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" download class="gp-pdf-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>${btnText}</span></a></div>`;
       }
     );
 
