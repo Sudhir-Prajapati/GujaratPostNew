@@ -156,8 +156,9 @@ router.get('/articles', async (req, res, next) => {
             tags: { include: { tag: true } },
           },
           orderBy: isFeatured
-            ? [{ createdAt: 'asc' }]
+            ? [{ createdAt: 'desc' }]
             : [
+                { isFeatured: 'desc' },
                 { articleNumber: 'desc' },
                 { createdAt: 'desc' },
                 { priority: 'desc' },
