@@ -230,14 +230,26 @@ export async function fetchLiveYouTubeChannelVideos(): Promise<{ videos: Video[]
 
 
 /**
- * Fetch videos list dynamically combining live YouTube channel uploads + DB videos
+ * Fetch videos list dynamically combining DB videos + live YouTube channel uploads
+ * Strictly deduplicated by youtubeId.
  */
 export async function getPublicVideos(type?: string): Promise<Video[]> {
   const combined: Video[] = [];
   const seenIds = new Set<string>();
 
+  const getCleanKey = (item: any): string => {
+    if (item?.youtubeId) return item.youtubeId.trim();
+    if (item?.id) return item.id.replace(/^yt-live-/, '').trim();
+    return '';
+  };
+
   try {
-    // 1. Fetch live YouTube channel uploads from @Gujaratpostnews RSS feed
+    // 1. Fetch backend database videos (already ordered by isFeatured desc, publishedAt desc)
+    const url = type ? `${API_BASE_URL}/videos?type=${type}` : `${API_BASE_URL}/videos`;
+    const json = await fetchCachedJson<any>(url, 60 * 1000);
+    const dbVideos: Video[] = (json?.success && Array.isArray(json.data?.videos)) ? json.data.videos : [];
+
+    // 2. Fetch live YouTube channel uploads from @Gujaratpostnews
     const liveYt = await fetchLiveYouTubeChannelVideos();
     const liveList =
       type === 'short'
@@ -246,54 +258,47 @@ export async function getPublicVideos(type?: string): Promise<Video[]> {
           ? liveYt.videos
           : [...liveYt.videos, ...liveYt.shorts];
 
-    // 2. Fetch backend database videos
-    const url = type ? `${API_BASE_URL}/videos?type=${type}` : `${API_BASE_URL}/videos`;
-    const json = await fetchCachedJson<any>(url);
-    const dbVideos: Video[] = (json?.success && Array.isArray(json.data?.videos)) ? json.data.videos : [];
-
-    // Create lookup map for DB videos by youtubeId or id
-    const dbMap = new Map<string, Video>();
-    for (const dbv of dbVideos) {
-      const key = dbv.youtubeId || dbv.id;
-      if (key) dbMap.set(key, dbv);
+    // Create lookup map for live videos by youtubeId
+    const liveMap = new Map<string, Video>();
+    for (const lv of liveList) {
+      const key = getCleanKey(lv);
+      if (key) liveMap.set(key, lv);
     }
 
-    // 3. FIRST: Add all DB videos that are marked as isFeatured: true
+    // 3. FIRST: Add DB videos (which already prioritize top 20 isFeatured), merging fresh live thumbnails/views
     for (const dbv of dbVideos) {
-      if (dbv.isFeatured) {
-        const idKey = dbv.youtubeId || dbv.id;
-        if (idKey && !seenIds.has(idKey)) {
-          seenIds.add(idKey);
+      const key = getCleanKey(dbv);
+      if (key && !seenIds.has(key)) {
+        seenIds.add(key);
+        const liveMatch = liveMap.get(key);
+        if (liveMatch) {
+          combined.push({
+            ...liveMatch,
+            ...dbv,
+            // ✅ CRITICAL: Always prefer LIVE scraped views over DB zeros
+            // DB stores views=0 (never updated from YouTube), live has real counts
+            views: (liveMatch.views && liveMatch.views > 0) ? liveMatch.views : (dbv.views || 0),
+            // ✅ Prefer live duration over DB generic "10:00" / "0:00" defaults
+            duration: (liveMatch.duration && liveMatch.duration !== '10:00' && liveMatch.duration !== '0:00' && liveMatch.duration !== '0:58')
+              ? liveMatch.duration
+              : (dbv.duration || liveMatch.duration),
+            thumbnail: dbv.thumbnail || liveMatch.thumbnail,
+            titleGu: dbv.titleGu || liveMatch.titleGu || dbv.title,
+            titleHi: dbv.titleHi || liveMatch.titleHi || dbv.title,
+            isFeatured: dbv.isFeatured ?? liveMatch.isFeatured ?? false,
+          });
+        } else {
           combined.push(dbv);
         }
       }
     }
 
-    // 4. SECOND: Add live RSS videos, merging isFeatured and localized titles from DB if available
-    for (const v of liveList) {
-      if (v.youtubeId && !seenIds.has(v.youtubeId)) {
-        seenIds.add(v.youtubeId);
-        const dbMatch = dbMap.get(v.youtubeId);
-        if (dbMatch) {
-          combined.push({
-            ...v,
-            ...dbMatch,
-            isFeatured: dbMatch.isFeatured ?? v.isFeatured,
-            titleGu: dbMatch.titleGu || v.titleGu,
-            titleHi: dbMatch.titleHi || v.titleHi,
-          });
-        } else {
-          combined.push(v);
-        }
-      }
-    }
-
-    // 5. THIRD: Add remaining DB videos
-    for (const dbv of dbVideos) {
-      const idKey = dbv.youtubeId || dbv.id;
-      if (idKey && !seenIds.has(idKey)) {
-        seenIds.add(idKey);
-        combined.push(dbv);
+    // 4. SECOND: Add any remaining live YouTube videos not yet in DB
+    for (const lv of liveList) {
+      const key = getCleanKey(lv);
+      if (key && !seenIds.has(key)) {
+        seenIds.add(key);
+        combined.push(lv);
       }
     }
   } catch (error: any) {
@@ -345,14 +350,17 @@ export async function getPublicStories(): Promise<any[]> {
  */
 export async function getPublicWebStories(): Promise<any[]> {
   try {
-    const url = `${API_BASE_URL}/webstories`;
-    const json = await fetchCachedJson<any>(url);
-    if (json?.success && json.data?.webStories) {
-      return json.data.webStories;
+    const url = `${API_BASE_URL}/web-stories`;
+    const json = await fetchCachedJson<any>(url, 5 * 60 * 1000);
+    if (json && json.success && Array.isArray(json.data?.stories)) {
+      return json.data.stories;
+    }
+    if (json && json.success && Array.isArray(json.data)) {
+      return json.data;
     }
   } catch (error: any) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('Backend API fetch error for webstories:', error?.message || error);
+      console.warn('Backend API fetch error for web-stories:', error?.message || error);
     }
   }
   return [];
@@ -464,19 +472,118 @@ export async function updateHeroSettings(payload: {
   return res.json();
 }
 
+export async function fetchLiveInstagramReels(): Promise<any[]> {
+  try {
+    const baseUrl = typeof window !== 'undefined'
+      ? window.location.origin
+      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const apiUrl = `${baseUrl}/api/instagram-reels`;
+
+    const res = await fetchCachedJson<any>(apiUrl, 300000); // 5-minute cache
+    if (res?.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+  } catch (err) {
+    console.warn('Failed to fetch live Instagram reels feed:', err);
+  }
+
+  return [];
+}
+
 /**
- * Fetch Instagram Reels (Admin/Public)
+ * Fetch Instagram Reels — serves all synced DB reels (up to 50).
+ * Falls back to live Instagram scrape if DB is empty.
  */
 export async function getPublicReels(): Promise<any[]> {
   try {
-    const url = `${API_BASE_URL}/reels?isActive=true`;
-    const json = await fetchCachedJson<any>(url);
-    if (json?.success && json.data?.reels) {
-      return json.data.reels;
+    // Primary: serve top 50 newest active reels synced into the database
+    const dbUrl = `${API_BASE_URL}/reels?isActive=true&limit=50`;
+    const json = await fetchCachedJson<any>(dbUrl, 60 * 1000); // 60s cache
+    const dbReels: any[] = (json?.success && Array.isArray(json.data?.reels)) ? json.data.reels : [];
+
+    if (dbReels.length > 0) {
+      // Return all DB reels — they are already sorted newest-first by the backend
+      return dbReels;
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for reels:', error?.message || error);
   }
+
+  // Fallback: fetch directly from live Instagram scrape (12 reels max)
+  return fetchLiveInstagramReels();
+}
+
+/**
+ * Fetch live Gold & Silver market rates
+ */
+export async function getMarketRates(): Promise<any> {
+  try {
+    const url = `${API_BASE_URL}/market-rates`;
+    const json = await fetchCachedJson<any>(url, 5 * 60 * 1000);
+    if (json && json.success && json.data) {
+      return json.data;
+    }
+  } catch (error: any) {
+    console.warn('Failed to fetch market rates from API:', error?.message || error);
+  }
+  return {
+    gold: { price: '₹74,850', priceNumber: 74850, change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
+    silver: { price: '₹84,200', priceNumber: 84200, change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetch live Weather data
+ */
+export async function getPublicWeather(city?: string): Promise<any> {
+  try {
+    const url = `${API_BASE_URL}/weather${city ? `?city=${encodeURIComponent(city)}` : ''}`;
+    const json = await fetchCachedJson<any>(url, 5 * 60 * 1000);
+    if (json && json.success && json.data) {
+      return json.data;
+    }
+  } catch (error: any) {
+    console.warn('Failed to fetch weather from API:', error?.message || error);
+  }
+  return {
+    city: 'અમદાવાદ',
+    cityEn: 'Ahmedabad',
+    temp: 32,
+    humidity: 68,
+    windSpeed: 14,
+    conditionGu: 'આંશિક વાદળછાયું',
+    conditionEn: 'Partly cloudy',
+    weatherCode: 2,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Fetch public advertisements for sections
+ */
+export async function getPublicAds(): Promise<any[]> {
+  try {
+    const url = `${API_BASE_URL}/ads`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ads) {
+      return json.data.ads;
+    }
+  } catch (error: any) {
+    console.warn('Failed to fetch public ads from API:', error?.message || error);
+  }
   return [];
 }
 
+export async function getPublicAdBySection(section: string): Promise<any | null> {
+  try {
+    const url = `${API_BASE_URL}/ads/${encodeURIComponent(section)}`;
+    const json = await fetchCachedJson<any>(url, 30 * 1000);
+    if (json && json.success && json.data?.ad) {
+      return json.data.ad;
+    }
+  } catch (error: any) {
+    console.warn(`Failed to fetch public ad for section ${section}:`, error?.message || error);
+  }
+  return null;
+}

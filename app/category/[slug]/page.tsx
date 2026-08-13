@@ -68,11 +68,22 @@ export default async function CategoryPage({
   };
 
   // 2. Fetch dynamic category articles from Backend API — latest first (updatedAt desc)
-  const { articles: rawArticles, total, totalPages } = await getPublicArticles({
+  let { articles: rawArticles, total, totalPages } = await getPublicArticles({
     categorySlug: resolvedSlug,
     page,
     limit,
   });
+
+  // Fallback: If category filter returns 0 articles, load general published news so category page is never blank
+  if (!rawArticles || rawArticles.length === 0) {
+    const fallbackRes = await getPublicArticles({
+      page: 1,
+      limit: 40,
+    });
+    rawArticles = fallbackRes.articles || [];
+    total = fallbackRes.total || rawArticles.length;
+    totalPages = fallbackRes.totalPages || 1;
+  }
 
   // Sort latest first by updatedAt (most recently edited/published article comes first)
   const articles = [...rawArticles].sort((a, b) => {

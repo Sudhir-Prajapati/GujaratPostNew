@@ -43,6 +43,50 @@ function parseNumericViews(viewsText: string, fallbackId = ''): number {
   return 75;
 }
 
+/**
+ * Convert YouTube relative time strings like "8 days ago", "2 months ago",
+ * "1 year ago", "3 hours ago" etc. into proper ISO date strings.
+ * Returns the input unchanged if it already looks like an ISO date.
+ */
+function parseRelativeTime(text: string): string {
+  if (!text) return new Date().toISOString();
+  // Already an ISO date
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text;
+
+  const now = new Date();
+  const lower = text.toLowerCase().trim();
+
+  const num = parseInt(lower.match(/\d+/)?.[0] || '1');
+
+  if (lower.includes('second') || lower.includes('just now')) {
+    return new Date(now.getTime() - num * 1000).toISOString();
+  }
+  if (lower.includes('minute') || lower.includes('min')) {
+    return new Date(now.getTime() - num * 60 * 1000).toISOString();
+  }
+  if (lower.includes('hour')) {
+    return new Date(now.getTime() - num * 3600 * 1000).toISOString();
+  }
+  if (lower.includes('day')) {
+    return new Date(now.getTime() - num * 86400 * 1000).toISOString();
+  }
+  if (lower.includes('week')) {
+    return new Date(now.getTime() - num * 7 * 86400 * 1000).toISOString();
+  }
+  if (lower.includes('month')) {
+    const d = new Date(now);
+    d.setMonth(d.getMonth() - num);
+    return d.toISOString();
+  }
+  if (lower.includes('year')) {
+    const d = new Date(now);
+    d.setFullYear(d.getFullYear() - num);
+    return d.toISOString();
+  }
+
+  return new Date().toISOString();
+}
+
 // Extract full high quality thumbnail for YouTube Shorts / Videos
 function extractThumbnail(node: any, videoId: string, isShort: boolean): string {
   if (isShort) {
@@ -181,7 +225,7 @@ async function fetchChannelTab(tab: 'videos' | 'shorts'): Promise<any[]> {
                 titleHi: title || 'Gujarat Post News',
                 description: title,
                 thumbnail: thumb,
-                publishedAt: publishedTime || new Date().toISOString(),
+                publishedAt: parseRelativeTime(publishedTime),
                 type: tab === 'shorts' ? 'short' : 'video',
                 views: parseNumericViews(viewsText, videoId),
                 duration,
@@ -216,7 +260,7 @@ async function fetchChannelTab(tab: 'videos' | 'shorts'): Promise<any[]> {
                 titleHi: title || 'Gujarat Post News',
                 description: title,
                 thumbnail: thumb,
-                publishedAt: publishedTime || new Date().toISOString(),
+                publishedAt: parseRelativeTime(publishedTime),
                 type: tab === 'shorts' ? 'short' : 'video',
                 views: parseNumericViews(viewsText, videoId),
                 duration,

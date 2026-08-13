@@ -21,7 +21,7 @@ import {
 } from '@/data';
 import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
-import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories, getLiveCenterData, getPublicGallery } from '@/lib/api';
+import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories, getLiveCenterData, getPublicGallery, getPublicAstrology } from '@/lib/api';
 
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
@@ -335,9 +335,13 @@ function makeHomeImagesUnique<T extends Article>(sections: T[][]): T[][] {
 export default function HeroSection({
   initialArticles = [],
   initialVideos = [],
+  initialHeroSettings = null,
+  initialCategories = [],
 }: {
   initialArticles?: Article[];
   initialVideos?: any[];
+  initialHeroSettings?: any;
+  initialCategories?: any[];
 }) {
   const { language } = useApp();
   const [videoMode, setVideoMode] = useState<'latest' | 'live'>('latest');
@@ -357,29 +361,52 @@ export default function HeroSection({
     return pool;
   };
 
+  // Pre-calculate initial hero slots & grid from initialHeroSettings
+  const initialSlots: Article[] = (initialHeroSettings?.slots || []).filter(Boolean);
+  const initialFeaturedIds = new Set(initialSlots.map((a: Article) => a.id));
+
   const initFeatured = initialArticles.filter((a) => a.isFeatured);
   const initTrending = initialArticles.filter((a) => a.isTrending);
 
+  const initialCustomGridArts: Article[] = (initialHeroSettings?.heroGridArticles || []).filter(Boolean);
+  const initialAutoHeroPool = initialArticles
+    .filter((a: Article) => !initialFeaturedIds.has(a.id))
+    .sort((a: Article, b: Article) => {
+      const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+      const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+      const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+      const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+      if (bScore !== aScore) return bScore - aScore;
+      return bTime - aTime;
+    });
+
+  const initialHeroPool = initialCustomGridArts.length > 0 
+    ? fillPool(initialCustomGridArts, initialAutoHeroPool, 16) 
+    : initialAutoHeroPool.slice(0, 16);
+
+  const initialCustomPopularArts: Article[] = (initialHeroSettings?.popularNewsArticles || []).filter(Boolean);
+  const initialCustomMostReadArts: Article[] = (initialHeroSettings?.mostReadArticles || []).filter(Boolean);
+  const initialPopularPool = fillPool([...initTrending, ...initialCustomPopularArts], initialArticles, 10);
+  const initialMostReadPool = initialCustomMostReadArts.length > 0 ? initialCustomMostReadArts : initialArticles.slice(0, 5);
+
+  const initialCategoriesDB = Array.isArray(initialCategories)
+    ? initialCategories.filter((c) => c.showInHome !== false && c.isActive !== false).sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+    : [];
+  const initialCategorySlugs = initialCategoriesDB.map((c) => c.slug?.toLowerCase()).filter(Boolean);
+
   // DB-backed article state
   const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
-  // topStories: auto-populated from latest articles (main hero, right 2, text articles)
-  const initialSortedHeroPool = [...initialArticles].sort((a: Article, b: Article) => {
-    const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 3 : 0) + (a.isTrending ? 1 : 0);
-    const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 3 : 0) + (b.isTrending ? 1 : 0);
-    return bScore - aScore;
-  });
-  const [topStories, setTopStories] = useState<Article[]>(initialSortedHeroPool.slice(0, 16));
-  // bottomFeatured: admin-selected 3 articles shown in the bottom image row
-  const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
-  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
-  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialArticles.slice(0, 5));
+  const [topStories, setTopStories] = useState<Article[]>(initialHeroPool);
+  const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initialSlots.length > 0 ? initialSlots : initFeatured.slice(0, 3));
+  const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(initialPopularPool);
+  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialMostReadPool);
   const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
   const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
   const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
   const [worldArtDB, setWorldArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
   const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
   const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
-  const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>([]);
+  const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>(initialHeroSettings?.trendingTopics || initialHeroSettings?.setting?.trendingTopics || []);
   const [marketRates, setMarketRates] = useState<any>({
     gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
     silver: { price: '₹84,200', change: '— Stable', purity: '999 Fine', unit: '1 Kg' },
@@ -394,9 +421,9 @@ export default function HeroSection({
     conditionEn: 'Partly cloudy',
   });
   const [astrologySignsDB, setAstrologySignsDB] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(['gujarat', 'national', 'world', 'politics', 'crime']);
-  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(!initialArticles.length);
+  const [orderedCategorySlugs, setOrderedCategorySlugs] = useState<string[]>(initialCategorySlugs.length > 0 ? initialCategorySlugs : ['gujarat', 'national', 'world', 'politics', 'crime']);
+  const [allCategoriesDB, setAllCategoriesDB] = useState<any[]>(initialCategoriesDB);
 
   useEffect(() => {
     // Fetch main articles pool, hero slots settings, videos, market rates, weather, AND categories in parallel
@@ -627,24 +654,13 @@ export default function HeroSection({
                       onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
                     />
                   </div>
-                  {/* Category tags */}
-                  <div className="flex items-center gap-1.5 mt-2.5">
-                    {uniqueTopStories[0].isLive || uniqueTopStories[0].isBreaking ? (
-                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 shadow-sm">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                        LIVE
-                      </span>
-                    ) : uniqueTopStories[0].isTrending ? (
-                      <span className="bg-[#B3121B] text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
-                        {language === 'gu' ? 'ટ્રેન્ડ' : 'Trending'}
-                      </span>
-                    ) : (
-                      <span className="bg-zinc-800 text-white text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wide">
-                        {getCategoryLabel(uniqueTopStories[0], language)}
-                      </span>
-                    )}
-
-                    <span className="text-muted-foreground text-[11px] font-semibold">
+                  {/* Category & Live Badge tags */}
+                  <div className="flex items-center gap-2 mt-2.5">
+                    <span className="bg-[#B3121B] text-white text-[11px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wide flex items-center gap-1.5 shadow-sm">
+                      <span className="inline-block h-2 w-2 rounded-full bg-white animate-pulse" />
+                      {language === 'gu' ? 'લાઇવ' : language === 'hi' ? 'लाइव' : 'LIVE'}
+                    </span>
+                    <span className="text-muted-foreground text-[12px] font-bold">
                       {getCategoryLabel(uniqueTopStories[0], language)}
                     </span>
                   </div>
@@ -3333,6 +3349,7 @@ function CrimeSection({
   const [slideIdx, setSlideIdx] = useState(0);
   const [popularStartIndex, setPopularStartIndex] = useState(0);
   const [selectedZodiac, setSelectedZodiac] = useState<ZodiacSign | null>(null);
+  const [astrologySigns, setAstrologySigns] = useState<ZodiacSign[]>(ZODIAC_SIGNS);
   const [dbCrimeArticles, setDbCrimeArticles] = useState<Article[]>([]);
   const [weatherData, setWeatherData] = useState<any>({
     city: 'અમદાવાદ',
@@ -3353,6 +3370,11 @@ function CrimeSection({
     getPublicWeather('ahmedabad').then((wRes) => {
       if (wRes) {
         setWeatherData(wRes);
+      }
+    });
+    getPublicAstrology().then((signs) => {
+      if (Array.isArray(signs) && signs.length > 0) {
+        setAstrologySigns(signs);
       }
     });
   }, []);
@@ -3964,9 +3986,9 @@ function CrimeSection({
         </div>
         <div className="border border-purple-500/20 dark:border-purple-500/30 rounded-xl bg-card p-2 sm:p-2.5 shadow-sm">
           <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-            {ZODIAC_SIGNS.map((sign) => {
+            {astrologySigns.map((sign) => {
               const isSelected = selectedZodiac?.id === sign.id;
-              const letters = GUJARAT_ZODIAC_LETTERS[sign.id] || `(${sign.name})`;
+              const letters = (sign as any).lettersGu ? `(${(sign as any).lettersGu})` : GUJARAT_ZODIAC_LETTERS[sign.id] || `(${sign.name})`;
               const primaryName = language === 'gu' ? sign.nameGu : language === 'hi' ? sign.nameHi : sign.name;
               const subName = language === 'gu' ? letters : language === 'hi' ? letters : `(${sign.name})`;
 
@@ -7321,9 +7343,9 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
 
         // Fallbacks if specific category records are missing in DB
         const fallbackCats = [
-          { slug: 'health', name: 'Health', nameGu: 'હેલ્થ', nameHi: 'स्वास्थ्य' },
-          { slug: 'manoranjan', name: 'Entertainment', nameGu: 'મનોરંજન', nameHi: 'मनोरंजन' },
-          { slug: 'technology', name: 'Technology', nameGu: 'ટેકનોલોજી', nameHi: 'टेक्नोलॉजी' },
+          { id: 'health', slug: 'health', name: 'Health', nameGu: 'હેલ્થ', nameHi: 'स्वास्थ्य' },
+          { id: 'entertainment', slug: 'manoranjan', name: 'Entertainment', nameGu: 'મનોરંજન', nameHi: 'मनोरंजन' },
+          { id: 'technology', slug: 'technology', name: 'Technology', nameGu: 'ટેકનોલોજી', nameHi: 'टेक्नोलॉजी' },
         ];
 
         // Combine to ensure we have exactly 3 target columns (Health, Entertainment, Technology)
@@ -7334,7 +7356,7 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
             return s === target || (target === 'entertainment' && s === 'manoranjan');
           });
           if (match) {
-            finalCats.push(match);
+            finalCats.push({ ...match, id: match.id || match.slug || target });
           } else {
             const fallback = fallbackCats.find((f) => f.slug === target || (target === 'entertainment' && f.slug === 'manoranjan'));
             if (fallback) finalCats.push(fallback);
@@ -7429,7 +7451,7 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
         <div className="flex flex-col divide-y divide-border/40">
           {items.map((a, i) => (
             <Link
-              key={a.id || i}
+              key={a.id || a.slug || `art-${i}`}
               href={a.slug ? `/news/${a.slug}` : href}
               className="group flex gap-3 py-3 hover:bg-muted/10 transition-colors"
             >
@@ -7491,7 +7513,7 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
 
       {/* Dynamic 3-Column Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {categories.map((cat) => {
+        {categories.map((cat, catIdx) => {
           const catArticles = categoryArticlesMap[cat.slug] || [];
           const items = catArticles.map((art) => ({
             id: art.id,
@@ -7503,7 +7525,7 @@ export function EntertainTechLifeSection({ language }: { language: Language }) {
           }));
 
           return (
-            <div key={cat.id}>
+            <div key={cat.id || cat.slug || `cat-col-${catIdx}`}>
               {col(
                 cat.nameGu || cat.name,
                 cat.name,

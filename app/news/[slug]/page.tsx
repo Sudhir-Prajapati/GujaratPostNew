@@ -58,17 +58,68 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
 
   if (!article) notFound();
 
-  // Dynamically fetch related articles matching this article's categorySlug
+  // Dynamically fetch related articles and calculate smart relevance scores
   const categorySlug = (article.category || '').toLowerCase().replace(/\s+/g, '-');
-  const { articles: categoryArticles } = await getPublicArticles({ categorySlug, limit: 12 });
-  const { articles: fallbackArticles } = await getPublicArticles({ limit: 12 });
+  const [{ articles: categoryArticles }, { articles: fallbackArticles }] = await Promise.all([
+    getPublicArticles({ categorySlug, limit: 20 }),
+    getPublicArticles({ limit: 50 }),
+  ]);
 
-  // Filter out current article and deduplicate
-  const related = [...(categoryArticles || []), ...(fallbackArticles || [])]
-    .filter((a, idx, self) => a.id !== article.id && self.findIndex((t) => t.id === a.id) === idx)
-    .slice(0, 10);
+  const currentTags = new Set([
+    ...(article.tags || []),
+    ...(article.tagsGu || []),
+    ...(article.tagsHi || []),
+  ].map((t) => t?.toLowerCase().trim()).filter(Boolean));
 
-  const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 11 });
+  const allCandidates = [...(categoryArticles || []), ...(fallbackArticles || [])];
+  const uniqueCandidates = allCandidates.filter(
+    (a, idx, self) => a.id !== article.id && self.findIndex((t) => t.id === a.id) === idx
+  );
+
+  const scoredRelated = uniqueCandidates.map((item) => {
+    let score = 0;
+
+    // 1. Same category bonus
+    const itemCatSlug = (item.category || '').toLowerCase().replace(/\s+/g, '-');
+    if (itemCatSlug === categorySlug && categorySlug !== '') {
+      score += 10;
+    }
+
+    // 2. Tag overlap bonus
+    const itemTags = [
+      ...(item.tags || []),
+      ...(item.tagsGu || []),
+      ...(item.tagsHi || []),
+    ].map((t) => t?.toLowerCase().trim()).filter(Boolean);
+
+    let matchingTagsCount = 0;
+    itemTags.forEach((t) => {
+      if (currentTags.has(t)) matchingTagsCount++;
+    });
+    score += matchingTagsCount * 8;
+
+    // 3. Popularity & Featured status
+    if (item.isTrending) score += 4;
+    if (item.isFeatured) score += 3;
+    if (item.views) score += Math.min(item.views / 200, 5);
+
+    // 4. Recency bonus
+    const pubTime = new Date(item.publishedAt || (item as any).createdAt || 0).getTime();
+    if (pubTime > 0) {
+      const daysDiff = (Date.now() - pubTime) / (1000 * 60 * 60 * 24);
+      if (daysDiff >= 0 && daysDiff <= 7) {
+        score += (7 - daysDiff) * 0.5;
+      }
+    }
+
+    return { item, score };
+  });
+
+  scoredRelated.sort((a, b) => b.score - a.score);
+
+  const related = scoredRelated.map((entry) => entry.item);
+
+  const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 20 });
 
   const articleUrl = `${SITE_URL}/news/${article.slug}`;
   const structuredData = {

@@ -687,6 +687,34 @@ export default function HeroManagerPage() {
     setMostReadArticles((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const [draggedMostReadIndex, setDraggedMostReadIndex] = useState<number | null>(null);
+
+  const handleDragStartMostRead = (e: React.DragEvent, index: number) => {
+    setDraggedMostReadIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch {}
+  };
+
+  const handleDragOverMostRead = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedMostReadIndex === null || draggedMostReadIndex === targetIndex) return;
+
+    setMostReadArticles((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedMostReadIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+    setDraggedMostReadIndex(targetIndex);
+  };
+
+  const handleDragEndMostRead = () => {
+    setDraggedMostReadIndex(null);
+  };
+
   const moveMostReadArticle = (index: number, direction: -1 | 1) => {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= mostReadArticles.length) return;
@@ -729,6 +757,34 @@ export default function HeroManagerPage() {
     } finally {
       setSavingMostRead(false);
     }
+  };
+
+  const [draggedHeroIndex, setDraggedHeroIndex] = useState<number | null>(null);
+
+  const handleHeroDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedHeroIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      e.dataTransfer.setData('text/plain', String(index));
+    } catch {}
+  };
+
+  const handleHeroDragOver = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedHeroIndex === null || draggedHeroIndex === targetIndex) return;
+
+    setHeroGridArticles((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(draggedHeroIndex, 1);
+      updated.splice(targetIndex, 0, moved);
+      return updated;
+    });
+    setDraggedHeroIndex(targetIndex);
+  };
+
+  const handleHeroDragEnd = () => {
+    setDraggedHeroIndex(null);
   };
 
   const moveHeroGridArticle = (index: number, direction: -1 | 1) => {
@@ -945,26 +1001,37 @@ export default function HeroManagerPage() {
                   ? `🖼️ Middle Column - Top Image Card #${index}`
                   : `📰 Middle Column - Text Headline #${index - 2}`;
 
+                const isDragging = draggedHeroIndex === index;
+
                 return (
                   <div
                     key={art.id}
-                    className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border transition-all ${
+                    draggable
+                    onDragStart={(e) => handleHeroDragStart(e, index)}
+                    onDragOver={(e) => handleHeroDragOver(e, index)}
+                    onDragEnd={handleHeroDragEnd}
+                    className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border transition-all cursor-grab active:cursor-grabbing select-none ${
+                      isDragging ? 'opacity-40 scale-[0.98] border-dashed border-[#B3121B]' : ''
+                    } ${
                       isSpotlight
                         ? 'border-[#B3121B]/40 bg-red-50/40 dark:bg-red-950/10'
                         : isTopCard
                         ? 'border-blue-200 bg-blue-50/20 dark:border-blue-900/40 dark:bg-blue-950/10'
                         : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80'
-                    }`}
+                    } hover:shadow-md`}
                   >
                     {/* Left Info */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white ${
-                        isSpotlight ? 'bg-[#B3121B]' : isTopCard ? 'bg-blue-600' : 'bg-zinc-700'
-                      }`}>
-                        #{index + 1}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title="Drag to reorder position">
+                        <GripVertical className="h-5 w-5" />
+                        <span className={`h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white ${
+                          isSpotlight ? 'bg-[#B3121B]' : isTopCard ? 'bg-blue-600' : 'bg-zinc-700'
+                        }`}>
+                          #{index + 1}
+                        </span>
+                      </div>
 
-                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
+                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
                         <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
                       </div>
 
@@ -1122,20 +1189,31 @@ export default function HeroManagerPage() {
                   No articles assigned. Default published articles will be displayed automatically.
                 </div>
               ) : (
-                popularNewsArticles.map((art, idx) => (
-                  <div
-                    key={art.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40"
-                  >
-                    {/* Left Info */}
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
-                        #{idx + 1}
-                      </span>
+                popularNewsArticles.map((art, idx) => {
+                  const isDragging = draggedPopularIndex === idx;
+                  return (
+                    <div
+                      key={art.id}
+                      draggable
+                      onDragStart={(e) => handleDragStartPopular(e, idx)}
+                      onDragOver={(e) => handleDragOverPopular(e, idx)}
+                      onDragEnd={handleDragEndPopular}
+                      className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40 cursor-grab active:cursor-grabbing select-none ${
+                        isDragging ? 'opacity-40 scale-[0.98] border-dashed border-[#B3121B]' : ''
+                      } hover:shadow-md`}
+                    >
+                      {/* Left Info */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 shrink-0 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title="Drag to reorder rank">
+                          <GripVertical className="h-5 w-5" />
+                          <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
+                            #{idx + 1}
+                          </span>
+                        </div>
 
-                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
-                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
-                      </div>
+                        <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
+                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                        </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
@@ -1187,7 +1265,8 @@ export default function HeroManagerPage() {
                       </button>
                     </div>
                   </div>
-                ))
+                );
+              })
               )}
             </div>
           </div>
@@ -1244,72 +1323,84 @@ export default function HeroManagerPage() {
                   No articles assigned. Default published articles will be displayed automatically.
                 </div>
               ) : (
-                mostReadArticles.map((art, idx) => (
-                  <div
-                    key={art.id}
-                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40"
-                  >
-                    {/* Left Info */}
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
-                        #{idx + 1}
-                      </span>
-
-                      <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100">
-                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
-                            Most Read Rank #{idx + 1}
+                mostReadArticles.map((art, idx) => {
+                  const isDragging = draggedMostReadIndex === idx;
+                  return (
+                    <div
+                      key={art.id}
+                      draggable
+                      onDragStart={(e) => handleDragStartMostRead(e, idx)}
+                      onDragOver={(e) => handleDragOverMostRead(e, idx)}
+                      onDragEnd={handleDragEndMostRead}
+                      className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/80 transition-all hover:border-[#B3121B]/40 cursor-grab active:cursor-grabbing select-none ${
+                        isDragging ? 'opacity-40 scale-[0.98] border-dashed border-[#B3121B]' : ''
+                      } hover:shadow-md`}
+                    >
+                      {/* Left Info */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 shrink-0 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200" title="Drag to reorder rank">
+                          <GripVertical className="h-5 w-5" />
+                          <span className="h-7 w-7 shrink-0 rounded-full flex items-center justify-center text-xs font-black text-white bg-[#B3121B]">
+                            #{idx + 1}
                           </span>
-                          {art.articleNumber && (
-                            <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
-                              #{art.articleNumber}
-                            </span>
-                          )}
                         </div>
-                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
-                          {getTitle(art)}
-                        </p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">
-                          {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
-                        </p>
+
+                        <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
+                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                              Most Read Rank #{idx + 1}
+                            </span>
+                            {art.articleNumber && (
+                              <span className="text-[10px] font-bold text-[#B3121B] bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded border border-red-200 dark:border-red-800">
+                                #{art.articleNumber}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 mt-1">
+                            {getTitle(art)}
+                          </p>
+                          <p className="text-[10px] text-zinc-400 mt-0.5">
+                            {catName(art.category)} • {authorName(art.author)} {(art.publishedAt || art.createdAt) && `• ${fmtDate(art.publishedAt || art.createdAt)}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right Controls */}
+                      <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => moveMostReadArticle(idx, -1)}
+                          disabled={idx === 0}
+                          className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                          title="Move Up 1 Position"
+                        >
+                          ⬆️ Move Up
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveMostReadArticle(idx, 1)}
+                          disabled={idx === mostReadArticles.length - 1}
+                          className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
+                          title="Move Down 1 Position"
+                        >
+                          ⬇️ Move Down
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMostReadArticle(art.id)}
+                          className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
+                          title="Remove from Most Read"
+                        >
+                          ✕ Remove
+                        </button>
                       </div>
                     </div>
-
-                    {/* Right Controls */}
-                    <div className="flex items-center gap-2 mt-2 sm:mt-0 shrink-0 self-end sm:self-center">
-                      <button
-                        type="button"
-                        onClick={() => moveMostReadArticle(idx, -1)}
-                        disabled={idx === 0}
-                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
-                        title="Move Up 1 Position"
-                      >
-                        ⬆️ Move Up
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveMostReadArticle(idx, 1)}
-                        disabled={idx === mostReadArticles.length - 1}
-                        className="p-1.5 text-xs font-bold rounded-lg border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
-                        title="Move Down 1 Position"
-                      >
-                        ⬇️ Move Down
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveMostReadArticle(art.id)}
-                        className="p-1.5 text-xs font-bold text-red-600 rounded-lg border border-red-200 hover:bg-red-50 dark:hover:bg-red-950/30 transition cursor-pointer"
-                        title="Remove from Most Read"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

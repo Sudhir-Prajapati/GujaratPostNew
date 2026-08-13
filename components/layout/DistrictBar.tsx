@@ -10,7 +10,7 @@ const DISTRICTS = [
   { gu: 'સુરત', hi: 'सूरत', en: 'Surat', slug: 'surat' },
   { gu: 'વડોદરા', hi: 'वडोदरा', en: 'Vadodara', slug: 'vadodara' },
   { gu: 'રાજકોટ', hi: 'राजकोट', en: 'Rajkot', slug: 'rajkot' },
-  { gu: 'અન્ય શહેરો', hi: 'अन्य शहर', en: 'Other Cities', slug: 'otherCities' }
+  { gu: 'અન્ય શહેરો', hi: 'अन्य शहर', en: 'Other Cities', slug: 'other-cities' }
 ];
 
 const MORE_DISTRICTS = [
