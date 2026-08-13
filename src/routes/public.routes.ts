@@ -5,10 +5,11 @@ import { withDbRetry } from '../utils/db.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
-import { EPaperController } from '../controllers/epaper.controller.js';
 import { AdController } from '../controllers/ad.controller.js';
+import { EPaperController } from '../controllers/epaper.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 import { autoPublishDueArticles } from '../controllers/article.controller.js';
+import { getDailyAstrologySigns, fetchLiveDailyAstrologySigns } from '../services/astrology.service.js';
 
 const router = Router();
 
@@ -98,16 +99,43 @@ router.get('/articles', async (req, res, next) => {
     }
 
     if (categorySlug) {
-      const slugLower = categorySlug.toLowerCase();
-      where.AND.push({
-        category: {
+      const slugLower = categorySlug.toLowerCase().trim();
+      if (slugLower === 'other-cities' || slugLower === 'othercities') {
+        where.AND.push({
           OR: [
-            { slug: slugLower },
-            { name: categorySlug },
-            { nameGu: categorySlug },
+            { category: { slug: { in: ['other-cities', 'othercities', 'gujarat', 'state'] } } },
+            { location: { notIn: ['Ahmedabad', 'Gandhinagar', 'Surat', 'Vadodara', 'Rajkot', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'વડોદરા', 'રાજકોટ'] } },
           ],
-        },
-      });
+        });
+      } else {
+        where.AND.push({
+          OR: [
+            {
+              category: {
+                OR: [
+                  { slug: slugLower },
+                  { name: categorySlug },
+                  { nameGu: categorySlug },
+                ],
+              },
+            },
+            { location: { contains: slugLower } },
+            {
+              tags: {
+                some: {
+                  tag: {
+                    OR: [
+                      { slug: slugLower },
+                      { name: categorySlug },
+                      { nameGu: categorySlug },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        });
+      }
     }
 
     if (where.AND.length === 0) {
@@ -128,12 +156,13 @@ router.get('/articles', async (req, res, next) => {
             tags: { include: { tag: true } },
           },
           orderBy: isFeatured
-            ? [{ createdAt: 'asc' }]
+            ? [{ createdAt: 'desc' }]
             : [
-                { articleNumber: 'desc' },
-                { createdAt: 'desc' },
-                { priority: 'desc' },
-              ],
+              { isFeatured: 'desc' },
+              { articleNumber: 'desc' },
+              { createdAt: 'desc' },
+              { priority: 'desc' },
+            ],
           skip,
           take: limit,
         }),
@@ -141,15 +170,14 @@ router.get('/articles', async (req, res, next) => {
       ])
     );
 
-    // Fallback: If searching a specific topic string returns 0 results, return recent published posts
-    if (posts.length === 0 && query) {
-      const fallbackWhere: any = { status: 'PUBLISHED' };
-      if (categorySlug) {
-        const slugLower = categorySlug.toLowerCase();
-        fallbackWhere.category = {
-          OR: [{ slug: slugLower }, { name: categorySlug }, { nameGu: categorySlug }],
-        };
-      }
+    // Fallback: If query returned 0 articles (e.g. strict location or new category), fallback to latest published articles
+    if (posts.length === 0) {
+      const fallbackWhere: any = {
+        OR: [
+          { status: 'PUBLISHED' },
+          { status: 'SCHEDULED', scheduledAt: { lte: now } }
+        ]
+      };
       posts = await withDbRetry(() =>
         prisma.post.findMany({
           where: fallbackWhere,
@@ -255,7 +283,7 @@ router.get('/articles/:slug', async (req, res, next) => {
     prisma.post.update({
       where: { id: p.id },
       data: { views: { increment: 1 } },
-    }).catch(() => {});
+    }).catch(() => { });
 
     const article = {
       id: p.id,
@@ -350,6 +378,8 @@ router.get('/categories', async (req, res, next) => {
     const showInHome = req.query.showInHome === 'true';
     const headerType = req.query.headerType as string | undefined;
 
+    // Build where clause WITHOUT headerType — it's filtered in JS below
+    // (Prisma client may not have headerType in its type definitions yet)
     const where: any = {
       isActive: true,
       slug: {
@@ -359,12 +389,19 @@ router.get('/categories', async (req, res, next) => {
 
     if (showInHeader) where.showInHeader = true;
     if (showInHome) where.showInHome = true;
-    if (headerType) where.headerType = headerType;
 
-    const categories = await prisma.category.findMany({
+    const allCategories = await prisma.category.findMany({
       where,
       orderBy: { displayOrder: 'desc' },
     });
+
+    // Apply headerType filter in JavaScript (column exists in DB but Prisma
+    // client type definitions may not include it until next prisma generate)
+    const categories = allCategories.filter((c: any) => {
+      if (headerType && c.headerType && c.headerType !== headerType) return false;
+      return true;
+    });
+
     return sendSuccess(res, { categories }, 'Categories retrieved');
   } catch (error) {
     next(error);
@@ -385,9 +422,20 @@ router.get('/videos', async (req, res, next) => {
 
     const videos = await prisma.video.findMany({
       where,
-      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isFeatured: 'desc' }, { publishedAt: 'desc' }, { createdAt: 'desc' }],
     });
-    return sendSuccess(res, { videos }, 'Videos retrieved');
+
+    const uniqueVideos: typeof videos = [];
+    const seen = new Set<string>();
+    for (const v of videos) {
+      const key = v.youtubeId?.trim() || v.id;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueVideos.push(v);
+      }
+    }
+
+    return sendSuccess(res, { videos: uniqueVideos }, 'Videos retrieved');
   } catch (error) {
     next(error);
   }
@@ -527,7 +575,7 @@ router.get('/live-center', async (req, res) => {
           const pct = Math.round((ch / prevClose) * 10000) / 100;
           return { name: defaultName, exchange: defaultEx, value: val, change: ch, changePercent: pct };
         }
-      } catch (e) {}
+      } catch (e) { }
       return { name: defaultName, exchange: defaultEx, value: defVal, change: defCh, changePercent: defPct };
     };
 
@@ -564,7 +612,7 @@ router.get('/live-center', async (req, res) => {
         });
         if (parsed.length > 0) footballMatches = parsed;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const payload = {
       fuelPrices: {
@@ -718,12 +766,8 @@ router.get('/rss', async (req, res, next) => {
  */
 router.get('/astrology', async (req, res, next) => {
   try {
-    const signs = await withDbRetry(() =>
-      prisma.astrologySign.findMany({
-        orderBy: { createdAt: 'asc' },
-      })
-    );
-    return sendSuccess(res, { signs }, 'Astrology signs retrieved');
+    const signs = await fetchLiveDailyAstrologySigns();
+    return sendSuccess(res, { signs }, 'Automated daily astrology predictions retrieved');
   } catch (error) {
     next(error);
   }
