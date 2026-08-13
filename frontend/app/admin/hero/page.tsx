@@ -9,6 +9,7 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache, getHeroSettings, updateHeroSettings } from '@/lib/api';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -151,7 +152,7 @@ function ArticleSearchBox({
                 className="group flex items-center gap-3 w-full px-3.5 py-2.5 text-left hover:bg-[#B3121B]/5 active:bg-[#B3121B]/10 transition-colors"
               >
                 <div className="relative h-9 w-14 shrink-0 rounded-lg overflow-hidden bg-zinc-100 shadow-sm">
-                  <Image src={getArticleImage(a)} alt="" fill unoptimized className="object-cover" />
+                  <ArticleMedia src={getArticleImage(a)} alt="" className="object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-100 line-clamp-1 group-hover:text-[#B3121B] transition-colors">{getTitle(a)}</p>
@@ -214,11 +215,9 @@ function SlotCard({
       {/* Image Preview — overflow-hidden applied HERE so rounded corners clip the image only */}
       <div className="relative w-full aspect-[16/10] bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
         {article ? (
-          <Image
+          <ArticleMedia
             src={getArticleImage(article)}
             alt={getTitle(article)}
-            fill
-            unoptimized
             className="object-cover"
           />
         ) : (
@@ -359,13 +358,11 @@ export default function HeroManagerPage() {
       const arts = (pubRes.articles || []) as unknown as Article[];
       setAllArticles(arts);
 
-      if (heroRes && Array.isArray((heroRes as any).heroGridArticles) && (heroRes as any).heroGridArticles.length > 0) {
-        setHeroGridArticles((heroRes as any).heroGridArticles as unknown as Article[]);
-      } else {
-        setHeroGridArticles(arts.slice(0, 13));
-      }
-
       const featured = arts.filter((a) => a.isFeatured);
+      const serverGrid = Array.isArray((heroRes as any)?.heroGridArticles) ? (heroRes as any).heroGridArticles : [];
+      const combinedGrid = [...featured, ...serverGrid, ...arts].filter((a, idx, arr) => a && arr.findIndex((x) => x?.id === a.id) === idx);
+      setHeroGridArticles(combinedGrid.slice(0, 16));
+
       const defaultSlots = [
         featured[0] || arts[0] || null,
         featured[1] || arts[1] || null,
@@ -388,11 +385,10 @@ export default function HeroManagerPage() {
         setTrendingTopics(heroRes.setting.trendingTopics);
       }
 
-      if (heroRes && Array.isArray((heroRes as any).trendingNewsArticles) && (heroRes as any).trendingNewsArticles.length > 0) {
-        setTrendingNewsArticles((heroRes as any).trendingNewsArticles as unknown as Article[]);
-      } else {
-        setTrendingNewsArticles(arts.filter((a) => a.isTrending).slice(0, 10));
-      }
+      const trending = arts.filter((a) => a.isTrending);
+      const serverTrending = Array.isArray((heroRes as any)?.trendingNewsArticles) ? (heroRes as any).trendingNewsArticles : [];
+      const combinedTrending = [...trending, ...serverTrending].filter((a, idx, arr) => a && arr.findIndex((x) => x?.id === a.id) === idx);
+      setTrendingNewsArticles(combinedTrending.slice(0, 10));
 
       if (heroRes && Array.isArray((heroRes as any).popularNewsArticles) && (heroRes as any).popularNewsArticles.length > 0) {
         setPopularNewsArticles((heroRes as any).popularNewsArticles as unknown as Article[]);
@@ -1032,7 +1028,7 @@ export default function HeroManagerPage() {
                       </div>
 
                       <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
-                        <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                        <ArticleMedia src={getArticleImage(art)} alt="" className="object-cover" />
                       </div>
 
                       <div className="min-w-0 flex-1">
@@ -1212,7 +1208,7 @@ export default function HeroManagerPage() {
                         </div>
 
                         <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
-                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                          <ArticleMedia src={getArticleImage(art)} alt="" className="object-cover" />
                         </div>
 
                       <div className="min-w-0 flex-1">
@@ -1346,7 +1342,7 @@ export default function HeroManagerPage() {
                         </div>
 
                         <div className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800 shadow-2xs">
-                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover" />
+                          <ArticleMedia src={getArticleImage(art)} alt="" className="object-cover" />
                         </div>
 
                         <div className="min-w-0 flex-1">
@@ -1555,7 +1551,7 @@ export default function HeroManagerPage() {
                       <div>
                         {/* Thumbnail, Rank Badge & Drag Handle */}
                         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-zinc-100 mb-2">
-                          <Image src={getArticleImage(art)} alt="" fill unoptimized className="object-cover pointer-events-none" />
+                          <ArticleMedia src={getArticleImage(art)} alt="" className="object-cover pointer-events-none" />
 
                           {/* Rank Badge */}
                           <span className="absolute top-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-[#B3121B] text-white text-[11px] font-black shadow-md z-10 select-none">

@@ -38,6 +38,7 @@ import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 import RandomAdsSection from '@/components/ads/RandomAdsSection';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 
@@ -380,9 +381,8 @@ export default function HeroSection({
       return bTime - aTime;
     });
 
-  const initialHeroPool = initialCustomGridArts.length > 0 
-    ? fillPool(initialCustomGridArts, initialAutoHeroPool, 16) 
-    : initialAutoHeroPool.slice(0, 16);
+  const initialUniqueHeroList = [...initFeatured, ...initialCustomGridArts].filter((art, idx, arr) => art && arr.findIndex((x) => x.id === art.id) === idx);
+  const initialHeroPool = fillPool(initialUniqueHeroList, initialAutoHeroPool, 16);
 
   const initialCustomPopularArts: Article[] = (initialHeroSettings?.popularNewsArticles || []).filter(Boolean);
   const initialCustomMostReadArts: Article[] = (initialHeroSettings?.mostReadArticles || []).filter(Boolean);
@@ -467,10 +467,11 @@ export default function HeroSection({
       if (mainRes && mainRes.articles && mainRes.articles.length > 0) {
         const arts: Article[] = mainRes.articles;
         setArticlesList(arts);
-        setTopNews(arts.slice(0, 6));
+        setTopNews(arts.filter((a) => a.isBreaking || a.isFeatured).concat(arts).filter((a, idx, arr) => arr.findIndex((x) => x.id === a.id) === idx).slice(0, 6));
         // Filter out the 3 admin-selected bottom-row articles from the main hero pool
         // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
         const customGridArts: Article[] = (heroRes?.heroGridArticles || []).filter(Boolean);
+        const featuredArts = arts.filter((a: Article) => a.isFeatured);
         const autoHeroPool = arts
           .filter((a: Article) => !featuredIds.has(a.id))
           .sort((a: Article, b: Article) => {
@@ -481,7 +482,8 @@ export default function HeroSection({
             if (bScore !== aScore) return bScore - aScore;
             return bTime - aTime;
           });
-        const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
+        const uniqueHeroList = [...featuredArts, ...customGridArts].filter((art, idx, arr) => art && arr.findIndex((x) => x?.id === art.id) === idx);
+        const heroPool = fillPool(uniqueHeroList, autoHeroPool, 16);
         setTopStories(heroPool);
         const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
         const customMostReadArts: Article[] = (heroRes?.mostReadArticles || []).filter(Boolean);
@@ -642,16 +644,10 @@ export default function HeroSection({
                 <Link href={`/news/${uniqueTopStories[0].slug}`} className="group flex flex-col w-full">
                   {/* Hero image */}
                   <div className="relative w-full overflow-hidden rounded-sm shadow-sm" style={{ aspectRatio: '3/2' }}>
-                    <Image
-                      src={uniqueTopStories[0].image || '/assets/demo/1.jpg'}
+                    <ArticleMedia
+                      src={uniqueTopStories[0].image || (uniqueTopStories[0] as any).featuredImage}
                       alt={uniqueTopStories[0].title}
-                      fill
-                      unoptimized={uniqueTopStories[0].image?.includes('localhost') || uniqueTopStories[0].image?.endsWith('.jfif')}
-                      sizes="(max-width: 1024px) 100vw, 36vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                      priority
-                      loading="eager"
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
+                      className="transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   </div>
                   {/* Category & Live Badge tags */}
@@ -700,14 +696,10 @@ export default function HeroSection({
                 {uniqueTopStories[1] && (
                   <Link href={`/news/${uniqueTopStories[1].slug}`} className="group flex flex-col gap-2 min-w-0">
                     <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
-                      <Image
-                        src={uniqueTopStories[1].image || '/assets/demo/2.jpg'}
+                      <ArticleMedia
+                        src={uniqueTopStories[1].image || (uniqueTopStories[1] as any).featuredImage}
                         alt={uniqueTopStories[1].title}
-                        fill
-                        unoptimized={uniqueTopStories[1].image?.includes('localhost') || uniqueTopStories[1].image?.endsWith('.jfif')}
-                        sizes="(max-width: 1024px) 50vw, 15vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/2.jpg'; }}
+                        className="transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                     </div>
                     <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
@@ -719,14 +711,10 @@ export default function HeroSection({
                 {uniqueTopStories[2] && (
                   <Link href={`/news/${uniqueTopStories[2].slug}`} className="group flex flex-col gap-2 min-w-0">
                     <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
-                      <Image
-                        src={uniqueTopStories[2].image || '/assets/demo/3.jpg'}
+                      <ArticleMedia
+                        src={uniqueTopStories[2].image || (uniqueTopStories[2] as any).featuredImage}
                         alt={uniqueTopStories[2].title}
-                        fill
-                        unoptimized={uniqueTopStories[2].image?.includes('localhost') || uniqueTopStories[2].image?.endsWith('.jfif')}
-                        sizes="(max-width: 1024px) 50vw, 15vw"
-                        className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                        onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/3.jpg'; }}
+                        className="transition-transform duration-300 group-hover:scale-[1.02]"
                       />
                     </div>
                     <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-accent transition-colors line-clamp-2">
@@ -783,13 +771,10 @@ export default function HeroSection({
                   className="group flex flex-col min-w-0"
                 >
                   <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                    <Image
-                      src={art.image || getArticleImage(art)}
+                    <ArticleMedia
+                      src={art.image || (art as any).featuredImage || getArticleImage(art)}
                       alt={art.title || ''}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 25vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => { (e.target as HTMLImageElement).src = `/assets/demo/${(idx % 6) + 1}.jpg`; }}
+                      className="transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
                   <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
@@ -4439,12 +4424,10 @@ function TrendingSidebarWidget({ articles, language }: { articles: Article[]; la
             </span>
             {/* Small Thumbnail */}
             <div className="relative h-[38px] w-[56px] shrink-0 overflow-hidden rounded-md border border-border/10 bg-muted">
-              <Image
+              <ArticleMedia
                 src={art.image}
                 alt={art.title}
-                fill
-                sizes="56px"
-                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                className="transition-transform duration-300 group-hover:scale-105"
               />
             </div>
             {/* Title */}
@@ -4481,7 +4464,7 @@ function LeftListItem({ article, language }: { article: Article; language: Langu
   return (
     <Link href={`/news/${article.slug}`} className="group flex min-h-[58px] gap-2 rounded px-1 py-1.5 transition hover:bg-muted/50">
       <div className="relative h-[50px] w-[68px] shrink-0 overflow-hidden rounded-md">
-        <Image src={article.image} alt={article.title} fill sizes="68px" className="object-cover transition duration-300 group-hover:scale-105" />
+        <ArticleMedia src={article.image} alt={article.title} className="transition duration-300 group-hover:scale-105" />
       </div>
       <div className="min-w-0 flex flex-1 flex-col justify-between">
         <div>
@@ -4519,12 +4502,10 @@ function StoryRow({ article, language }: { article: Article; language: Language 
 
       {/* Image Thumbnail (right side) */}
       <div className="relative h-[66px] w-[100px] shrink-0 overflow-hidden rounded-lg border border-border/10 shadow-sm">
-        <Image
+        <ArticleMedia
           src={article.image}
           alt={article.title}
-          fill
-          sizes="100px"
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="transition-transform duration-300 group-hover:scale-105"
         />
 
         {/* Overlay icon at bottom-left of image */}
@@ -4563,7 +4544,7 @@ function CategoryRow({
           return (
             <Link key={art.id} href={`/news/${art.slug}`} className="news-card group flex h-[98px] gap-2 overflow-hidden rounded-md border border-border bg-card p-1.5 shadow-sm transition hover:border-accent/40 hover:shadow-md">
               <div className="relative h-full w-[82px] shrink-0 overflow-hidden rounded">
-                <Image src={art.image} alt={art.title} fill sizes="82px" className="object-cover transition group-hover:scale-105" />
+                <ArticleMedia src={art.image} alt={art.title} className="transition group-hover:scale-105" />
               </div>
               <div className="min-w-0 flex flex-1 flex-col justify-between py-1">
                 <p className="line-clamp-3 text-[13px] md:text-[13.5px] font-black leading-[1.2] text-foreground transition-colors group-hover:text-accent">{t}</p>
@@ -4621,7 +4602,7 @@ function CategoryColumn({
             return (
               <Link key={art.id} href={`/news/${art.slug}`} className="group flex gap-2.5 pb-2.5 border-b border-border/40">
                 <div className="relative h-[74px] w-[110px] shrink-0 overflow-hidden rounded-md">
-                  <Image src={art.image} alt={art.title} fill sizes="110px" className="object-cover group-hover:scale-105 transition duration-300" />
+                  <ArticleMedia src={art.image} alt={art.title} className="group-hover:scale-105 transition duration-300" />
                 </div>
                 <div className="min-w-0 flex flex-col justify-between flex-1">
                   <div>
@@ -4646,7 +4627,7 @@ function CategoryColumn({
             return (
               <Link key={art.id} href={`/news/${art.slug}`} className="group flex gap-2.5 items-start pb-2 border-b border-border/40 last:border-b-0 last:pb-0 last:mb-0">
                 <div className="relative h-[50px] w-[70px] shrink-0 overflow-hidden rounded-md">
-                  <Image src={art.image} alt={art.title} fill sizes="70px" className="object-cover group-hover:scale-105 transition duration-300" />
+                  <ArticleMedia src={art.image} alt={art.title} className="group-hover:scale-105 transition duration-300" />
                 </div>
                 <div className="min-w-0 flex flex-col justify-between flex-1 min-h-[50px]">
                   <p className="line-clamp-2 text-[11px] font-black leading-snug text-foreground group-hover:text-accent transition duration-200">
@@ -4735,12 +4716,10 @@ function SportsFeatureCard({
 
   return (
     <Link href={`/news/${article.slug}`} className="group relative block min-h-[210px] overflow-hidden rounded-md bg-slate-950">
-      <Image
+      <ArticleMedia
         src={article.image}
         alt={article.title}
-        fill
-        sizes={large ? '(max-width: 1024px) 100vw, 34vw' : '(max-width: 1024px) 100vw, 22vw'}
-        className="object-cover transition duration-500 group-hover:scale-105"
+        className="transition duration-500 group-hover:scale-105"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/5" />
       <span
@@ -4776,7 +4755,7 @@ function SportsListItem({ article, language }: { article: Article; language: Lan
   return (
     <Link href={`/news/${article.slug}`} className="group flex flex-1 gap-3 border-b border-border p-2.5 last:border-b-0 hover:bg-muted/60">
       <div className="relative h-[70px] w-[96px] shrink-0 overflow-hidden rounded">
-        <Image src={article.image} alt={article.title} fill sizes="96px" className="object-cover transition duration-300 group-hover:scale-105" />
+        <ArticleMedia src={article.image} alt={article.title} className="transition duration-300 group-hover:scale-105" />
       </div>
       <div className="min-w-0 flex flex-1 flex-col justify-between">
         <div>
@@ -6028,7 +6007,7 @@ export function NationalSection({ language }: { language: Language }) {
           <div key={item.id} className="flex flex-col justify-between min-w-0 border-b border-border/40 pb-3">
             <Link href={`/news/${item.slug}`} className="group flex flex-col">
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image src={item.image} alt={item.title} fill sizes="(max-width: 768px) 100vw, 25vw" className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                <ArticleMedia src={item.image} alt={item.title} className="transition-transform duration-300 group-hover:scale-105" />
               </div>
               <h3 className="text-[14px] md:text-[15.5px] font-extrabold leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">{item.title}</h3>
             </Link>
@@ -6049,7 +6028,7 @@ export function NationalSection({ language }: { language: Language }) {
               return (
                 <Link key={sub.id} href={`/news/${sub.slug}`} className="group flex gap-3 hover:bg-muted/10 transition-colors p-1 min-w-0">
                   <div className="relative h-[56px] w-[86px] shrink-0 overflow-hidden rounded-sm border border-border/10 bg-muted">
-                    <Image src={sub.image} alt={sub.title} fill sizes="86px" className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                    <ArticleMedia src={sub.image} alt={sub.title} className="transition-transform duration-300 group-hover:scale-105" />
                   </div>
                   <div className="flex flex-col justify-center min-w-0 flex-1">
                     <h4 className="text-[12.5px] font-extrabold leading-snug line-clamp-2 text-foreground group-hover:text-[#B3121B] transition-colors">

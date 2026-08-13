@@ -16,6 +16,7 @@ import {
 } from '@/data';
 import { getCategoryColor, toGu } from '@/lib/utils';
 import NewsCard from '@/components/ui/NewsCard';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 /* ── Types ────────────────────────────────────────────────── */
 interface Props {
@@ -294,15 +295,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
               {/* Main Big Hero Article */}
               <Link href={`/news/${heroArticle.slug}`} className="group block">
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
-                  <Image
-                    src={heroArticle.image || '/assets/placeholder.jpg'}
+                  <ArticleMedia
+                    src={heroArticle.image || (heroArticle as any).featuredImage}
                     alt={getArticleTitle(heroArticle, language)}
-                    fill
-                    priority
-                    unoptimized={heroArticle.image?.includes('localhost')}
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 768px) 100vw, 45vw"
-                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
+                    className="transition-transform duration-500 group-hover:scale-105"
                   />
                 </div>
                 <div className="mt-3">
@@ -338,14 +334,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                       </div>
                     </div>
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
-                      <Image
-                        src={subHeroArticle.image || '/assets/placeholder.jpg'}
+                      <ArticleMedia
+                        src={subHeroArticle.image || (subHeroArticle as any).featuredImage}
                         alt={getArticleTitle(subHeroArticle, language)}
-                        fill
-                        unoptimized={subHeroArticle.image?.includes('localhost')}
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        sizes="80px"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x64/e2e8f0/94a3b8?text=GP'; }}
+                        className="transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
                   </Link>
@@ -378,14 +370,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                       </div>
                     </div>
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
-                      <Image
-                        src={art.image || '/assets/placeholder.jpg'}
+                      <ArticleMedia
+                        src={art.image || (art as any).featuredImage}
                         alt={getArticleTitle(art, language)}
-                        fill
-                        unoptimized={art.image?.includes('localhost')}
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        sizes="80px"
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x64/e2e8f0/94a3b8?text=GP'; }}
+                        className="transition-transform duration-300 group-hover:scale-105"
                       />
                     </div>
                   </Link>

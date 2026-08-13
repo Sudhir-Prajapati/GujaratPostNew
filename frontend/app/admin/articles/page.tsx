@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 interface ArticleData {
   id: string;
@@ -405,13 +406,10 @@ export default function ArticleList() {
                     <td className="px-4 py-3 font-medium min-w-[360px]">
                       <div className="flex items-center gap-4">
                         <div className="relative h-20 w-32 sm:h-22 sm:w-36 shrink-0 overflow-hidden rounded-xl bg-zinc-100 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
-                          <img
+                          <ArticleMedia
                             src={art.featuredImage}
                             alt="thumb"
-                            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=300&q=80';
-                            }}
+                            className="group-hover:scale-105 transition-transform duration-300"
                           />
                         </div>
                         <div className="flex-1 min-w-0 space-y-1">
