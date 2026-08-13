@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 interface ArticleData {
   id: string;
@@ -402,29 +403,26 @@ export default function ArticleList() {
                 {articles.map((art) => (
                   <tr key={art.id} className="group hover:bg-zinc-50/60 dark:hover:bg-zinc-950/20 transition-colors">
                     {/* Thumbnail & Title */}
-                    <td className="px-4 py-2.5 font-medium min-w-[280px]">
-                      <div className="flex items-center gap-3">
-                        <div className="relative h-9 w-14 shrink-0 overflow-hidden rounded-md bg-zinc-100 border border-zinc-200/60 dark:border-zinc-800">
-                          <img
+                    <td className="px-4 py-3 font-medium min-w-[360px]">
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-20 w-32 sm:h-22 sm:w-36 shrink-0 overflow-hidden rounded-xl bg-zinc-100 border border-zinc-200/80 dark:border-zinc-800 shadow-2xs">
+                          <ArticleMedia
                             src={art.featuredImage}
                             alt="thumb"
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=300&q=80';
-                            }}
+                            className="group-hover:scale-105 transition-transform duration-300"
                           />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="line-clamp-2 text-zinc-900 font-bold text-[12.5px] leading-snug dark:text-white group-hover:text-[#B3121B] transition-colors">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="line-clamp-2 text-zinc-900 font-bold text-[13px] leading-snug dark:text-white group-hover:text-[#B3121B] dark:group-hover:text-red-400 transition-colors">
                             {art.titleGu || art.title || art.titleHi}
                           </p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="flex items-center gap-2">
                             {art.articleNumber && (
-                              <span className="inline-flex items-center px-1 py-0.2 rounded bg-red-50 text-[#B3121B] border border-red-100 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 text-[9px] font-black font-mono">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-red-50 text-[#B3121B] border border-red-100 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 text-[10px] font-black font-mono">
                                 #{art.articleNumber}
                               </span>
                             )}
-                            <span className="text-[9px] text-zinc-400 uppercase font-medium tracking-wider font-mono truncate max-w-[200px]">
+                            <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider font-mono truncate max-w-[220px]">
                               slug: {art.slug}
                             </span>
                           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, UploadCloud, Link as LinkIcon, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextArea from '@/components/ui/RichTextArea';
@@ -21,8 +21,15 @@ interface AuthorData {
   name: string;
 }
 
-// All Gujarat city/region options
-const GUJARAT_LOCATIONS = [
+// Ordered City / Location options: 1. National, 2. Gujarat State, 3. All Gujarat Cities, 4. Other States & Metros, 5. International
+const LOCATION_OPTIONS = [
+  // 1. National
+  { value: 'National', label: 'National', sublabel: 'દેશ' },
+
+  // 2. Gujarat State
+  { value: 'Gujarat', label: 'Gujarat', sublabel: 'ગુજરાત' },
+
+  // 3. All Gujarat Cities & Districts
   { value: 'Ahmedabad', label: 'Ahmedabad', sublabel: 'અમદાવાદ' },
   { value: 'Gandhinagar', label: 'Gandhinagar', sublabel: 'ગાંધીનગર' },
   { value: 'Surat', label: 'Surat', sublabel: 'સુરત' },
@@ -35,12 +42,28 @@ const GUJARAT_LOCATIONS = [
   { value: 'Anand', label: 'Anand', sublabel: 'આણંદ' },
   { value: 'Mehsana', label: 'Mehsana', sublabel: 'મહેસાણા' },
   { value: 'Morbi', label: 'Morbi', sublabel: 'મોરબી' },
-  { value: 'Gujarat', label: 'Gujarat (Other)', sublabel: 'ગુજરાત (અન્ય)' },
-];
+  { value: 'Bharuch', label: 'Bharuch', sublabel: 'ભરૂચ' },
+  { value: 'Navsari', label: 'Navsari', sublabel: 'નવસારી' },
+  { value: 'Valsad', label: 'Valsad', sublabel: 'વલસાડ' },
+  { value: 'Amreli', label: 'Amreli', sublabel: 'અમરેલી' },
+  { value: 'Banaskantha', label: 'Banaskantha', sublabel: 'બનાસકાંઠા' },
+  { value: 'Dahod', label: 'Dahod', sublabel: 'દાહોદ' },
+  { value: 'Kheda', label: 'Kheda', sublabel: 'ખેડા' },
+  { value: 'Narmada', label: 'Narmada', sublabel: 'નર્મદા' },
+  { value: 'Panchmahal', label: 'Panchmahal', sublabel: 'પંચમહાલ' },
+  { value: 'Patan', label: 'Patan', sublabel: 'પાટણ' },
+  { value: 'Porbandar', label: 'Porbandar', sublabel: 'પોરબંદર' },
+  { value: 'Sabarkantha', label: 'Sabarkantha', sublabel: 'સાબરકાંઠા' },
+  { value: 'Surendranagar', label: 'Surendranagar', sublabel: 'સુરેન્દ્રનગર' },
+  { value: 'Tapi', label: 'Tapi', sublabel: 'તાપી' },
+  { value: 'Gir Somnath', label: 'Gir Somnath', sublabel: 'ગીર સોમનાથ' },
+  { value: 'Botad', label: 'Botad', sublabel: 'બોટાદ' },
+  { value: 'Aravalli', label: 'Aravalli', sublabel: 'અરવલ્લી' },
+  { value: 'Chhota Udepur', label: 'Chhota Udepur', sublabel: 'છોટાઉદેપુર' },
+  { value: 'Devbhoomi Dwarka', label: 'Devbhoomi Dwarka', sublabel: 'દેવભૂમિ દ્વારકા' },
+  { value: 'Mahisagar', label: 'Mahisagar', sublabel: 'મહીસાગર' },
 
-// National India locations
-const NATIONAL_LOCATIONS = [
-  { value: 'National', label: 'National', sublabel: 'દેશ' },
+  // 4. Other Indian Metro Cities & States
   { value: 'Delhi', label: 'New Delhi', sublabel: 'નવી દિલ્હી' },
   { value: 'Mumbai', label: 'Mumbai', sublabel: 'મુંબઈ' },
   { value: 'Kolkata', label: 'Kolkata', sublabel: 'કોલકાતા' },
@@ -49,25 +72,19 @@ const NATIONAL_LOCATIONS = [
   { value: 'Hyderabad', label: 'Hyderabad', sublabel: 'હૈદ્રાબાદ' },
   { value: 'Pune', label: 'Pune', sublabel: 'પૂણે' },
   { value: 'Jaipur', label: 'Jaipur', sublabel: 'જયપુર' },
-];
+  { value: 'Maharashtra', label: 'Maharashtra', sublabel: 'મહારાષ્ટ્ર' },
+  { value: 'Rajasthan', label: 'Rajasthan', sublabel: 'રાજસ્થાન' },
+  { value: 'Uttar Pradesh', label: 'Uttar Pradesh', sublabel: 'ઉત્તર પ્રદેશ' },
+  { value: 'Madhya Pradesh', label: 'Madhya Pradesh', sublabel: 'મધ્ય પ્રદેશ' },
 
-// International locations
-const INTERNATIONAL_LOCATIONS = [
+  // 5. International Locations
   { value: 'International', label: 'International', sublabel: 'વિદેશ' },
   { value: 'USA', label: 'USA', sublabel: 'અમેરિકા' },
   { value: 'UK', label: 'UK', sublabel: 'બ્રિટન' },
-  { value: 'China', label: 'China', sublabel: 'ચીન' },
-  { value: 'Pakistan', label: 'Pakistan', sublabel: 'પાકિસ્તાન' },
-  { value: 'UAE', label: 'UAE', sublabel: 'UAE' },
   { value: 'Canada', label: 'Canada', sublabel: 'કેનેડા' },
   { value: 'Australia', label: 'Australia', sublabel: 'ઓસ્ટ્રેલિયા' },
-];
-
-// Default / All locations combined
-const LOCATION_OPTIONS = [
-  ...GUJARAT_LOCATIONS,
-  ...NATIONAL_LOCATIONS,
-  ...INTERNATIONAL_LOCATIONS,
+  { value: 'UAE', label: 'UAE / Dubai', sublabel: 'દુબઈ' },
+  { value: 'China', label: 'China', sublabel: 'ચીન' },
 ];
 
 // Map categories to location group
@@ -75,6 +92,94 @@ const NATIONAL_CATEGORY_NAMES = ['national', 'india', 'politics', 'crime', 'educ
 const INTERNATIONAL_CATEGORY_NAMES = ['world', 'international', 'global', 'foreign'];
 const GUJARAT_CATEGORY_NAMES = ['gujarat', 'ahmedabad', 'surat', 'vadodara', 'rajkot', 'gandhinagar', 'bhavnagar', 'jamnagar', 'kutch', 'junagadh', 'morbi', 'mehsana', 'anand'];
 
+// Helper to transliterate Gujarati, Hindi, and English title into a clean URL-friendly English slug
+function generateEnglishSlug(text: string): string {
+  if (!text) return '';
+
+  let str = text;
+
+  // Dictionary for common Gujarati & Hindi locations/terms to standard English
+  const wordMap: Record<string, string> = {
+    'ગુજરાતમાં': 'gujarat',
+    'ગુજરાત': 'gujarat',
+    'અમદાવાદમાં': 'ahmedabad',
+    'અમદાવાદ': 'ahmedabad',
+    'સુરતમાં': 'surat',
+    'સુરત': 'surat',
+    'વડોદરામાં': 'vadodara',
+    'વડોદરા': 'vadodara',
+    'રાજકોટમાં': 'rajkot',
+    'રાજકોટ': 'rajkot',
+    'ગાંધીનગરમાં': 'gandhinagar',
+    'ગાંધીનગર': 'gandhinagar',
+    'ભાવનગરમાં': 'bhavnagar',
+    'ભાવનગર': 'bhavnagar',
+    'જામનગરમાં': 'jamnagar',
+    'જામનગર': 'jamnagar',
+    'જૂનાગઢમાં': 'junagadh',
+    'જૂનાગઢ': 'junagadh',
+    'કચ્છમાં': 'kutch',
+    'કચ્છ': 'kutch',
+    'આણંદમાં': 'anand',
+    'આણંદ': 'anand',
+    'મહેસાણામાં': 'mehsana',
+    'મહેસાણા': 'mehsana',
+    'મોરબીમાં': 'morbi',
+    'મોરબી': 'morbi',
+    'દિલ્હીમાં': 'delhi',
+    'દિલ્હી': 'delhi',
+    'મુંબઈમાં': 'mumbai',
+    'મુંબઈ': 'mumbai',
+    'ભારતમાં': 'india',
+    'ભારત': 'india',
+  };
+
+  for (const [key, val] of Object.entries(wordMap)) {
+    str = str.replace(new RegExp(key, 'g'), ` ${val} `);
+  }
+
+  // Indic character transliteration mapping (Gujarati & Hindi)
+  const charMap: Record<string, string> = {
+    // Vowels
+    'અ': 'a', 'આ': 'a', 'ઇ': 'i', 'ઈ': 'i', 'ઉ': 'u', 'ઊ': 'u', 'ઋ': 'ri', 'એ': 'e', 'ઐ': 'ai', 'ઓ': 'o', 'ઔ': 'au',
+    'अ': 'a', 'आ': 'a', 'इ': 'i', 'ई': 'i', 'उ': 'u', 'ऊ': 'u', 'ऋ': 'ri', 'ए': 'e', 'ऐ': 'ai', 'ओ': 'o', 'औ': 'au',
+
+    // Matras (Vowel signs)
+    'ા': 'a', 'િ': 'i', 'ી': 'i', 'ુ': 'u', 'ૂ': 'u', 'ૃ': 'ri', 'ે': 'e', 'ૈ': 'ai', 'ો': 'o', 'ૌ': 'au', 'ં': 'n', 'ઁ': 'n', 'ઃ': 'h',
+    'ा': 'a', 'ि': 'i', 'ी': 'i', 'ु': 'u', 'ू': 'u', 'ृ': 'ri', 'े': 'e', 'ै': 'ai', 'ो': 'o', 'ौ': 'au', 'ं': 'n', 'ँ': 'n', 'ः': 'h',
+
+    // Gujarati Consonants
+    'ક': 'k', 'ખ': 'kh', 'ગ': 'g', 'ઘ': 'gh', 'ઙ': 'n',
+    'ચ': 'ch', 'છ': 'chh', 'જ': 'j', 'ઝ': 'z', 'ઞ': 'n',
+    'ટ': 't', 'ઠ': 'th', 'ડ': 'd', 'ઢ': 'dh', 'ણ': 'n',
+    'ત': 't', 'થ': 'th', 'દ': 'd', 'ધ': 'dh', 'ન': 'n',
+    'પ': 'p', 'ફ': 'f', 'બ': 'b', 'ભ': 'bh', 'મ': 'm',
+    'ય': 'y', 'ર': 'r', 'લ': 'l', 'વ': 'v', 'શ': 'sh', 'ષ': 'sh', 'સ': 's', 'હ': 'h', 'ળ': 'l',
+
+    // Hindi Consonants
+    'क': 'k', 'ख': 'kh', 'ग': 'g', 'घ': 'gh', 'ङ': 'n',
+    'च': 'ch', 'छ': 'chh', 'ज': 'j', 'झ': 'z', 'ञ': 'n',
+    'ट': 't', 'ठ': 'th', 'ड': 'd', 'ढ': 'dh', 'ण': 'n',
+    'त': 't', 'थ': 'th', 'द': 'd', 'ध': 'dh', 'न': 'n',
+    'प': 'p', 'फ': 'f', 'ब': 'b', 'भ': 'bh', 'म': 'm',
+    'य': 'y', 'र': 'r', 'ल': 'l', 'व': 'v', 'श': 'sh', 'ष': 'sh', 'स': 's', 'ह': 'h',
+
+    // Digits
+    '૦': '0', '૧': '1', '૨': '2', '૩': '3', '૪': '4', '૫': '5', '૬': '6', '૭': '7', '૮': '8', '૯': '9',
+    '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9',
+  };
+
+  let transliterated = '';
+  for (const char of str) {
+    transliterated += charMap[char] !== undefined ? charMap[char] : char;
+  }
+
+  return transliterated
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 export default function ArticleForm({ articleId }: ArticleFormProps) {
   const router = useRouter();
@@ -122,26 +227,75 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [quoteCiteGu, setQuoteCiteGu] = useState('');
   const [quoteCiteHi, setQuoteCiteHi] = useState('');
 
-  const [image2, setImage2] = useState('');
-  const [image2Mode, setImage2Mode] = useState<'upload' | 'url'>('upload');
-  const [uploadingImage2, setUploadingImage2] = useState(false);
+interface ExtraImageSlot {
+  id: string;
+  url: string;
+  mode: 'upload' | 'url';
+  uploading: boolean;
+}
 
-  const [image3, setImage3] = useState('');
-  const [image3Mode, setImage3Mode] = useState<'upload' | 'url'>('upload');
-  const [uploadingImage3, setUploadingImage3] = useState(false);
+  // Dynamic additional gallery photos (Photos 2 to 10 - Total max 10 photos including Featured Photo)
+  const [extraImages, setExtraImages] = useState<ExtraImageSlot[]>([
+    { id: 'slot-1', url: '', mode: 'upload', uploading: false },
+    { id: 'slot-2', url: '', mode: 'upload', uploading: false },
+  ]);
 
-  const [image4, setImage4] = useState('');
-  const [image4Mode, setImage4Mode] = useState<'upload' | 'url'>('upload');
-  const [uploadingImage4, setUploadingImage4] = useState(false);
+  const handleAddImageSlot = () => {
+    if (extraImages.length >= 9) return; // 1 featured + 9 extra = max 10 total
+    setExtraImages((prev) => [
+      ...prev,
+      { id: Date.now().toString() + Math.random(), url: '', mode: 'upload', uploading: false },
+    ]);
+  };
 
-  const [image5, setImage5] = useState('');
-  const [image5Mode, setImage5Mode] = useState<'upload' | 'url'>('upload');
-  const [uploadingImage5, setUploadingImage5] = useState(false);
+  const handleRemoveImageSlot = (index: number) => {
+    setExtraImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateExtraImage = (index: number, updates: Partial<ExtraImageSlot>) => {
+    setExtraImages((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], ...updates };
+      return updated;
+    });
+  };
 
 
-  const [desc2, setDesc2] = useState('');
-  const [desc2Gu, setDesc2Gu] = useState('');
-  const [desc2Hi, setDesc2Hi] = useState('');
+interface ExtraDescriptionSlot {
+  id: string;
+  en: string;
+  gu: string;
+  hi: string;
+}
+
+  // Dynamic additional description/story sections (Description 2, Description 3, etc.)
+  const [extraDescriptions, setExtraDescriptions] = useState<ExtraDescriptionSlot[]>([
+    { id: 'desc-1', en: '', gu: '', hi: '' },
+  ]);
+
+  const handleAddDescriptionSlot = () => {
+    if (extraDescriptions.length >= 4) return; // 1 main + 4 extra = 5 max descriptions
+    setExtraDescriptions((prev) => [
+      ...prev,
+      { id: Date.now().toString() + Math.random(), en: '', gu: '', hi: '' },
+    ]);
+  };
+
+  const handleRemoveDescriptionSlot = (index: number) => {
+    setExtraDescriptions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateExtraDescription = (index: number, val: string) => {
+    setExtraDescriptions((prev) => {
+      const updated = [...prev];
+      const slot = { ...updated[index] };
+      if (contentLang === 'en') slot.en = val;
+      else if (contentLang === 'gu') slot.gu = val;
+      else if (contentLang === 'hi') slot.hi = val;
+      updated[index] = slot;
+      return updated;
+    });
+  };
 
   // Fallback unified content strings
   const [content, setContent] = useState('');
@@ -153,12 +307,62 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [categoryId, setCategoryId] = useState('');
+  const [additionalCategoryIds, setAdditionalCategoryIds] = useState<string[]>([]);
   const [location, setLocation] = useState('');
   const [authorId, setAuthorId] = useState('');
   const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'SCHEDULED'>('DRAFT');
   const [scheduledAt, setScheduledAt] = useState('');
   const [priority, setPriority] = useState(0);
   const [readingTime, setReadingTime] = useState(3);
+
+  // Social Media & Video / PDF Embeds
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [pdfUrl, setPdfUrl] = useState('');
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  // Helper: Format YouTube URL to Embed URL or ID
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) {
+      return `https://www.youtube.com/embed/${trimmed}`;
+    }
+    const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    if (match && match[1]) {
+      return `https://www.youtube.com/embed/${match[1]}`;
+    }
+    return trimmed;
+  };
+
+  // Upload PDF document attachment
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    setUploadingPdf(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await authFetch(getBackendApiUrl('/api/admin/upload'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload PDF document.');
+
+      setPdfUrl(json.url);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to upload PDF file.');
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
 
   // Flags
   const [isTrending, setIsTrending] = useState(false);
@@ -175,8 +379,38 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   // Tags (Stored as comma separated string in client, sent as object array to backend)
   const [tagsString, setTagsString] = useState('');
 
+  // Live dynamic current local date-time string (YYYY-MM-THH:mm)
+  const getCurrentLocalMinDateTime = () => {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  // Default future local date-time (1 hour from now)
+  const getFutureDefaultIso = () => {
+    const nextHour = new Date(Date.now() + 3600000);
+    return new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
   // Live Article Preview Toggle State
   const [showLivePreview, setShowLivePreview] = useState(false);
+
+  // Lock background body and html scroll when preview modal is open
+  useEffect(() => {
+    if (showLivePreview) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.touchAction = '';
+    };
+  }, [showLivePreview]);
 
   // Helper to insert formatting snippets into current content body
   const insertFormatting = (type: 'highlights' | 'fullTemplate' | 'quote' | 'heading' | 'subheading' | 'bold' | 'bullet') => {
@@ -226,7 +460,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     d1Str: string,
     qT: string,
     qC: string,
-    d2Str: string,
+    extraDescList: string[],
     galleryImages: string[],
     lang: 'en' | 'gu' | 'hi'
   ) => {
@@ -238,6 +472,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     if (d1Str.trim()) {
       parts.push(d1Str.trim());
     }
+    // Save all gallery photos (Images 2..10) in structured content
     galleryImages.forEach((img, idx) => {
       if (img && img.trim()) {
         parts.push(`![Gallery Image ${idx + 2}](${img.trim()})`);
@@ -247,9 +482,27 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       const citeStr = qC.trim() ? `\n> — ${qC.trim()}` : '';
       parts.push(`> "${qT.trim()}"${citeStr}`);
     }
-    if (d2Str.trim()) {
-      parts.push(d2Str.trim());
+    extraDescList.forEach((desc) => {
+      if (desc && desc.trim()) {
+        parts.push(desc.trim());
+      }
+    });
+
+    if (youtubeUrl && youtubeUrl.trim()) {
+      const embed = getYouTubeEmbedUrl(youtubeUrl);
+      if (embed) {
+        parts.push(`<div class="my-4 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-md"><iframe src="${embed}" class="h-full w-full" allowfullscreen frameborder="0"></iframe></div>`);
+      }
     }
+
+    if (twitterUrl && twitterUrl.trim()) {
+      parts.push(`<div class="my-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 via-white to-zinc-100/80 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans transition-all"><div class="flex items-center gap-3.5 min-w-0"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white text-base font-black shadow-sm">𝕏</span><div class="min-w-0"><span class="block text-sm sm:text-base font-extrabold text-zinc-900 dark:text-white leading-tight truncate">View Post on X (Twitter)</span><span class="block text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">Click to view official post</span></div></div><a href="${twitterUrl.trim()}" target="_blank" rel="noopener noreferrer" class="rounded-xl bg-black hover:bg-zinc-800 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-sm shrink-0 flex items-center justify-center gap-2 no-underline cursor-pointer" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">Open Tweet</span> <span style="color: #ffffff !important;">↗</span></a></div>`);
+    }
+
+    if (pdfUrl && pdfUrl.trim()) {
+      parts.push(`<div class="my-6 rounded-2xl border border-red-200 dark:border-red-900/60 bg-gradient-to-r from-red-50 via-rose-50/40 to-red-50/80 dark:from-red-950/40 dark:via-red-950/20 dark:to-rose-950/30 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans transition-all"><div class="flex items-center gap-3.5 min-w-0"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white text-base shadow-sm">📄</span><div class="min-w-0"><span class="block text-sm sm:text-base font-extrabold text-red-950 dark:text-red-200 leading-tight truncate">Attached Official Document (PDF)</span><span class="block text-xs text-red-700/80 dark:text-red-300/80 font-medium mt-0.5">Verified Official Document</span></div></div><a href="${pdfUrl.trim()}" target="_blank" download class="rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-md shadow-red-600/25 shrink-0 flex items-center justify-center gap-2 no-underline cursor-pointer" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">Download PDF</span> <span style="color: #ffffff !important;">⬇</span></a></div>`);
+    }
+
     return parts.join('\n\n');
   };
 
@@ -272,8 +525,13 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     if (!quoteCiteGu.trim()) setQuoteCiteGu(quoteCite);
     if (!quoteCiteHi.trim()) setQuoteCiteHi(quoteCite);
 
-    if (!desc2Gu.trim()) setDesc2Gu(desc2);
-    if (!desc2Hi.trim()) setDesc2Hi(desc2);
+    setExtraDescriptions((prev) =>
+      prev.map((slot) => ({
+        ...slot,
+        gu: slot.gu.trim() ? slot.gu : slot.en,
+        hi: slot.hi.trim() ? slot.hi : slot.en,
+      }))
+    );
 
     if (!contentGu.trim()) setContentGu(content);
     if (!contentHi.trim()) setContentHi(content);
@@ -322,33 +580,24 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     loadSelectors();
   }, []);
 
-  // Parse body string into distinct sections (Highlights, Desc1, Image2..5, Quote, Desc2)
+  // Parse body string into distinct sections (Highlights, Desc1, Images, Quote, Desc2)
   const parseBodyToSections = (raw: string) => {
     let hl = '';
     let d1Str = '';
     let qT = '';
     let qC = '';
     let d2Str = '';
-    let img2 = '';
-    let img3 = '';
-    let img4 = '';
-    let img5 = '';
-
-    if (!raw) return { hl, d1Str, qT, qC, d2Str, img2, img3, img4, img5 };
-
-    const galleryMatches = [...raw.matchAll(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi)];
     const extractedImgs: string[] = [];
+
+    if (!raw) return { hl, d1Str, qT, qC, d2Str, extractedImgs };
+
+    const galleryMatches = [...raw.matchAll(/!\[Gallery Image \d+\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi)];
     for (const match of galleryMatches) {
       if (match[1]) {
         extractedImgs.push(match[1]);
         raw = raw.replace(match[0], '');
       }
     }
-    img2 = extractedImgs[0] || '';
-    img3 = extractedImgs[1] || '';
-    img4 = extractedImgs[2] || '';
-    img5 = extractedImgs[3] || '';
-
 
     const paragraphs = raw.split(/\n\n+/);
     const d1Paras: string[] = [];
@@ -403,13 +652,12 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     }
 
     d1Str = d1Paras.join('\n\n');
-    d2Str = d2Paras.join('\n\n');
 
-    if (!d1Str && !hl && !qT && !d2Str) {
+    if (!d1Str && !hl && !qT && d2Paras.length === 0) {
       d1Str = raw.trim();
     }
 
-    return { hl, d1Str, qT, qC, d2Str, img2, img3, img4, img5 };
+    return { hl, d1Str, qT, qC, extractedDescs: d2Paras, extractedImgs };
   };
 
   // Load article values if in edit mode
@@ -463,27 +711,71 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setDesc1(parsedEn.d1Str || '');
         setQuoteText(parsedEn.qT || '');
         setQuoteCite(parsedEn.qC || '');
-        setDesc2(parsedEn.d2Str || '');
 
         const parsedGu = parseBodyToSections(art.contentGu || primaryContent);
         setHighlightsGu(art.highlightsGu || parsedGu.hl || art.highlights || parsedEn.hl || '');
         setDesc1Gu(parsedGu.d1Str || parsedEn.d1Str || '');
         setQuoteTextGu(parsedGu.qT || parsedEn.qT || '');
         setQuoteCiteGu(parsedGu.qC || parsedEn.qC || '');
-        setDesc2Gu(parsedGu.d2Str || parsedEn.d2Str || '');
 
         const parsedHi = parseBodyToSections(art.contentHi || primaryContent);
         setHighlightsHi(art.highlightsHi || parsedHi.hl || art.highlights || parsedEn.hl || '');
         setDesc1Hi(parsedHi.d1Str || parsedEn.d1Str || '');
         setQuoteTextHi(parsedHi.qT || parsedEn.qT || '');
         setQuoteCiteHi(parsedHi.qC || parsedEn.qC || '');
-        setDesc2Hi(parsedHi.d2Str || parsedEn.d2Str || '');
 
-        // Populate optional gallery photos (Images 2..5) from article property or parsed markdown
-        setImage2(art.image2 || art.galleryImage2 || art.secondaryImage || parsedEn.img2 || parsedGu.img2 || parsedHi.img2 || '');
-        setImage3(art.image3 || parsedEn.img3 || parsedGu.img3 || parsedHi.img3 || '');
-        setImage4(art.image4 || parsedEn.img4 || parsedGu.img4 || parsedHi.img4 || '');
-        setImage5(art.image5 || parsedEn.img5 || parsedGu.img5 || parsedHi.img5 || '');
+        // Populate dynamic extra descriptions
+        const enDescs = (parsedEn.extractedDescs && parsedEn.extractedDescs.length > 0) ? parsedEn.extractedDescs : (art.desc2 ? [art.desc2] : []);
+        const guDescs = (parsedGu.extractedDescs && parsedGu.extractedDescs.length > 0) ? parsedGu.extractedDescs : (art.desc2Gu ? [art.desc2Gu] : []);
+        const hiDescs = (parsedHi.extractedDescs && parsedHi.extractedDescs.length > 0) ? parsedHi.extractedDescs : (art.desc2Hi ? [art.desc2Hi] : []);
+
+        const maxDescLength = Math.max(enDescs.length, guDescs.length, hiDescs.length, 1);
+        const loadedDescs: ExtraDescriptionSlot[] = [];
+
+        for (let i = 0; i < maxDescLength; i++) {
+          loadedDescs.push({
+            id: `desc-${i}`,
+            en: enDescs[i] || '',
+            gu: guDescs[i] || enDescs[i] || '',
+            hi: hiDescs[i] || enDescs[i] || '',
+          });
+        }
+        setExtraDescriptions(loadedDescs);
+
+        // Populate optional gallery photos (Images 2..10) from article property or parsed markdown
+        const allExtractedImgs = [
+          art.image2 || art.galleryImage2 || art.secondaryImage,
+          art.image3,
+          art.image4,
+          art.image5,
+          art.image6,
+          art.image7,
+          art.image8,
+          art.image9,
+          art.image10,
+          ...(parsedEn.extractedImgs || []),
+          ...(parsedGu.extractedImgs || []),
+          ...(parsedHi.extractedImgs || []),
+        ].filter(Boolean) as string[];
+
+        const uniqueExtraUrls = Array.from(new Set(allExtractedImgs)).filter((u) => u !== art.featuredImage);
+
+        const loadedExtra: ExtraImageSlot[] = uniqueExtraUrls.slice(0, 9).map((url, idx) => ({
+          id: `loaded-${idx}`,
+          url,
+          mode: url.startsWith('http://') || url.startsWith('https://') ? 'url' : 'upload',
+          uploading: false,
+        }));
+
+        while (loadedExtra.length < 2) {
+          loadedExtra.push({
+            id: `default-${loadedExtra.length}`,
+            url: '',
+            mode: 'upload',
+            uploading: false,
+          });
+        }
+        setExtraImages(loadedExtra);
 
         setFeaturedImage(art.featuredImage || '');
         if (art.featuredImage && (art.featuredImage.startsWith('http://') || art.featuredImage.startsWith('https://'))) {
@@ -491,6 +783,9 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         } else {
           setImageMode('upload');
         }
+        setYoutubeUrl(art.youtubeUrl || art.youtube || '');
+        setTwitterUrl(art.twitterUrl || art.twitter || '');
+        setPdfUrl(art.pdfUrl || art.pdf || '');
         setCategoryId(art.categoryId || art.category?.id || '');
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
@@ -524,8 +819,15 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             .map((t: any) => (t.tag?.name || t.name || '').trim())
             .filter((name: string) => name.length > 0);
           setTagsString(names.join(', '));
+
+          // Match tag names to category IDs for additional categories selection
+          const loadedAddCats = categories
+            .filter((c) => names.some((n: string) => n.toLowerCase() === c.name.toLowerCase()))
+            .map((c) => c.id);
+          setAdditionalCategoryIds(loadedAddCats);
         } else {
           setTagsString('');
+          setAdditionalCategoryIds([]);
         }
       } catch (err: any) {
         console.error('Error loading article in edit mode:', err);
@@ -572,14 +874,20 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload image.');
+      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload media file.');
 
-      setFeaturedImage(json.url);
+      const mediaUrl = json.url || json.data?.url || (json.file ? json.file.url : '');
+      if (mediaUrl) {
+        setFeaturedImage(mediaUrl);
+      } else {
+        throw new Error('No media URL returned by server.');
+      }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to upload image from computer.');
+      console.error('Media upload error:', err);
+      setError(err.message || 'Failed to upload image/video from your computer.');
     } finally {
       setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -605,7 +913,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     const effectiveD1 = (desc1 || desc1Gu || desc1Hi || content || '').trim();
     const effectiveQuoteText = (quoteText || quoteTextGu || quoteTextHi || '').trim();
     const effectiveQuoteCite = (quoteCite || quoteCiteGu || quoteCiteHi || '').trim();
-    const effectiveD2 = (desc2 || desc2Gu || desc2Hi || '').trim();
+    const effectiveD2 = extraDescriptions.length > 0 ? (extraDescriptions[0].en || extraDescriptions[0].gu || extraDescriptions[0].hi || '').trim() : '';
 
     // Granular Validation with explicit field names
     const missingFields: string[] = [];
@@ -620,19 +928,44 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       return;
     }
 
+    if (status === 'SCHEDULED') {
+      if (!scheduledAt) {
+        setError('Please select a Scheduled Publish Date & Time.');
+        setLoading(false);
+        return;
+      }
+      const schedTime = new Date(scheduledAt).getTime();
+      if (isNaN(schedTime) || schedTime <= Date.now()) {
+        setError('Scheduled publish date & time must be set in the future (later than current time).');
+        setLoading(false);
+        return;
+      }
+    }
+
     // Compile distinct input sections into complete article content strings
-    const galleryPayload = [image2, image3, image4, image5];
-    const compiledEn = compileStructuredContent(highlights.trim() || effectiveHighlights, desc1.trim() || effectiveD1, quoteText.trim() || effectiveQuoteText, quoteCite.trim() || effectiveQuoteCite, desc2.trim() || effectiveD2, galleryPayload, 'en');
-    const compiledGu = compileStructuredContent(highlightsGu.trim() || effectiveHighlights, desc1Gu.trim() || effectiveD1, quoteTextGu.trim() || effectiveQuoteText, quoteCiteGu.trim() || effectiveQuoteCite, desc2Gu.trim() || effectiveD2, galleryPayload, 'gu');
-    const compiledHi = compileStructuredContent(highlightsHi.trim() || effectiveHighlights, desc1Hi.trim() || effectiveD1, quoteTextHi.trim() || effectiveQuoteText, quoteCiteHi.trim() || effectiveQuoteCite, desc2Hi.trim() || effectiveD2, galleryPayload, 'hi');
+    const galleryPayload = extraImages.map((slot) => slot.url.trim()).filter(Boolean);
+    const extraDescEn = extraDescriptions.map((item) => item.en.trim()).filter(Boolean);
+    const extraDescGu = extraDescriptions.map((item) => item.gu.trim() || item.en.trim()).filter(Boolean);
+    const extraDescHi = extraDescriptions.map((item) => item.hi.trim() || item.en.trim()).filter(Boolean);
+
+    const compiledEn = compileStructuredContent(highlights.trim() || effectiveHighlights, desc1.trim() || effectiveD1, quoteText.trim() || effectiveQuoteText, quoteCite.trim() || effectiveQuoteCite, extraDescEn, galleryPayload, 'en');
+    const compiledGu = compileStructuredContent(highlightsGu.trim() || effectiveHighlights, desc1Gu.trim() || effectiveD1, quoteTextGu.trim() || effectiveQuoteText, quoteCiteGu.trim() || effectiveQuoteCite, extraDescGu, galleryPayload, 'gu');
+    const compiledHi = compileStructuredContent(highlightsHi.trim() || effectiveHighlights, desc1Hi.trim() || effectiveD1, quoteTextHi.trim() || effectiveQuoteText, quoteCiteHi.trim() || effectiveQuoteCite, extraDescHi, galleryPayload, 'hi');
 
 
-    // Convert comma-separated tags to object array
-    const tags = tagsString
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .map((name) => ({ name }));
+    // Combine explicit tagsString tags and additional category names as tags
+    const additionalCatNames = additionalCategoryIds
+      .map((id) => categories.find((c) => c.id === id)?.name)
+      .filter((n): n is string => Boolean(n));
+
+    const combinedTagNames = Array.from(
+      new Set([
+        ...tagsString.split(',').map((t) => t.trim()).filter((t) => t.length > 0),
+        ...additionalCatNames,
+      ])
+    );
+
+    const tags = combinedTagNames.map((name) => ({ name }));
 
     const payload = {
       slug: safeSlug,
@@ -648,7 +981,20 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       contentHi: compiledHi,
       featuredImage: finalFeaturedImage,
       thumbnail: finalFeaturedImage,
+      image2: galleryPayload[0] || '',
+      image3: galleryPayload[1] || '',
+      image4: galleryPayload[2] || '',
+      image5: galleryPayload[3] || '',
+      image6: galleryPayload[4] || '',
+      image7: galleryPayload[5] || '',
+      image8: galleryPayload[6] || '',
+      image9: galleryPayload[7] || '',
+      image10: galleryPayload[8] || '',
+      galleryImages: galleryPayload,
       categoryId,
+      youtubeUrl: youtubeUrl.trim() || undefined,
+      twitterUrl: twitterUrl.trim() || undefined,
+      pdfUrl: pdfUrl.trim() || undefined,
       location: location || null,
       authorId,
       status,
@@ -685,7 +1031,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       fetch('/api/revalidate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: result.article?.slug || result.slug || slug }),
+        body: JSON.stringify({ path: '/', slug: result.article?.slug || result.slug || slug }),
       }).catch(() => {});
 
       // Route back to list
@@ -695,6 +1041,29 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
       setError(err.message);
       setLoading(false);
     }
+  };
+
+  // Dynamic button label helper based on publication status and edit mode
+  const getSaveButtonLabel = () => {
+    if (loading) {
+      return status === 'DRAFT'
+        ? 'Saving Draft...'
+        : status === 'SCHEDULED'
+        ? 'Scheduling...'
+        : 'Publishing Article...';
+    }
+
+    if (isEditMode) {
+      if (status === 'DRAFT') return 'Update Draft';
+      if (status === 'SCHEDULED') return 'Update Scheduled Article';
+      if (status === 'ARCHIVED') return 'Archive Article';
+      return 'Update Published Article';
+    }
+
+    if (status === 'DRAFT') return 'Save Draft';
+    if (status === 'SCHEDULED') return 'Schedule Article';
+    if (status === 'ARCHIVED') return 'Save as Archived';
+    return 'Save & Publish Article';
   };
 
   const handleCategorySelect = (val: string) => {
@@ -710,7 +1079,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         setLocation('National');
       } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
         // Try to match exact city, else default to Gujarat
-        const cityMatch = GUJARAT_LOCATIONS.find(
+        const cityMatch = LOCATION_OPTIONS.find(
           (loc) => loc.value.toLowerCase() === catNameLower || catNameLower.includes(loc.value.toLowerCase())
         );
         setLocation(cityMatch ? cityMatch.value : 'Gujarat');
@@ -768,6 +1137,29 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
     );
   }
 
+  const renderFormattedPreviewContent = (rawText: string) => {
+    if (!rawText || !rawText.trim()) return null;
+    let formatted = rawText
+      // Convert markdown images ![alt](url) to HTML <img>
+      .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi, (match, alt, url) => {
+        return `<figure class="my-4 space-y-1"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || 'Article Image'}" class="w-full h-full object-cover" /></div>${alt ? `<figcaption class="text-xs text-center text-zinc-500 italic">${alt}</figcaption>` : ''}</figure>`;
+      })
+      // Clean up multiple nested blockquotes created by browser formatting
+      .replace(/(<blockquote[^>]*>\s*)+/gi, '<blockquote class="my-4 border-l-[3px] border-[#B3121B] pl-4 font-sans font-bold text-zinc-900 dark:text-white">')
+      .replace(/(\s*<\/blockquote>)+/gi, '</blockquote>')
+      // Convert plain URLs (not inside href="...") into clickable hyperlinks
+      .replace(/(^|[\s>(])(https?:\/\/[^\s<"']+)/g, (match, prefix, url) => {
+        return `${prefix}<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 font-bold underline hover:text-blue-800 break-all">${url}</a>`;
+      });
+
+    return (
+      <div
+        className="prose dark:prose-invert max-w-none text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 font-medium [&_img]:rounded-xl [&_a]:text-blue-600 [&_a]:underline [&_a]:font-bold [&_figure]:my-4 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:my-3 [&_blockquote]:font-bold [&_blockquote]:not-italic [&_blockquote]:text-zinc-900 dark:[&_blockquote]:text-white [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:list-item [&_li]:my-1"
+        dangerouslySetInnerHTML={{ __html: formatted }}
+      />
+    );
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
 
@@ -776,7 +1168,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push('/admin/articles')}
             className="rounded-lg border border-zinc-200 p-2 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-950/40"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -788,19 +1180,30 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span>{loading ? 'Saving...' : 'Save Article'}</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowLivePreview(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-bold text-zinc-800 transition-all hover:bg-zinc-100 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800 shadow-xs cursor-pointer"
+          >
+            <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>Preview Article</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 disabled:opacity-50 cursor-pointer"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span>{getSaveButtonLabel()}</span>
+          </button>
+        </div>
       </div>
 
       {/* Error Alert */}
@@ -831,7 +1234,6 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           />
           <p className="text-[11px] text-zinc-400 mt-1">Enter a short URL-friendly slug in English (e.g. flood-havoc-gujarat)</p>
         </div>
-
         {/* LINE 2: Title (*) / Headline */}
         <div>
           <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
@@ -841,9 +1243,11 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             type="text"
             value={(contentLang === 'gu' ? titleGu : contentLang === 'hi' ? titleHi : title) || ''}
             onChange={(e) => {
-              if (contentLang === 'en') setTitle(e.target.value);
-              else if (contentLang === 'gu') setTitleGu(e.target.value);
-              else if (contentLang === 'hi') setTitleHi(e.target.value);
+              const val = e.target.value;
+              if (contentLang === 'en') setTitle(val);
+              else if (contentLang === 'gu') setTitleGu(val);
+              else if (contentLang === 'hi') setTitleHi(val);
+              setSlug(generateEnglishSlug(val));
             }}
             placeholder={
               contentLang === 'gu'
@@ -892,18 +1296,7 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             <CustomSelect
               value={location || ''}
               onChange={(val) => setLocation(val)}
-              options={(() => {
-                const selectedCat = categories.find((c) => c.id === categoryId);
-                const catNameLower = selectedCat?.name?.trim().toLowerCase() || '';
-                if (INTERNATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n))) {
-                  return INTERNATIONAL_LOCATIONS;
-                } else if (NATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
-                  return NATIONAL_LOCATIONS;
-                } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
-                  return GUJARAT_LOCATIONS;
-                }
-                return LOCATION_OPTIONS; // All options when no category selected
-              })()}
+              options={LOCATION_OPTIONS}
               placeholder="[Select City / Region]"
               searchable
             />
@@ -927,6 +1320,62 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                 searchable
               />
             )}
+          </div>
+        </div>
+
+        {/* 🏷️ MULTIPLE CATEGORY CHECKBOX GRID (Like Old Website) */}
+        <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-950/40 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 flex items-center gap-2">
+              <span>Category (*) [Select Multiple News Sections]</span>
+              <span className="text-[10px] font-extrabold bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 px-2.5 py-0.5 rounded-full">
+                {1 + additionalCategoryIds.filter(id => id !== categoryId).length} Selected
+              </span>
+            </label>
+            <span className="text-[11px] text-zinc-500 font-medium">
+              Check all news sections where this article should appear.
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1">
+            {categories.map((cat) => {
+              const isPrimary = cat.id === categoryId;
+              const isChecked = isPrimary || additionalCategoryIds.includes(cat.id);
+
+              return (
+                <label
+                  key={cat.id}
+                  className={`flex items-center gap-2 rounded-xl border p-2.5 text-xs font-bold transition-all cursor-pointer select-none ${
+                    isChecked
+                      ? 'border-red-500 bg-red-50/80 text-red-700 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300 shadow-2xs'
+                      : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => {
+                      if (isPrimary) {
+                        // If unchecking primary, don't allow unchecking main category directly
+                        return;
+                      }
+                      if (e.target.checked) {
+                        setAdditionalCategoryIds((prev) => Array.from(new Set([...prev, cat.id])));
+                      } else {
+                        setAdditionalCategoryIds((prev) => prev.filter((id) => id !== cat.id));
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-zinc-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  />
+                  <span className="truncate">{cat.name}</span>
+                  {isPrimary && (
+                    <span className="ml-auto text-[9px] font-black uppercase tracking-wider bg-red-600 text-white px-1.5 py-0.5 rounded">
+                      Main
+                    </span>
+                  )}
+                </label>
+              );
+            })}
           </div>
         </div>
 
@@ -1083,62 +1532,136 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           />
         </div>
 
-        {/* 🖼️ DISTINCT SECTION 2: Upload Images 1 [Size: 1100px X 541px] */}
-        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/20">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
-              Upload Images 1 (Primary Featured Photo) [Size: 1100px X 541px] <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center gap-2">
+        {/* 🖼️ DISTINCT SECTION 2: Upload Primary Featured Media (Photo / Video) [Size: 1100px X 541px] */}
+        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5 dark:border-zinc-800 dark:bg-zinc-950/20">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-200/80 pb-3 dark:border-zinc-800 gap-3">
+            <div>
+              <label className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wider dark:text-zinc-200 flex items-center gap-1.5 flex-wrap">
+                <Video className="h-4 w-4 text-red-600 shrink-0" />
+                <span>Upload Primary Media (Featured Photo or Video)</span>
+                <span className="text-[10px] text-zinc-400 font-medium normal-case">[Size: 1100px X 541px]</span>
+                <span className="text-red-500 font-bold">*</span>
+              </label>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Upload an Image or Video directly from your device (.jpg, .png, .webp, .mp4, .webm, .mov), or paste a direct media URL.
+              </p>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800 shrink-0 w-fit">
               <button
                 type="button"
                 onClick={() => setImageMode('upload')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${imageMode === 'upload'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${imageMode === 'upload'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                   }`}
               >
-                Upload File
+                <UploadCloud className="h-3.5 w-3.5" />
+                <span>Upload from Device</span>
               </button>
               <button
                 type="button"
                 onClick={() => setImageMode('url')}
-                className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-all ${imageMode === 'url'
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                  : 'text-zinc-500 hover:text-zinc-900'
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${imageMode === 'url'
+                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                   }`}
               >
-                Image URL
+                <LinkIcon className="h-3.5 w-3.5" />
+                <span>Media URL</span>
               </button>
             </div>
           </div>
 
           {imageMode === 'upload' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
+            <div className="space-y-3">
+              <div className="relative rounded-2xl border-2 border-dashed border-zinc-300 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900/60 text-center transition-all hover:border-red-500 hover:bg-red-50/20 dark:hover:border-red-500">
                 <input
                   type="file"
-                  accept="image/*"
+                  id="primary-media-file-input"
+                  accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.avi,.jpg,.jpeg,.png,.webp,.gif"
                   onChange={handleImageUpload}
                   disabled={uploadingImage}
-                  className="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 dark:file:bg-red-950/30 dark:file:text-red-400 cursor-pointer"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
                 />
-                {uploadingImage && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  {uploadingImage ? (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+                      <span className="text-xs font-bold text-red-600">Uploading media from device to server...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                        <UploadCloud className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                          Click to browse or drag & drop Image or Video from your computer
+                        </p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 font-medium">
+                          Supports Photos (JPG, PNG, WebP) & Videos (MP4, WebM, MOV) up to 200MB
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs">
+                        <UploadCloud className="h-4 w-4" />
+                        <span>Choose Photo or Video from Device</span>
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
-            <input
-              type="url"
-              value={featuredImage || ''}
-              onChange={(e) => setFeaturedImage(e.target.value)}
-              placeholder="https://images.unsplash.com/photo-..."
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
-            />
+            <div className="space-y-2">
+              <input
+                type="url"
+                value={featuredImage || ''}
+                onChange={(e) => setFeaturedImage(e.target.value)}
+                placeholder="Paste direct Image URL (https://images.unsplash.com/...) or Video URL (https://domain.com/video.mp4)"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs focus:border-red-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+              />
+              <p className="text-[11px] text-zinc-400">
+                You can paste direct web links to photos or MP4/WebM videos.
+              </p>
+            </div>
           )}
 
           {featuredImage && (
-            <div className="relative aspect-[16/9] max-w-sm overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-black">
-              <img src={featuredImage} alt="Featured preview" className="h-full w-full object-cover" />
+            <div className="space-y-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                  {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || featuredImage.includes('/video/upload/') ? (
+                    <>
+                      <Video className="h-3.5 w-3.5 text-red-600" />
+                      <span>📹 Attached Video Preview</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-3.5 w-3.5 text-red-600" />
+                      <span>🖼️ Attached Photo Preview</span>
+                    </>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFeaturedImage('')}
+                  className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove Media</span>
+                </button>
+              </div>
+
+              <div className="relative aspect-[16/9] max-w-lg overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-black shadow-sm">
+                {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || featuredImage.includes('/video/upload/') ? (
+                  <video src={featuredImage} controls autoPlay muted loop className="h-full w-full object-contain" />
+                ) : (
+                  <img src={featuredImage} alt="Featured preview" className="h-full w-full object-cover" />
+                )}
+              </div>
+              <p className="text-[11px] font-mono text-zinc-400 truncate max-w-lg">
+                {featuredImage}
+              </p>
             </div>
           )}
         </div>
@@ -1195,126 +1718,290 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
-        {/* 🖼️ DISTINCT SECTION 5: Upload Additional Gallery Photos (Up to 4 additional - Total 5 Photos max) */}
-        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-800 dark:bg-zinc-950/20">
-          <div className="flex items-center justify-between border-b border-zinc-200/60 pb-2 dark:border-zinc-800">
+        {/* 🖼️ DISTINCT SECTION 5: Upload Additional Gallery Photos (Dynamic - Up to 9 optional photos | Max 10 Photos Total) */}
+        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5 dark:border-zinc-800 dark:bg-zinc-950/20">
+          <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3 dark:border-zinc-800">
             <div>
-              <label className="block text-xs font-black text-zinc-800 uppercase tracking-wider dark:text-zinc-200">
-                Upload Additional Gallery Photos (Up to 4 optional photos - Total max 5 photos)
+              <label className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wider dark:text-zinc-200 flex items-center gap-1.5">
+                <ImageIcon className="h-4 w-4 text-red-600" />
+                <span>Upload Additional Gallery Photos (Dynamic - Up to 9 photos | Max 10 Photos Total)</span>
               </label>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                Upload up to 4 additional images for this article [Recommended size: 1100px x 541px].
+                Upload or paste URLs for up to 9 additional images for this article [Recommended size: 1100px x 541px].
               </p>
             </div>
-            <span className="text-xs font-black text-red-600 bg-red-50 dark:bg-red-950/40 px-2.5 py-1 rounded-md border border-red-100 dark:border-red-900/50">
-              Max 5 Photos Total
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold text-red-600 bg-red-50 dark:bg-red-950/40 px-3 py-1 rounded-lg border border-red-100 dark:border-red-900/50">
+                {(featuredImage ? 1 : 0) + extraImages.filter((s) => s.url.trim()).length} / 10 Photos Selected
+              </span>
+            </div>
           </div>
 
-          {[
-            { num: 2, label: '2nd Optional Gallery Photo', val: image2, setVal: setImage2, mode: image2Mode, setMode: setImage2Mode, loading: uploadingImage2, setLoading: setUploadingImage2 },
-            { num: 3, label: '3rd Optional Gallery Photo', val: image3, setVal: setImage3, mode: image3Mode, setMode: setImage3Mode, loading: uploadingImage3, setLoading: setUploadingImage3 },
-            { num: 4, label: '4th Optional Gallery Photo', val: image4, setVal: setImage4, mode: image4Mode, setMode: setImage4Mode, loading: uploadingImage4, setLoading: setUploadingImage4 },
-            { num: 5, label: '5th Optional Gallery Photo', val: image5, setVal: setImage5, mode: image5Mode, setMode: setImage5Mode, loading: uploadingImage5, setLoading: setUploadingImage5 },
-          ].map((slot) => (
-            <div key={slot.num} className="p-3.5 rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                  Image {slot.num} ({slot.label})
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => slot.setMode('upload')}
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${slot.mode === 'upload'
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'text-zinc-500 hover:text-zinc-900'
-                      }`}
-                  >
-                    Upload File
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => slot.setMode('url')}
-                    className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${slot.mode === 'url'
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
-                      : 'text-zinc-500 hover:text-zinc-900'
-                      }`}
-                  >
-                    Image URL
-                  </button>
-                </div>
-              </div>
-
-              {slot.mode === 'upload' ? (
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      slot.setLoading(true);
-                      try {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
-                        const json = await res.json();
-                        if (res.ok && json.url) slot.setVal(json.url);
-                      } catch (err) {
-                        console.error(err);
-                      } finally {
-                        slot.setLoading(false);
-                      }
-                    }}
-                    disabled={slot.loading}
-                    className="block w-full text-xs text-zinc-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-800 hover:file:bg-zinc-200 cursor-pointer"
-                  />
-                  {slot.loading && <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
-                </div>
-              ) : (
-                <input
-                  type="url"
-                  value={slot.val || ''}
-                  onChange={(e) => slot.setVal(e.target.value)}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3.5 py-2 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
-                />
-              )}
-
-              {slot.val && (
-                <div className="flex items-center gap-3 pt-1">
-                  <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-zinc-200 bg-black shrink-0">
-                    <img src={slot.val} alt={`Image ${slot.num} preview`} className="h-full w-full object-cover" />
+          <div className="space-y-3">
+            {extraImages.map((slot, idx) => {
+              const photoNum = idx + 2; // Image 2 to Image 10
+              const labelSuffix = photoNum === 2 ? '2nd' : photoNum === 3 ? '3rd' : `${photoNum}th`;
+              return (
+                <div key={slot.id || idx} className="p-4 rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs transition-all hover:border-zinc-300 dark:hover:border-zinc-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-black text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                        {photoNum}
+                      </span>
+                      <span>Image {photoNum} ({labelSuffix} Optional Gallery Photo)</span>
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800">
+                        <button
+                          type="button"
+                          onClick={() => updateExtraImage(idx, { mode: 'upload' })}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-all ${slot.mode === 'upload'
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                            }`}
+                        >
+                          Upload File
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateExtraImage(idx, { mode: 'url' })}
+                          className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-all ${slot.mode === 'url'
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                            }`}
+                        >
+                          Image URL
+                        </button>
+                      </div>
+                      {extraImages.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImageSlot(idx)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 transition-colors"
+                          title="Remove Image Slot"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => slot.setVal('')}
-                    className="text-xs font-bold text-red-600 hover:underline"
-                  >
-                    Remove Photo {slot.num}
-                  </button>
+
+                  {slot.mode === 'upload' ? (
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.avi,.jpg,.jpeg,.png,.webp,.gif"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          updateExtraImage(idx, { uploading: true });
+                          try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
+                            const json = await res.json();
+                            const mediaUrl = json.url || json.data?.url || (json.file ? json.file.url : '');
+                            if (res.ok && mediaUrl) updateExtraImage(idx, { url: mediaUrl });
+                          } catch (err) {
+                            console.error(err);
+                          } finally {
+                            updateExtraImage(idx, { uploading: false });
+                            e.target.value = '';
+                          }
+                        }}
+                        disabled={slot.uploading}
+                        className="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-zinc-100 file:text-zinc-800 hover:file:bg-zinc-200 dark:file:bg-zinc-800 dark:file:text-zinc-200 cursor-pointer"
+                      />
+                      {slot.uploading && <Loader2 className="h-4 w-4 animate-spin text-zinc-600" />}
+                    </div>
+                  ) : (
+                    <input
+                      type="url"
+                      value={slot.url || ''}
+                      onChange={(e) => updateExtraImage(idx, { url: e.target.value })}
+                      placeholder="Paste Image URL (https://...) or Video URL (https://.../video.mp4)"
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+                    />
+                  )}
+
+                  {slot.url && (
+                    <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-zinc-200 bg-black shrink-0">
+                          {slot.url.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || slot.url.includes('/video/upload/') ? (
+                            <video src={slot.url} controls className="h-full w-full object-cover" />
+                          ) : (
+                            <img src={slot.url} alt={`Media ${photoNum} preview`} className="h-full w-full object-cover" />
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono text-zinc-400 truncate max-w-xs">{slot.url}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => updateExtraImage(idx, { url: '' })}
+                        className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
+                      >
+                        Clear Slot {photoNum}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
+              );
+            })}
+          </div>
+
+          {extraImages.length < 9 && (
+            <button
+              type="button"
+              onClick={handleAddImageSlot}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 py-3 text-xs font-extrabold text-zinc-700 transition-all hover:border-red-500 hover:bg-red-50/50 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-red-500 dark:hover:bg-red-950/20 dark:hover:text-red-400"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Image Slot ({extraImages.length + 1} of 9 Additional Photos | Max 10 Total)</span>
+            </button>
+          )}
         </div>
 
 
-        {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
-        {/* 📑 DISTINCT SECTION 6: Description 2 (Optional) / Additional Story */}
-        <div>
-          <RichTextArea
-            label="Description 2 (Optional) / Additional Paragraphs"
-            value={(contentLang === 'gu' ? desc2Gu : contentLang === 'hi' ? desc2Hi : desc2) || ''}
-            onChange={(val) => {
-              if (contentLang === 'en') setDesc2(val);
-              else if (contentLang === 'gu') setDesc2Gu(val);
-              else if (contentLang === 'hi') setDesc2Hi(val);
-            }}
-            placeholder="Write concluding story paragraphs..."
-            rows={5}
-          />
+        {/* 📑 DISTINCT SECTION 6: Dynamic Additional Description / Story Sections (Max 5 Descriptions Total) */}
+        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5 dark:border-zinc-800 dark:bg-zinc-950/20">
+          <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3 dark:border-zinc-800">
+            <div>
+              <label className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wider dark:text-zinc-200 flex items-center gap-1.5">
+                <Type className="h-4 w-4 text-blue-600" />
+                <span>Additional Description Sections (Dynamic - Max 5 Descriptions Total)</span>
+              </label>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Add optional additional story description blocks (Description 2 to 5 | Max 5 total).
+              </p>
+            </div>
+            <span className="text-xs font-extrabold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-3 py-1 rounded-lg border border-blue-100 dark:border-blue-900/50">
+              {1 + extraDescriptions.length} / 5 Descriptions Total
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            {extraDescriptions.map((descSlot, idx) => {
+              const descNum = idx + 2; // Description 2 to Description 5
+              const currentVal = contentLang === 'gu' ? descSlot.gu : contentLang === 'hi' ? descSlot.hi : descSlot.en;
+              return (
+                <div key={descSlot.id || idx} className="p-4 rounded-xl border border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-[10px] font-black text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+                        {descNum}
+                      </span>
+                      <span>Description {descNum} (Optional Additional Story Paragraphs)</span>
+                    </label>
+                    {extraDescriptions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveDescriptionSlot(idx)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 transition-colors"
+                        title="Remove Description Section"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  <RichTextArea
+                    value={currentVal || ''}
+                    onChange={(val) => updateExtraDescription(idx, val)}
+                    placeholder="Write additional story paragraphs, subheadings, or detailed analysis..."
+                    rows={4}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {extraDescriptions.length < 4 && (
+            <button
+              type="button"
+              onClick={handleAddDescriptionSlot}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 py-3 text-xs font-extrabold text-zinc-700 transition-all hover:border-blue-500 hover:bg-blue-50/50 hover:text-blue-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-blue-500 dark:hover:bg-blue-950/20 dark:hover:text-blue-400"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Description Section (Description {extraDescriptions.length + 2} of 5 Max)</span>
+            </button>
+          )}
+        </div>
+
+        {/* 🎥 SOCIAL MEDIA, VIDEO & DOCUMENT EMBEDS (YouTube, Twitter / X, PDF) */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-xs dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
+          <div className="flex items-center gap-2 border-b border-zinc-200/80 pb-3 dark:border-zinc-800">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400 font-extrabold text-sm">
+              🎥
+            </span>
+            <div>
+              <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                Video, Twitter (X) & PDF Document Embeds
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Add YouTube videos, X (Twitter) tweet links, or official PDF document attachments to your news article.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {/* YouTube Video URL / Embed ID */}
+            <div>
+              <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
+                <span className="text-red-600">▶</span> YouTube Video URL / ID
+              </label>
+              <input
+                type="text"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="Ex: https://www.youtube.com/watch?v=4YWEl2ZZVyY"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-xs font-medium focus:border-red-600 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+              />
+              <p className="text-[10px] text-zinc-400 mt-1">Paste YouTube URL or embedded code ID.</p>
+            </div>
+
+            {/* Twitter / X Post URL */}
+            <div>
+              <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
+                <span className="text-sky-500">🐦</span> Twitter / X Post URL
+              </label>
+              <input
+                type="text"
+                value={twitterUrl}
+                onChange={(e) => setTwitterUrl(e.target.value)}
+                placeholder="Ex: https://x.com/GujaratPost/status/1820000000000"
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-xs font-medium focus:border-sky-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+              />
+              <p className="text-[10px] text-zinc-400 mt-1">Paste tweet link to embed post card.</p>
+            </div>
+
+            {/* PDF File / Attachment */}
+            <div>
+              <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
+                <span className="text-red-500">📄</span> PDF Document File / URL
+              </label>
+              <div className="flex items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-extrabold text-zinc-700 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 cursor-pointer shadow-2xs shrink-0">
+                  {uploadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  <span>{uploadingPdf ? 'Uploading...' : 'Choose PDF'}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handlePdfUpload}
+                    className="hidden"
+                    disabled={uploadingPdf}
+                  />
+                </label>
+                <input
+                  type="text"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="https://.../document.pdf"
+                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs font-medium focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+                />
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-1">Upload PDF file from computer or enter URL.</p>
+            </div>
+          </div>
         </div>
 
         {/* LINE 7: SEO Details & Publication Status */}
@@ -1337,9 +2024,19 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                Status (*)
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                  Status (*)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowLivePreview(true)}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 dark:text-blue-400 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>Preview Article</span>
+                </button>
+              </div>
               {userRole === 'REPORTER' ? (
                 <div className="w-full rounded-xl border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950/40 mt-1.5 px-4 py-3 text-sm text-zinc-500 font-semibold">
                   Draft (Pending Review)
@@ -1349,10 +2046,8 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                   value={status || 'DRAFT'}
                   onChange={(val) => {
                     setStatus(val as any);
-                    if (val === 'SCHEDULED' && !scheduledAt) {
-                      const nextHour = new Date(Date.now() + 3600000);
-                      const localIso = new Date(nextHour.getTime() - nextHour.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                      setScheduledAt(localIso);
+                    if (val === 'SCHEDULED' && (!scheduledAt || scheduledAt < getCurrentLocalMinDateTime())) {
+                      setScheduledAt(getFutureDefaultIso());
                     }
                   }}
                   options={[
@@ -1374,11 +2069,17 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
                 </label>
                 <input
                   type="datetime-local"
+                  min={getCurrentLocalMinDateTime()}
                   value={scheduledAt}
                   onChange={(e) => {
                     setScheduledAt(e.target.value);
                     if (e.target.value && status !== 'SCHEDULED') {
                       setStatus('SCHEDULED');
+                    }
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value && e.target.value < getCurrentLocalMinDateTime()) {
+                      setScheduledAt(getFutureDefaultIso());
                     }
                   }}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
@@ -1459,7 +2160,255 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
           </div>
         </div>
 
+        {/* 🚀 BOTTOM STICKY ACTION BAR (Save Article, Preview Article, Cancel) */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200/90 bg-white/95 p-5 shadow-lg backdrop-blur-md dark:border-zinc-800/90 dark:bg-zinc-900/95 sticky bottom-4 z-20">
+          <button
+            type="button"
+            onClick={() => router.push('/admin/articles')}
+            className="rounded-xl border border-zinc-200 bg-zinc-50 px-5 py-3 text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300 dark:hover:bg-zinc-800 transition-all cursor-pointer"
+          >
+            Cancel & Exit
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowLivePreview(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 py-3 text-xs font-extrabold text-blue-600 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-400 dark:hover:bg-blue-900/60 transition-all cursor-pointer shadow-2xs"
+            >
+              <Eye className="h-4 w-4" />
+              <span>Preview Article</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`inline-flex items-center gap-2 rounded-xl px-7 py-3 text-xs font-black text-white active:scale-[0.98] transition-all cursor-pointer shadow-md disabled:opacity-50 ${
+                status === 'DRAFT'
+                  ? 'bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100'
+                  : status === 'SCHEDULED'
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800'
+              }`}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              <span>{getSaveButtonLabel()}</span>
+            </button>
+          </div>
+        </div>
+
       </form>
+
+      {/* 👁️ LIVE ARTICLE PREVIEW MODAL OVERLAY */}
+      {showLivePreview && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 p-4 sm:p-6 backdrop-blur-xs animate-in fade-in duration-200 overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowLivePreview(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-4xl max-h-[85vh] sm:max-h-[90vh] overflow-y-auto rounded-3xl bg-white p-6 md:p-8 shadow-2xl dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-6 overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
+          >
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-200/80 pb-4 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
+                  <Eye className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-extrabold text-zinc-900 dark:text-white flex items-center gap-2">
+                    <span>Live Article Reader Preview</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-900/40">
+                      Live Preview Mode
+                    </span>
+                  </h3>
+                  <p className="text-xs text-zinc-400">This is how your news article will appear to readers on the website.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLivePreview(false)}
+                className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Preview Content Body */}
+            <div className="space-y-6">
+              
+              {/* Category & Location Badges */}
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                <span className="bg-red-600 text-white font-extrabold px-3 py-1 rounded-full uppercase tracking-wider text-[11px]">
+                  {categories.find((c) => c.id === categoryId)?.name || 'News Category'}
+                </span>
+                {location && (
+                  <span className="bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 font-bold px-3 py-1 rounded-full text-[11px] flex items-center gap-1">
+                    📍 {location}
+                  </span>
+                )}
+                <span className="text-zinc-400 text-[11px] ml-auto">
+                  ⏱️ {readingTime || 3} min read
+                </span>
+              </div>
+
+              {/* Title */}
+              <h1 className="text-2xl md:text-3xl font-black text-zinc-900 dark:text-white leading-tight">
+                {(contentLang === 'gu' ? titleGu : contentLang === 'hi' ? titleHi : title) || 'Article Title Preview'}
+              </h1>
+
+              {/* Subtitle / Excerpt */}
+              {((contentLang === 'gu' ? excerptGu : contentLang === 'hi' ? excerptHi : excerpt) || '').trim() && (
+                <div className="border-l-4 border-red-600 pl-4 py-0.5 text-base text-zinc-600 dark:text-zinc-300 font-medium leading-relaxed">
+                  {renderFormattedPreviewContent(contentLang === 'gu' ? excerptGu : contentLang === 'hi' ? excerptHi : excerpt)}
+                </div>
+              )}
+
+              {/* Featured Media */}
+              {featuredImage && (
+                <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-black shadow-md">
+                  {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) ? (
+                    <video src={featuredImage} controls className="h-full w-full object-cover" />
+                  ) : (
+                    <img src={featuredImage} alt="Featured Media" className="h-full w-full object-cover" />
+                  )}
+                </div>
+              )}
+
+              {/* Highlights Box */}
+              {((contentLang === 'gu' ? highlightsGu : contentLang === 'hi' ? highlightsHi : highlights) || '').trim() && (
+                <div className="rounded-2xl border border-red-200 bg-red-50/50 p-4 dark:border-red-950/40 dark:bg-red-950/20 space-y-2">
+                  <h4 className="text-xs font-black text-red-700 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-red-500" />
+                    <span>📌 એક નજરમાં (KEY HIGHLIGHTS)</span>
+                  </h4>
+                  <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 leading-relaxed">
+                    {renderFormattedPreviewContent(contentLang === 'gu' ? highlightsGu : contentLang === 'hi' ? highlightsHi : highlights)}
+                  </div>
+                </div>
+              )}
+
+              {/* Main Content (Desc 1) */}
+              {((contentLang === 'gu' ? desc1Gu : contentLang === 'hi' ? desc1Hi : desc1) || '').trim() && (
+                renderFormattedPreviewContent(contentLang === 'gu' ? desc1Gu : contentLang === 'hi' ? desc1Hi : desc1)
+              )}
+
+              {/* Quote Box Preview */}
+              {((contentLang === 'gu' ? quoteTextGu : contentLang === 'hi' ? quoteTextHi : quoteText) || '').trim() && (
+                <blockquote className="my-6 border-l-[3px] border-red-600 pl-4 py-1 font-sans">
+                  <p className="text-lg md:text-[20px] font-bold text-zinc-900 dark:text-white leading-snug">
+                    "{(contentLang === 'gu' ? quoteTextGu : contentLang === 'hi' ? quoteTextHi : quoteText).replace(/^"/, '').replace(/"$/, '')}"
+                  </p>
+                  {((contentLang === 'gu' ? quoteCiteGu : contentLang === 'hi' ? quoteCiteHi : quoteCite) || '').trim() && (
+                    <footer className="mt-2 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
+                      — {(contentLang === 'gu' ? quoteCiteGu : contentLang === 'hi' ? quoteCiteHi : quoteCite)}
+                    </footer>
+                  )}
+                </blockquote>
+              )}
+
+              {/* Photo Gallery Grid */}
+              {extraImages.filter((s) => s.url.trim()).length > 0 && (
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    📸 Photo Gallery ({extraImages.filter((s) => s.url.trim()).length} Photos)
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {extraImages.filter((s) => s.url.trim()).map((slot, idx) => (
+                      <div key={idx} className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-200 bg-black dark:border-zinc-800 shadow-xs">
+                        <img src={slot.url} alt={`Gallery photo ${idx + 2}`} className="h-full w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Additional Description Sections */}
+              {extraDescriptions.map((descSlot, idx) => {
+                const val = (contentLang === 'gu' ? descSlot.gu : contentLang === 'hi' ? descSlot.hi : descSlot.en) || '';
+                if (!val.trim()) return null;
+                return (
+                  <div key={idx} className="border-t border-zinc-100 pt-4 dark:border-zinc-800">
+                    {renderFormattedPreviewContent(val)}
+                  </div>
+                );
+              })}
+
+              {/* YouTube Embedded Video Player Preview */}
+              {youtubeUrl && youtubeUrl.trim() && (
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    ▶ YouTube Video Coverage
+                  </h4>
+                  <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-black shadow-md">
+                    <iframe
+                      src={getYouTubeEmbedUrl(youtubeUrl)}
+                      className="h-full w-full"
+                      allowFullScreen
+                      frameBorder="0"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Twitter / X Post Card Preview */}
+              {twitterUrl && twitterUrl.trim() && (
+                <div className="my-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 via-white to-zinc-100/80 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white text-base font-black shadow-sm">𝕏</span>
+                    <div className="min-w-0">
+                      <span className="block text-sm sm:text-base font-extrabold text-zinc-900 dark:text-white leading-tight truncate">View Post on X (Twitter)</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">Click to view official post</span>
+                    </div>
+                  </div>
+                  <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-black hover:bg-zinc-800 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-sm shrink-0 flex items-center justify-center gap-2 cursor-pointer" style={{ color: '#ffffff' }}>
+                    <span>Open Tweet</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              )}
+
+              {/* PDF Document Attachment Preview */}
+              {pdfUrl && pdfUrl.trim() && (
+                <div className="my-4 rounded-2xl border border-red-200 dark:border-red-900/60 bg-gradient-to-r from-red-50 via-rose-50/40 to-red-50/80 dark:from-red-950/40 dark:via-red-950/20 dark:to-rose-950/30 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white text-base shadow-sm">📄</span>
+                    <div className="min-w-0">
+                      <span className="block text-sm sm:text-base font-extrabold text-red-950 dark:text-red-200 leading-tight truncate">Attached Official Document (PDF)</span>
+                      <span className="block text-xs text-red-700/80 dark:text-red-300/80 font-medium mt-0.5">Verified Official Document</span>
+                    </div>
+                  </div>
+                  <a href={pdfUrl} target="_blank" download className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-md shadow-red-600/25 shrink-0 flex items-center justify-center gap-2 cursor-pointer" style={{ color: '#ffffff' }}>
+                    <span>Download PDF</span>
+                    <span>⬇</span>
+                  </a>
+                </div>
+              )}
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between border-t border-zinc-200/80 pt-4 dark:border-zinc-800">
+              <span className="text-xs font-mono text-zinc-400">Slug: /{slug || 'preview-news'}</span>
+              <button
+                type="button"
+                onClick={() => setShowLivePreview(false)}
+                className="rounded-xl bg-zinc-900 px-5 py-2 text-xs font-bold text-white hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 transition-all cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

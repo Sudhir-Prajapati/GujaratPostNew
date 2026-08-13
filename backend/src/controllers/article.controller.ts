@@ -11,7 +11,81 @@ function slugify(text: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
+let lastAutoPublishTime = 0;
+const AUTO_PUBLISH_COOLDOWN_MS = 5 * 60 * 1000; // Run at most once every 5 minutes
+
+export async function syncArticleToHeroSettings(postId: string, isFeatured?: boolean, isTrending?: boolean) {
+  try {
+    const heroSetting = await prisma.heroSetting.findUnique({ where: { id: 'default' } });
+    if (!heroSetting) {
+      if (isFeatured) {
+        await prisma.heroSetting.create({
+          data: {
+            id: 'default',
+            slot1Id: postId,
+            heroGridIds: JSON.stringify([postId]),
+            trendingNewsIds: isTrending ? JSON.stringify([postId]) : undefined,
+          },
+        });
+      }
+      return;
+    }
+
+    let heroGridIds: string[] = [];
+    if (heroSetting.heroGridIds) {
+      try { heroGridIds = JSON.parse(heroSetting.heroGridIds); } catch { heroGridIds = []; }
+    }
+
+    let trendingNewsIds: string[] = [];
+    if (heroSetting.trendingNewsIds) {
+      try { trendingNewsIds = JSON.parse(heroSetting.trendingNewsIds); } catch { trendingNewsIds = []; }
+    }
+
+    let updated = false;
+    let slot1Id = heroSetting.slot1Id;
+
+    if (isFeatured) {
+      heroGridIds = [postId, ...heroGridIds.filter((id) => id !== postId)].slice(0, 20);
+      slot1Id = postId;
+      updated = true;
+    } else if (isFeatured === false) {
+      heroGridIds = heroGridIds.filter((id) => id !== postId);
+      if (slot1Id === postId) {
+        slot1Id = heroGridIds[0] || null;
+      }
+      updated = true;
+    }
+
+    if (isTrending) {
+      trendingNewsIds = [postId, ...trendingNewsIds.filter((id) => id !== postId)].slice(0, 15);
+      updated = true;
+    } else if (isTrending === false) {
+      trendingNewsIds = trendingNewsIds.filter((id) => id !== postId);
+      updated = true;
+    }
+
+    if (updated) {
+      await prisma.heroSetting.update({
+        where: { id: 'default' },
+        data: {
+          slot1Id,
+          heroGridIds: JSON.stringify(heroGridIds),
+          trendingNewsIds: JSON.stringify(trendingNewsIds),
+        },
+      });
+    }
+  } catch (err) {
+    console.warn('syncArticleToHeroSettings non-fatal error:', err);
+  }
+}
+
 export async function autoPublishDueArticles() {
+  const nowMs = Date.now();
+  if (nowMs - lastAutoPublishTime < AUTO_PUBLISH_COOLDOWN_MS) {
+    return;
+  }
+  lastAutoPublishTime = nowMs;
+
   try {
     const now = new Date();
     await prisma.post.updateMany({
@@ -65,9 +139,19 @@ export class ArticleController {
       }
 
       if (categorySlug) {
-        where.category = {
-          slug: categorySlug,
-        };
+        const catSlugLower = categorySlug.toLowerCase().trim();
+        if (catSlugLower === 'other-cities' || catSlugLower === 'othercities') {
+          where.OR = [
+            { category: { slug: { in: ['other-cities', 'othercities', 'gujarat', 'state'] } } },
+            { location: { notIn: ['Ahmedabad', 'Gandhinagar', 'Surat', 'Vadodara', 'Rajkot', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'વડોદરા', 'રાજકોટ'] } },
+          ];
+        } else {
+          where.OR = [
+            { category: { slug: catSlugLower } },
+            { location: { contains: catSlugLower } },
+            { location: { contains: categorySlug } },
+          ];
+        }
       }
 
       if (status) {
@@ -298,6 +382,10 @@ export class ArticleController {
         },
       });
 
+      if (post.isFeatured || post.isTrending) {
+        await syncArticleToHeroSettings(post.id, post.isFeatured, post.isTrending);
+      }
+
       return sendSuccess(res, { article: post }, 'Article created successfully.', 201);
     } catch (error) {
       next(error);
@@ -444,6 +532,10 @@ export class ArticleController {
           tags: { include: { tag: true } },
         },
       });
+
+      if (isFeatured !== undefined || isTrending !== undefined) {
+        await syncArticleToHeroSettings(updated.id, updated.isFeatured, updated.isTrending);
+      }
 
       return sendSuccess(res, { article: updated }, 'Article updated successfully.');
     } catch (error) {

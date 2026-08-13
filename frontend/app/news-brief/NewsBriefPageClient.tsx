@@ -12,6 +12,7 @@ import type { Article } from '@/types';
 function cleanBriefText(rawText: string): string {
   if (!rawText) return '';
   return rawText
+    .replace(/<[^>]*>/g, '') // Strip HTML tags (<p>, <h2>, <ul>, <li>, etc.)
     .replace(/##\s*📌?\s*એક નજરમાં\s*\(KEY HIGHLIGHTS\)/gi, '')
     .replace(/📌\s*એક નજરમાં\s*\(KEY HIGHLIGHTS\)/gi, '')
     .replace(/\(KEY HIGHLIGHTS\)/gi, '')
@@ -29,6 +30,9 @@ export default function NewsBriefPageClient() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [copied, setCopied] = useState(false);
   const [briefArticles, setBriefArticles] = useState<Article[]>([]);
+  const [page, setPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   // Lock body scroll so browser scrollbars never appear on this page
   useEffect(() => {
@@ -38,32 +42,73 @@ export default function NewsBriefPageClient() {
     };
   }, []);
 
+  // Fetch initial 20 articles for News Brief (Page 1)
   useEffect(() => {
-    getPublicArticles({ limit: 40 }).then((res) => {
-      if (res && res.articles) {
+    getPublicArticles({ page: 1, limit: 20 }).then((res) => {
+      if (res && res.articles && res.articles.length > 0) {
         setBriefArticles(res.articles);
       }
     });
   }, []);
+
+  // Automatically load 20 MORE articles when user reaches 15th article (or within 5 items of end)
+  useEffect(() => {
+    if (
+      briefArticles.length > 0 &&
+      activeIndex >= briefArticles.length - 6 &&
+      !isLoadingMore &&
+      hasMore
+    ) {
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      getPublicArticles({ page: nextPage, limit: 20 })
+        .then((res) => {
+          if (res && res.articles && res.articles.length > 0) {
+            setBriefArticles((prev) => {
+              const existingIds = new Set(prev.map((a) => a.id));
+              const newItems = res.articles.filter((a) => !existingIds.has(a.id));
+              if (newItems.length === 0) {
+                setHasMore(false);
+                return prev;
+              }
+              return [...prev, ...newItems];
+            });
+            setPage(nextPage);
+          } else {
+            setHasMore(false);
+          }
+        })
+        .finally(() => {
+          setIsLoadingMore(false);
+        });
+    }
+  }, [activeIndex, briefArticles.length, isLoadingMore, hasMore, page]);
+
+  // Keyboard navigation support (Arrow Up / Arrow Down)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        handleNext();
+      } else if (e.key === 'ArrowUp') {
+        handlePrev();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeIndex, briefArticles.length]);
 
   const currentArticle = briefArticles[activeIndex];
 
   const handleNext = () => {
     if (briefArticles.length === 0) return;
     if (activeIndex < briefArticles.length - 1) {
-      setActiveIndex(activeIndex + 1);
-    } else {
-      setActiveIndex(0); // wrap around
+      setActiveIndex((prev) => prev + 1);
     }
   };
 
   const handlePrev = () => {
-    if (briefArticles.length === 0) return;
-    if (activeIndex > 0) {
-      setActiveIndex(activeIndex - 1);
-    } else {
-      setActiveIndex(briefArticles.length - 1); // wrap around
-    }
+    if (briefArticles.length === 0 || activeIndex === 0) return; // Do nothing if on 1st article
+    setActiveIndex((prev) => Math.max(0, prev - 1));
   };
 
   const handleShare = async () => {
@@ -137,9 +182,9 @@ export default function NewsBriefPageClient() {
       {/* Main Swiper Section */}
       <main className="flex-1 flex items-center justify-center p-3 sm:p-4 overflow-hidden relative min-h-0">
         <div className="relative flex items-center justify-center gap-4 sm:gap-6 w-full max-w-[540px] h-full max-h-[620px] shrink-0">
-          {/* Central News Card (Fixed dimensions, size never increases) */}
+          {/* Central News Card (Fixed dimensions) */}
           <div className="w-full max-w-[390px] sm:max-w-[410px] h-full max-h-[580px] sm:max-h-[600px] bg-white border border-neutral-200/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden flex flex-col p-4 sm:p-5 text-left transition-all duration-300 shrink-0">
-            {/* Image */}
+            {/* Image with Counter Badge */}
             <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl mb-3 bg-neutral-100 border border-neutral-100 dark:border-neutral-800">
               <Image
                 src={currentArticle.image}
@@ -149,6 +194,9 @@ export default function NewsBriefPageClient() {
                 className="object-cover transition-all duration-700"
                 priority
               />
+              <div className="absolute top-2.5 right-2.5 bg-black/75 text-white font-extrabold text-[11px] px-2.5 py-1 rounded-full backdrop-blur-md shadow-sm border border-white/20">
+                {activeIndex + 1} / {briefArticles.length}
+              </div>
             </div>
 
             {/* Meta Row */}
@@ -158,7 +206,7 @@ export default function NewsBriefPageClient() {
               </span>
               <span className="text-neutral-300 font-bold">|</span>
               <span className="text-neutral-400 font-bold">
-                {language === 'gu' ? '45 મિનિટ પહેલા' : language === 'hi' ? '४५ मिनट पहले' : '45 mins ago'}
+                {language === 'gu' ? 'તાજા સમાચાર' : language === 'hi' ? 'તાજા સમાચાર' : 'Latest News'}
               </span>
             </div>
 
@@ -167,7 +215,7 @@ export default function NewsBriefPageClient() {
               {title}
             </h2>
 
-            {/* Brief content description - Fills available vertical space cleanly */}
+            {/* Brief content description */}
             <div className="flex-1 min-h-0 overflow-hidden mb-2">
               <p className="text-xs sm:text-[13.5px] text-neutral-600 leading-relaxed text-justify w-full line-clamp-7 sm:line-clamp-8">
                 {displayParagraph}
@@ -209,7 +257,12 @@ export default function NewsBriefPageClient() {
             <button
               type="button"
               onClick={handlePrev}
-              className="bg-black hover:bg-neutral-900 text-white font-bold rounded-full h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all hover:scale-105 active:scale-95 border border-neutral-200/40"
+              disabled={activeIndex === 0}
+              className={`font-bold rounded-full h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all border ${
+                activeIndex === 0
+                  ? 'bg-neutral-200 text-neutral-400 border-neutral-300 cursor-not-allowed opacity-40'
+                  : 'bg-black hover:bg-neutral-900 text-white border-neutral-200/40 hover:scale-105 active:scale-95 cursor-pointer'
+              }`}
               aria-label="Previous Brief"
             >
               <ArrowUp className="h-5 w-5 stroke-[3]" />
@@ -217,7 +270,12 @@ export default function NewsBriefPageClient() {
             <button
               type="button"
               onClick={handleNext}
-              className="bg-black hover:bg-neutral-900 text-white font-bold rounded-full h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all hover:scale-105 active:scale-95"
+              disabled={activeIndex >= briefArticles.length - 1 && !hasMore}
+              className={`font-bold rounded-full h-10 w-10 sm:h-11 sm:w-11 flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] transition-all ${
+                activeIndex >= briefArticles.length - 1 && !hasMore
+                  ? 'bg-neutral-200 text-neutral-400 border border-neutral-300 cursor-not-allowed opacity-40'
+                  : 'bg-black hover:bg-neutral-900 text-white hover:scale-105 active:scale-95 cursor-pointer'
+              }`}
               aria-label="Next Brief"
             >
               <ArrowDown className="h-5 w-5 stroke-[3]" />
@@ -228,4 +286,3 @@ export default function NewsBriefPageClient() {
     </div>
   );
 }
-

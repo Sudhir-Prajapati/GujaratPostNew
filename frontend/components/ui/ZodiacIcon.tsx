@@ -15,6 +15,36 @@ export const GUJARAT_ZODIAC_LETTERS: Record<string, string> = {
   pisces: '(દ, ચ, ઝ, થ)',
 };
 
+export const HINDI_ZODIAC_LETTERS: Record<string, string> = {
+  aries: '(अ, ल, ई)',
+  taurus: '(ब, व, उ)',
+  gemini: '(क, छ, घ)',
+  cancer: '(ड, ह)',
+  leo: '(म, ट)',
+  virgo: '(प, ठ, ण)',
+  libra: '(र, त)',
+  scorpio: '(न, य)',
+  sagittarius: '(भ, ध, फ, ढ)',
+  capricorn: '(ख, ज)',
+  aquarius: '(ग, स, श, ष)',
+  pisces: '(द, च, झ, थ)',
+};
+
+export const ENGLISH_ZODIAC_LETTERS: Record<string, string> = {
+  aries: '(A, L, E)',
+  taurus: '(B, V, U)',
+  gemini: '(K, CH, GH)',
+  cancer: '(D, H)',
+  leo: '(M, T)',
+  virgo: '(P, TTH, N)',
+  libra: '(R, T)',
+  scorpio: '(N, Y)',
+  sagittarius: '(BH, DH, PH, DH)',
+  capricorn: '(KH, J)',
+  aquarius: '(G, S, SH)',
+  pisces: '(D, CH, Z, TH)',
+};
+
 export function ZodiacIcon({ id, className = "h-9 w-9" }: { id: string; className?: string }) {
   const cleanId = (id || '').toLowerCase();
   const validSigns = [

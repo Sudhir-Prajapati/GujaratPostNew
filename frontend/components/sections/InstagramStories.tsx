@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
 import { getPublicReels } from '@/lib/api';
+import { safeYouTubeId } from '@/lib/youtube';
 
 function ReelsBadgeIcon({ className = "h-4 w-4 text-white" }: { className?: string }) {
   return (
@@ -22,6 +22,128 @@ interface ReelItem {
   headingHi: string;
   videoUrl: string | null;
   instaUrl: string | null;
+  thumbnail?: string | null;
+  views?: number;
+}
+
+const formatInstaViews = (views: number | undefined | null): string | null => {
+  if (!views || views <= 0) return null;
+  if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M`;
+  if (views >= 1000) return `${Math.round(views / 1000)}K`;
+  return `${views}`;
+};
+
+export function getReelThumbnail(reel: ReelItem): string | null {
+  const url = (reel.videoUrl || reel.instaUrl || '').trim();
+  const instaMatch = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
+  const shortcode = instaMatch?.[1] || '';
+
+  // Direct thumbnail URL (proxy Instagram CDN links)
+  if (reel.thumbnail?.trim()) {
+    const rawThumb = reel.thumbnail.trim();
+    if (rawThumb.includes('instagram') || rawThumb.includes('fbcdn.net') || shortcode) {
+      return `/api/instagram-image?url=${encodeURIComponent(rawThumb)}&shortcode=${shortcode}`;
+    }
+    return rawThumb;
+  }
+
+  if (!url) return null;
+
+  // 1. YouTube video or shorts URL
+  const ytId = safeYouTubeId(url);
+  if (ytId && ytId !== url && /^[a-zA-Z0-9_-]{11}$/.test(ytId)) {
+    return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
+  }
+
+  // 2. Instagram shortcode proxy
+  if (shortcode) {
+    return `/api/instagram-image?shortcode=${shortcode}`;
+  }
+
+  // 3. Direct image link
+  if (/\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(url)) {
+    return url;
+  }
+
+  return null;
+}
+
+function ReelCard({ reel, language, onReelClick }: { reel: ReelItem; language: string; onReelClick: (reel: ReelItem) => void }) {
+  const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
+  const thumbUrl = getReelThumbnail(reel);
+  const [imgFailed, setImgFailed] = useState(false);
+  const viewsText = formatInstaViews(reel.views);
+
+  const showImage = thumbUrl && !imgFailed;
+
+  return (
+    <div
+      onClick={() => onReelClick(reel)}
+      className="flex-none w-[140px] sm:w-[165px] cursor-pointer snap-start group select-none"
+    >
+      <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-muted shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
+        {/* Top Badge Icon */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shadow-md">
+          <ReelsBadgeIcon className="h-3.5 w-3.5 text-white" />
+        </div>
+
+        {/* Thumbnail Image OR Instagram Gradient Background */}
+        {showImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbUrl}
+              alt={displayTitle || 'Reel'}
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgFailed(true)}
+              loading="lazy"
+            />
+            {/* Dark gradient overlay for text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent z-10" />
+            {/* Center Play Button Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+              <span className="w-10 h-10 rounded-full bg-[#B3121B] text-white flex items-center justify-center shadow-lg border border-white/20 transition-transform group-hover:scale-110">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current ml-0.5" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 h-full w-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
+            {reel.type === 'VIDEO' ? (
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-1" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            ) : (
+              <ReelsBadgeIcon className="h-12 w-12 text-white/30" />
+            )}
+          </div>
+        )}
+
+        {/* Bottom Title Container Box */}
+        <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-20">
+          <div className="flex flex-col min-w-0 flex-1 pr-1">
+            <div className="flex items-center gap-1 mb-0.5">
+              <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
+              {viewsText && (
+                <span className="text-[10px] font-extrabold text-[#B3121B]">{viewsText} views</span>
+              )}
+            </div>
+            <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
+              {displayTitle || reel.heading}
+            </p>
+          </div>
+          <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shrink-0 ml-1 shadow-sm group-hover:scale-105 transition-transform">
+            <span className="text-[12px] font-black leading-none">→</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const DEMO_REELS: ReelItem[] = [
@@ -58,6 +180,8 @@ export default function InstagramStories() {
   const { language } = useApp();
   const [reels, setReels] = useState<ReelItem[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollPosRef = useRef<number>(0);
+  const isPausedRef = useRef<boolean>(false);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
@@ -76,26 +200,70 @@ export default function InstagramStories() {
     setShowRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
   }, []);
 
+  // Continuous smooth 60fps auto-scroll loop (like YouTube Shorts)
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (!el) return;
+    if (!el || reels.length === 0) return;
+
     updateArrows();
-    el.addEventListener('scroll', updateArrows);
+
+    let animId: number;
+    let lastTime = performance.now();
+    const SPEED = 40; // pixels per second for smooth drifting
+
+    const scrollStep = (now: number) => {
+      const dt = Math.min(now - lastTime, 50);
+      lastTime = now;
+
+      if (!isPausedRef.current && el) {
+        scrollPosRef.current += (SPEED * dt) / 1000;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (scrollPosRef.current >= maxScroll && maxScroll > 0) {
+          scrollPosRef.current = 0;
+        }
+        el.scrollLeft = scrollPosRef.current;
+      }
+      animId = requestAnimationFrame(scrollStep);
+    };
+
+    animId = requestAnimationFrame(scrollStep);
+
+    const handleNativeScroll = () => {
+      if (el) {
+        scrollPosRef.current = el.scrollLeft;
+        updateArrows();
+      }
+    };
+
+    el.addEventListener('scroll', handleNativeScroll, { passive: true });
     window.addEventListener('resize', updateArrows);
+
     return () => {
-      el.removeEventListener('scroll', updateArrows);
+      cancelAnimationFrame(animId);
+      el.removeEventListener('scroll', handleNativeScroll);
       window.removeEventListener('resize', updateArrows);
     };
-  }, [updateArrows]);
+  }, [reels, updateArrows]);
 
+  // Smooth button scroll like YouTube Shorts
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
     if (!el) return;
+    isPausedRef.current = true;
     const scrollAmount = el.clientWidth * 0.75;
-    el.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
+    const target = Math.max(0, Math.min(
+      el.scrollWidth - el.clientWidth,
+      direction === 'left' ? el.scrollLeft - scrollAmount : el.scrollLeft + scrollAmount
+    ));
+    el.scrollTo({ left: target, behavior: 'smooth' });
+    scrollPosRef.current = target;
+    setShowLeftArrow(target > 10);
+    setShowRightArrow(target < el.scrollWidth - el.clientWidth - 10);
+
+    setTimeout(() => {
+      if (el) scrollPosRef.current = el.scrollLeft;
+      isPausedRef.current = false;
+    }, 700);
   };
 
   const handleReelClick = (reel: ReelItem) => {
@@ -107,16 +275,18 @@ export default function InstagramStories() {
 
   if (reels.length === 0) return null;
 
+  const displayList = reels.length > 0 ? [...reels, ...reels] : [];
+
   return (
-    <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden">
+    <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden select-none">
       <div className="relative">
         {/* Section Header */}
         <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-4">
           <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
-            {language === 'gu' ? 'ઇન્સ્ટાગ્રામ રિલ્સ' : language === 'hi' ? 'इन्स्टाग्राम रील्स' : 'Instagram Reels'}
+            {language === 'gu' ? 'ઇન્સ્ટાગ્રામ રિલ્સ' : language === 'hi' ? 'इन्स्टाग्राम रीલ્સ' : 'Instagram Reels'}
           </span>
           <a
-            href="https://www.instagram.com/gujaratpostnews"
+            href="https://www.instagram.com/gujaratpost.in/"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
@@ -125,16 +295,22 @@ export default function InstagramStories() {
           </a>
         </div>
 
-        {/* Horizontal Grid Scroll */}
-        <div className="relative group/slider-wrap">
+        {/* Horizontal Grid Scroll Container with YouTube Shorts-Style Smooth Auto-Scroll */}
+        <div
+          className="relative group/slider-wrap"
+          onMouseEnter={() => { isPausedRef.current = true; }}
+          onMouseLeave={() => { isPausedRef.current = false; }}
+          onTouchStart={() => { isPausedRef.current = true; }}
+          onTouchEnd={() => { isPausedRef.current = false; }}
+        >
           {showLeftArrow && (
             <button
               type="button"
               onClick={() => handleScroll('left')}
-              className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/60 transition-all duration-200 shadow-md backdrop-blur-sm cursor-pointer border-0"
+              className="absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white text-[#B3121B] dark:bg-slate-900 dark:text-white flex items-center justify-center shadow-2xl border border-slate-200 dark:border-slate-800 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
               aria-label="Scroll left"
             >
-              <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
+              <ChevronLeft className="h-6 w-6 stroke-[3]" />
             </button>
           )}
 
@@ -142,16 +318,16 @@ export default function InstagramStories() {
             <button
               type="button"
               onClick={() => handleScroll('right')}
-              className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/60 transition-all duration-200 shadow-md backdrop-blur-sm cursor-pointer border-0"
+              className="absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white text-[#B3121B] dark:bg-slate-900 dark:text-white flex items-center justify-center shadow-2xl border border-slate-200 dark:border-slate-800 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
               aria-label="Scroll right"
             >
-              <ChevronRight className="h-5 w-5 stroke-[2.5]" />
+              <ChevronRight className="h-6 w-6 stroke-[3]" />
             </button>
           )}
 
           <div
             ref={scrollContainerRef}
-            className="scrollbar-hide flex gap-4 overflow-x-auto pb-2"
+            className="scrollbar-hide flex gap-4 overflow-x-auto pb-2 py-1"
           >
             {reels.map((reel) => {
               const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
@@ -260,7 +436,7 @@ export default function InstagramStories() {
             <div className="w-full border-t border-red-200 dark:border-red-950/40" />
           </div>
           <a
-            href="https://www.instagram.com/gujaratpostnews"
+            href="https://www.instagram.com/gujaratpost.in/"
             target="_blank"
             rel="noopener noreferrer"
             className="relative flex items-center gap-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-2.5 shadow-sm text-slate-900 dark:text-white font-black text-[13px] md:text-[14px] hover:border-[#B3121B] hover:text-[#B3121B] transition-all select-none"

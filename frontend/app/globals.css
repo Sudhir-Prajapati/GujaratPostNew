@@ -2513,3 +2513,92 @@ html[lang="gu"] .leading-snug,
 html[lang="gu"] .leading-tight {
   line-height: 1.55 !important;
 }
+
+/* ── 3D Microphone SplashLoader Animations ── */
+.perspective-container {
+  perspective: 1400px;
+  perspective-origin: 50% 45%;
+}
+
+@keyframes mic-spin-3d {
+  0% {
+    transform: translateY(0px) rotateY(0deg) rotateX(6deg);
+  }
+  25% {
+    transform: translateY(-12px) rotateY(90deg) rotateX(-2deg);
+  }
+  50% {
+    transform: translateY(-20px) rotateY(180deg) rotateX(6deg);
+  }
+  75% {
+    transform: translateY(-12px) rotateY(270deg) rotateX(-2deg);
+  }
+  100% {
+    transform: translateY(0px) rotateY(360deg) rotateX(6deg);
+  }
+}
+
+@keyframes floor-shadow {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50%       { transform: scale(0.72); opacity: 0.35; }
+}
+
+@keyframes ripple {
+  0%   { transform: scale(0.8); opacity: 0.9; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+@keyframes glow {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.95; }
+}
+
+@keyframes sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes rotate-orbit {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-mic-3d {
+  animation: mic-spin-3d 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.cube-flag {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.animate-floor-shadow {
+  animation: floor-shadow 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: transform, opacity;
+}
+
+.animate-pulse-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+.animate-ripple-1 {
+  animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+  transform-origin: center;
+}
+
+.animate-ripple-2 {
+  animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+  animation-delay: 1.2s;
+  transform-origin: center;
+}
+
+.animate-sweep {
+  animation: sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-rotate-orbit {
+  animation: rotate-orbit 12s linear infinite;
+}
+

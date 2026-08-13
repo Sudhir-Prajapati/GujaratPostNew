@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { Clock, Eye } from 'lucide-react';
 import { Article } from '@/types';
@@ -15,6 +14,7 @@ import {
 import { getCategoryColor, toGu } from '@/lib/utils';
 import { useApp } from '@/components/AppProvider';
 import { useAutoTranslate } from '@/lib/translate';
+import ArticleMedia from '@/components/ui/ArticleMedia';
 
 interface NewsCardProps {
   article: Article;
@@ -29,24 +29,20 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
   const excerpt = useAutoTranslate(rawExcerpt, language);
   const category = getCategoryLabel(article, language);
   const categoryColor = getCategoryColor(article.category);
+  const mediaSrc = article.image || (article as any).featuredImage || (article as any).thumbnail;
 
   if (variant === 'hero') {
     return (
       <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group relative block overflow-hidden rounded-xl bg-card">
         <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
-          <Image
-            src={article.image || '/assets/demo/1.jpg'}
+          <ArticleMedia
+            src={mediaSrc}
             alt={article.title}
-            fill
-            unoptimized={article.image?.includes('localhost') || article.image?.endsWith('.jfif')}
-            sizes="(max-width: 1024px) 100vw, 66vw"
-            className="object-cover transition duration-500 group-hover:scale-105"
-            loading="eager"
-            onError={(e) => { (e.target as HTMLImageElement).src = '/assets/demo/1.jpg'; }}
+            className="transition duration-500 group-hover:scale-105"
           />
-          <div className="img-overlay absolute inset-0" />
-          {article.isBreaking && <span className="live-badge absolute left-3 top-3 rounded bg-accent px-2 py-1 text-xs font-black text-white">BREAKING</span>}
-          <div className="absolute inset-x-0 bottom-0 p-4 md:p-6">
+          <div className="img-overlay absolute inset-0 pointer-events-none" />
+          {article.isBreaking && <span className="live-badge absolute left-3 top-3 rounded bg-accent px-2 py-1 text-xs font-black text-white z-10">BREAKING</span>}
+          <div className="absolute inset-x-0 bottom-0 p-4 md:p-6 z-10">
             <span className="cat-badge mb-2.5" style={{ background: categoryColor }}>{category}</span>
             <h1 className="line-clamp-3 text-xl font-black leading-tight text-white md:text-4xl lg:text-5xl">{title}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-4 text-sm font-semibold text-white/85">
@@ -63,9 +59,9 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
     return (
       <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-xl bg-card">
         <div className="relative aspect-[16/11] w-full">
-          <Image src={article.image} alt={article.title} fill sizes="(max-width: 1024px) 50vw, 33vw" className="object-cover transition duration-500 group-hover:scale-105" />
-          <div className="img-overlay absolute inset-0" />
-          <div className="absolute inset-x-0 bottom-0 p-3">
+          <ArticleMedia src={mediaSrc} alt={article.title} className="transition duration-500 group-hover:scale-105" />
+          <div className="img-overlay absolute inset-0 pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 p-3 z-10">
             <span className="cat-badge mb-1.5" style={{ background: categoryColor }}>{category}</span>
             <h2 className="line-clamp-2 text-sm sm:text-base font-black leading-snug text-white">{title}</h2>
             <span className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-white/75"><Clock className="h-3 w-3" />{formatTime(article.publishedAt)}</span>
@@ -79,7 +75,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
     return (
       <Link prefetch={false} href={`/news/${article.slug}`} className="news-card flex gap-3 rounded-lg border border-border bg-card p-2.5">
         <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded-md">
-          <Image src={article.image} alt={article.title} fill sizes="128px" className="object-cover" />
+          <ArticleMedia src={mediaSrc} alt={article.title} />
         </div>
         <div className="min-w-0 flex-1">
           <span className="cat-badge mb-1" style={{ background: categoryColor }}>{category}</span>
@@ -97,7 +93,7 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
     return (
       <Link prefetch={false} href={`/news/${article.slug}`} className="flex gap-3 border-b border-border py-3 transition hover:opacity-75">
         <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg">
-          <Image src={article.image} alt={article.title} fill sizes="80px" className="object-cover" />
+          <ArticleMedia src={mediaSrc} alt={article.title} />
         </div>
         <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-black leading-snug text-foreground">{title}</p>
@@ -120,21 +116,13 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
       ? (article as any).relativeTimeHi || formatDate(article.publishedAt)
       : article.relativeTime || formatDate(article.publishedAt);
 
-    const viewsLabel = language === 'gu'
-      ? (article as any).viewsGu || toGu(formatViews(article.views))
-      : language === 'hi'
-      ? (article as any).viewsHi || formatViews(article.views)
-      : (article as any).views || formatViews(article.views);
-
     return (
       <Link prefetch={false} href={`/news/${article.slug}`} className="group block">
         <div className="relative aspect-[16/10] w-full overflow-hidden rounded bg-muted shadow-sm">
-          <Image
-            src={article.image}
+          <ArticleMedia
+            src={mediaSrc}
             alt={article.title}
-            fill
-            sizes="(max-width: 768px) 50vw, 33vw"
-            className="object-cover transition duration-300 group-hover:scale-105"
+            className="transition duration-300 group-hover:scale-105"
           />
         </div>
         <div className="mt-2.5">
@@ -157,8 +145,8 @@ export default function NewsCard({ article, variant = 'default' }: NewsCardProps
   return (
     <Link prefetch={false} href={`/news/${article.slug}`} className="news-card group block overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-[16/9] w-full">
-        <Image src={article.image} alt={article.title} fill sizes="(max-width: 768px) 50vw, 17vw" className="object-cover transition duration-300 group-hover:scale-105" />
-        {article.isBreaking && <span className="absolute left-1.5 top-1.5 rounded bg-accent px-1.5 py-0.5 text-[9px] font-black text-white">BREAKING</span>}
+        <ArticleMedia src={mediaSrc} alt={article.title} className="transition duration-300 group-hover:scale-105" />
+        {article.isBreaking && <span className="absolute left-1.5 top-1.5 rounded bg-accent px-1.5 py-0.5 text-[9px] font-black text-white z-10">BREAKING</span>}
       </div>
       <div className="p-2">
         <span className="cat-badge mb-0.5" style={{ background: categoryColor, fontSize: '0.6rem', padding: '0.1rem 0.45rem' }}>{category}</span>

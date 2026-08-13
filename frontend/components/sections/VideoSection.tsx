@@ -21,7 +21,16 @@ export default function VideoSection() {
     setLoading(true);
     // Pass 'video' type — excludes Shorts from YouTube RSS feed
     getPublicVideos('video').then((res) => {
-      setVideos(res || []);
+      const seen = new Set<string>();
+      const clean: any[] = [];
+      for (const item of (res || [])) {
+        const key = item.youtubeId?.trim() || item.id;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          clean.push(item);
+        }
+      }
+      setVideos(clean.slice(0, 8));
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);

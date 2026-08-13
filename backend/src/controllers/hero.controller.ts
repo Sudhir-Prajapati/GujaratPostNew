@@ -140,6 +140,17 @@ export class HeroController {
         parsedTrendingNewsIds = trendingNewsArticles.map((a: any) => a.id);
       }
 
+      // Ensure all active published isTrending posts are merged at the top of trendingNewsArticles
+      const allTrendingPosts = await prisma.post.findMany({
+        where: { isTrending: true, status: 'PUBLISHED' },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 10,
+        include: { category: true, author: true },
+      });
+      const formattedTrending = allTrendingPosts.map(formatPost);
+      const combinedTrending = [...formattedTrending, ...trendingNewsArticles];
+      trendingNewsArticles = combinedTrending.filter((art, idx, arr) => art && arr.findIndex((x) => x?.id === art.id) === idx);
+
       let parsedPopularNewsIds: string[] = [];
       if (heroSetting?.popularNewsIds) {
         try {
@@ -198,13 +209,24 @@ export class HeroController {
       if (heroGridArticles.length === 0) {
         const defaultHeroPosts = await prisma.post.findMany({
           where: { status: 'PUBLISHED' },
-          orderBy: { createdAt: 'desc' },
+          orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
           take: 16,
           include: { category: true, author: true },
         });
         heroGridArticles = defaultHeroPosts.map(formatPost);
         parsedHeroGridIds = heroGridArticles.map((a: any) => a.id);
       }
+
+      // Ensure all active published isFeatured posts are merged at the top of heroGridArticles
+      const allFeaturedPosts = await prisma.post.findMany({
+        where: { isFeatured: true, status: 'PUBLISHED' },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 6,
+        include: { category: true, author: true },
+      });
+      const formattedFeatured = allFeaturedPosts.map(formatPost);
+      const combinedHeroGrid = [...formattedFeatured, ...heroGridArticles];
+      heroGridArticles = combinedHeroGrid.filter((art, idx, arr) => art && arr.findIndex((x) => x?.id === art.id) === idx);
 
       let parsedMostReadIds: string[] = [];
       if ((heroSetting as any)?.mostReadIds) {
