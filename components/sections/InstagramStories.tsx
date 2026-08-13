@@ -230,10 +230,8 @@ export default function InstagramStories() {
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
-                      ) : (
-                        <ReelsBadgeIcon className="h-12 w-12 text-white/30" />
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Bottom Title Container Box */}
                     <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">

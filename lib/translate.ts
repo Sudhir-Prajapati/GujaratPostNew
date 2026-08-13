@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Language } from '@/types';
 
 const memoryCache: Record<string, string> = {};
@@ -89,7 +89,7 @@ export function useAutoTranslate(text: string, targetLang: Language): string {
 }
 
 /**
- * JSX Component for inline auto-translation
+ * React Component for inline auto-translation
  */
 export function TranslatedText({ text, className = '' }: { text: string; className?: string }) {
   const [translated, setTranslated] = useState(text);
@@ -104,7 +104,7 @@ export function TranslatedText({ text, className = '' }: { text: string; classNa
       (lang === 'hi' && /[\u0900-\u097F]/.test(text)) ||
       (lang === 'en' && !/[\u0A80-\u0AFF\u0900-\u097F]/.test(text))
     ) {
-      setTranslated(text)
+      setTranslated(text);
       return;
     }
 
@@ -112,8 +112,10 @@ export function TranslatedText({ text, className = '' }: { text: string; classNa
       if (isMounted && res) setTranslated(res);
     });
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [text]);
 
-  return <span className={ className }> { translated } </span>;
+  return React.createElement('span', { className }, translated);
 }

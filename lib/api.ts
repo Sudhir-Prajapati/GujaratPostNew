@@ -480,3 +480,51 @@ export async function getPublicReels(): Promise<any[]> {
   return [];
 }
 
+/**
+ * Fetch all section advertisements from Express Backend API
+ */
+export async function getPublicAds(): Promise<any[]> {
+  try {
+    const url = `${API_BASE_URL}/ads`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.ads) {
+      return json.data.ads;
+    }
+  } catch (error: any) {
+    console.warn('Backend API fetch error for ads:', error?.message || error);
+  }
+  return [];
+}
+
+/**
+ * Fetch active advertisement for a specific section from Express Backend API
+ */
+export async function getPublicAdBySection(section: string): Promise<any | null> {
+  try {
+    const url = `${API_BASE_URL}/ads/${encodeURIComponent(section)}`;
+    const json = await fetchCachedJson<any>(url);
+    if (json?.success && json.data?.ad) {
+      return json.data.ad;
+    }
+  } catch (error: any) {
+    console.warn(`Backend API fetch error for ad section ${section}:`, error?.message || error);
+  }
+  return null;
+}
+
+/**
+ * Fetch market rates helper from live center data
+ */
+export async function getMarketRates(): Promise<any> {
+  const liveData = await getLiveCenterData();
+  return liveData?.market || null;
+}
+
+/**
+ * Fetch weather helper from live center data
+ */
+export async function getPublicWeather(city?: string): Promise<any> {
+  const liveData = await getLiveCenterData();
+  return liveData?.weather || null;
+}
+
