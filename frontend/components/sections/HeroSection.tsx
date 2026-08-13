@@ -37,6 +37,7 @@ import Advertisement from '@/components/ads/Advertisement';
 import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
+import RandomAdsSection from '@/components/ads/RandomAdsSection';
 
 const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 
@@ -503,12 +504,18 @@ export default function HeroSection({
     })
     .catch(() => {})
     .finally(() => {
-      setTimeout(() => {
-        setIsInitialLoading(false);
-      }, 300);
+      if (typeof window !== 'undefined') {
+        (window as any).__gpDataReady = true;
+        window.dispatchEvent(new CustomEvent('gp-data-ready'));
+      }
+      setIsInitialLoading(false);
     });
 
     const safetyTimer = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        (window as any).__gpDataReady = true;
+        window.dispatchEvent(new CustomEvent('gp-data-ready'));
+      }
       setIsInitialLoading(false);
     }, 2000);
 
@@ -927,53 +934,37 @@ export default function HeroSection({
 
       <AdSectionBanner section="AFTER_HERO" />
 
-      {/* 1. Top Video Banner (Red Banner Section) */}
-      <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} showShorts={false} />
+      {/* 1. GUJARAT Section */}
+      <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
 
-      {/* 2. Gujarat Section (Hyperlocal with City tabs & Sidebar) */}
-      <CityHyperlocalSection language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
+      {/* 2. DESH (National) Section */}
+      <NationalSection key="national" language={language} />
 
-      {/* 3. National / India Section */}
-      <NationalSection language={language} />
-
-      {/* 4. Trending News Slider Section */}
-      <TrendingSection />
-
+      {/* 3. TRENDING Section */}
+      <TrendingSection key="trending" />
       <AdSectionBanner section="AFTER_TRENDING" />
 
-      {/* Mid-Page Horizontal Ad */}
-      <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
-        <Advertisement position="header" className="w-full" />
-      </div>
+      {/* 4. LATEST SAMACHAR (Latest Updates) Section */}
+      <LatestUpdatesSection view="all" />
 
-      {/* 5. Latest News Timeline & Popular Stories Section */}
-      <section className="mt-8 border-t border-border/60 pt-6">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
-          <div className="flex flex-col gap-10 min-w-0">
-            <LatestUpdatesSection view="timeline" />
-            <PopularStoriesSection language={language} view="content" />
-          </div>
-          <div className="flex flex-col gap-6 sticky top-20 select-none">
-            <LatestUpdatesSection view="sidebar" />
-            <PopularStoriesSection language={language} view="sidebar" />
-          </div>
-        </div>
-      </section>
+      {/* 5. LOKPRIYA (Popular Stories) Section */}
+      <PopularStoriesSection language={language} view="all" />
 
-      {/* 6. Instagram Stories / Reels Section */}
+      {/* 6. INSTA REEL (Instagram Stories) Section */}
       <InstagramStories />
 
-      {/* 7. World Section */}
-      <WorldSection language={language} />
+      {/* 7. VISHW (World) Section */}
+      <WorldSection key="world" language={language} />
 
-      {/* 8. Politics Section */}
-      <PoliticsSection language={language} />
+      {/* 8. RAJAKARAN (Politics) Section */}
+      <PoliticsSection key="politics" language={language} />
 
-      {/* 9. Web Stories Section */}
+      {/* 9. WEBSTORY (Web Stories) Section */}
       <WebStoriesSection />
+      <AdSectionBanner section="AFTER_WEBSTORIES" />
 
-      {/* 10. Crime Section (with Gold & Silver, Weather, WhatsApp, Astrology Sidebar) */}
-      <section className="mx-auto max-w-screen-xl px-4 mt-10">
+      {/* 10. CRIME Section */}
+      <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
           {/* Left Column */}
           <div className="flex flex-col gap-10 min-w-0">
@@ -1053,31 +1044,31 @@ export default function HeroSection({
         </div>
       </section>
 
-      <AdSectionBanner section="AFTER_WEBSTORIES" />
-
-      {/* Horizontal Ad Section before EntertainTechLifeSection */}
-      <div className="mx-auto max-w-screen-xl px-4 mt-8 select-none">
-        <Advertisement position="header" className="w-full" />
-      </div>
-
-      {/* 11. 3-Column Section (Health, Entertainment, Technology) */}
-      <EntertainTechLifeSection language={language} />
-
-      {/* 12. Fact Check Section */}
+      {/* 11. FACT CHECK Section */}
       <FactCheckSection language={language} />
 
-      {/* 13. Photo Gallery Section */}
+      {/* 12. PHOTO GALLERY Section */}
       <PhotoGallerySection language={language} />
-
       <AdSectionBanner section="AFTER_GALLERY" />
 
-      {/* 14. Video Shorts Section */}
+      {/* 13. SHORTS VIDEO Section */}
       <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
-
       <AdSectionBanner section="AFTER_VIDEOS" />
 
-      {/* 15. Weather Dashboard & Live Center Dashboard */}
+      {/* 14. HAWAMAN (Weather Dashboard) Section */}
       <WeatherDashboardSection language={language} />
+
+      {/* 15. Remaining sections kept as current */}
+      {allCategoriesDB
+        .filter((cat) => {
+          const s = (cat.slug || '').toLowerCase();
+          return !['gujarat', 'national', 'india', 'desh', 'world', 'vishw', 'politics', 'rajkaran', 'crime'].includes(s);
+        })
+        .map((cat) => (
+          <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />
+        ))}
+
+      <EntertainTechLifeSection language={language} />
 
       <LiveCenterSection language={language} />
 
@@ -1143,8 +1134,8 @@ export default function HeroSection({
         <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
-      {/* Native Sponsored Ads Section */}
-      <NativeAdsSection language={language} />
+      {/* Native Random Sponsored Ads Section (7-Ad Grid Layout) */}
+      <RandomAdsSection />
     </div>
   );
 }

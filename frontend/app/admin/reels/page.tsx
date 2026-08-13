@@ -113,13 +113,18 @@ export default function ReelsPage() {
     loadReels();
   }, []);
 
-  // Perform Delete operation
-  const confirmDeleteReel = async () => {
-    if (!deleteTargetId) return;
-    setDeleting(true);
-    try {
-      const res = await authFetch(getBackendApiUrl(`/api/admin/reels/${deleteTargetId}`), {
-        method: 'DELETE',
+      const res = await authFetch(getBackendApiUrl(url), {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          heading,
+          headingGu,
+          headingHi,
+          videoUrl: videoUrl || null,
+          instaUrl: instaUrl || null,
+          isActive,
+        }),
       });
       if (!res.ok) throw new Error('Failed to delete reel');
       clearApiCache();

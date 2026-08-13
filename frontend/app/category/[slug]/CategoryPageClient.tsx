@@ -110,14 +110,24 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   };
 
   /* Most-read = top 5 from all articles by views in this category */
-  const mostRead = useMemo(
-    () =>
-      (articles || [])
-        .slice()
-        .sort((a, b) => b.views - a.views)
-        .slice(0, 7),
-    [articles],
-  );
+  /* Most-read = Top 10 articles published/updated within current running month (last 30 days) sorted by views */
+  const mostReadToDisplay = useMemo(() => {
+    const all = articles || [];
+    if (all.length === 0) return [];
+
+    const now = Date.now();
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+    // Filter articles uploaded/updated within the last 30 days (current running month)
+    const currentMonthArticles = all.filter((art) => {
+      const artTime = new Date((art as any).updatedAt || art.publishedAt || (art as any).createdAt || 0).getTime();
+      return !isNaN(artTime) && artTime > 0 && (now - artTime) <= THIRTY_DAYS_MS;
+    });
+
+    // If there are articles in the current running month, sort them by views; otherwise use overall category articles
+    const pool = currentMonthArticles.length > 0 ? currentMonthArticles : all;
+    return [...pool].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+  }, [articles]);
 
   /* Trending tags */
   const trendingTags = useMemo(() => {
@@ -130,55 +140,62 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   /* Resolve displaying lists with dynamic filtering and sorting */
   const displayArticles = articles || [];
 
+  const getArticleTimeMs = (art: Article) => {
+    const updatedVal = (art as any).updatedAt;
+    const publishedVal = art.publishedAt || (art as any).createdAt;
+    const updatedMs = updatedVal ? new Date(updatedVal).getTime() : 0;
+    const publishedMs = publishedVal ? new Date(publishedVal).getTime() : 0;
+    const t = !isNaN(updatedMs) && updatedMs > 0 ? updatedMs : publishedMs;
+    return isNaN(t) ? 0 : t;
+  };
+
   const filteredArticles = useMemo(() => {
     let result = [...displayArticles];
 
-    // Use updatedAt first (latest edit = latest news), fallback to publishedAt/createdAt
-    const getArticleTimeMs = (art: Article) => {
-      const updatedVal = (art as any).updatedAt;
-      const publishedVal = art.publishedAt || (art as any).createdAt;
-      // Prefer updatedAt if it exists and is a valid date
-      const updatedMs = updatedVal ? new Date(updatedVal).getTime() : 0;
-      const publishedMs = publishedVal ? new Date(publishedVal).getTime() : 0;
-      const t = !isNaN(updatedMs) && updatedMs > 0 ? updatedMs : publishedMs;
-      return isNaN(t) ? 0 : t;
-    };
-
-    // 1. Filter by active tab format/category simulation
+    // 1. Filter by active tab format/category
     if (activeTab === 'analysis') {
-      result = result.filter((a, idx) =>
-        idx % 2 === 0 ||
+      const matches = result.filter((a) =>
         a.titleGu?.includes('વિશ્લેષણ') ||
-        a.title?.toLowerCase().includes('analysis')
+        a.title?.toLowerCase().includes('analysis') ||
+        a.excerptGu?.includes('વિશ્લેષણ') ||
+        a.tagsGu?.some(t => t.includes('વિશ્લેષણ')) ||
+        a.tags?.some(t => t.toLowerCase().includes('analysis'))
       );
+      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 2 === 0);
     } else if (activeTab === 'video') {
-      result = result.filter((a, idx) =>
-        idx % 3 === 0 ||
+      const matches = result.filter((a) =>
         a.titleGu?.includes('વીડિયો') ||
-        a.title?.toLowerCase().includes('video')
+        a.title?.toLowerCase().includes('video') ||
+        Boolean((a as any).videoUrl) ||
+        Boolean((a as any).youtubeId) ||
+        a.tagsGu?.some(t => t.includes('વીડિયો')) ||
+        a.tags?.some(t => t.toLowerCase().includes('video'))
       );
+      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 3 === 0);
     } else if (activeTab === 'photo') {
-      result = result.filter((a, idx) =>
-        idx % 4 === 0 ||
+      const matches = result.filter((a) =>
         a.titleGu?.includes('ફોટો') ||
-        a.title?.toLowerCase().includes('photo')
+        a.title?.toLowerCase().includes('photo') ||
+        a.tagsGu?.some(t => t.includes('ફોટો')) ||
+        a.tags?.some(t => t.toLowerCase().includes('photo'))
       );
+      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 4 === 0);
     }
 
-    // 2. Always sort by latest (updatedAt desc) unless user picks popular
+    // 2. Sort by latest or popular
     if (sortBy === 'popular') {
-      result.sort((a, b) => b.views - a.views);
+      result.sort((a, b) => (b.views || 0) - (a.views || 0));
     } else {
-      // Default: latest first — sort by updatedAt desc
+      // Default: latest first by updatedAt / publishedAt desc
       result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
     }
 
     return result;
   }, [displayArticles, activeTab, sortBy]);
 
-  const mostReadToDisplay = (mostRead && mostRead.length > 0 ? mostRead : GUJARAT_MOCK_MOST_READ as any).slice(0, 10);
   const tagsToDisplay = trendingTags && trendingTags.length > 0 ? trendingTags : (GUJARAT_MOCK_TAGS[language] || GUJARAT_MOCK_TAGS.en);
 
+  // #1 Latest News Article for Hero Card
   const heroArticle = filteredArticles[0];
 
   // Guaranteed 4 items (articles 2, 3, 4, 5) for Top Stories column on the right
@@ -194,43 +211,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
 
   const topStoriesIds = useMemo(() => new Set([heroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, topStories]);
 
-  const popularArticlesRaw = useMemo(() => {
+  // Remaining articles (excluding Hero and Top Stories) for Lokpriya / Remaining Grid
+  const popularArticles = useMemo(() => {
     return filteredArticles.filter((art) => !topStoriesIds.has(art.id));
   }, [filteredArticles, topStoriesIds]);
-
-  const popularArticles = useMemo(() => {
-    let result = [...popularArticlesRaw];
-
-    // Filter by tab
-    if (activeTab === 'analysis') {
-      result = result.filter((a, idx) =>
-        idx % 2 === 0 ||
-        a.titleGu?.includes('વિશ્લેષણ') ||
-        a.title?.toLowerCase().includes('analysis')
-      );
-    } else if (activeTab === 'video') {
-      result = result.filter((a, idx) =>
-        idx % 3 === 0 ||
-        a.titleGu?.includes('વીડિયો') ||
-        a.title?.toLowerCase().includes('video')
-      );
-    } else if (activeTab === 'photo') {
-      result = result.filter((a, idx) =>
-        idx % 4 === 0 ||
-        a.titleGu?.includes('ફોટો') ||
-        a.title?.toLowerCase().includes('photo')
-      );
-    }
-
-    // Sort
-    if (sortBy === 'latest') {
-      result.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    } else if (sortBy === 'popular') {
-      result.sort((a, b) => b.views - a.views);
-    }
-
-    return result;
-  }, [popularArticlesRaw, activeTab, sortBy]);
 
   /* Filter tabs */
   const tabs: { id: FilterTab; gu: string; hi: string; en: string }[] = [

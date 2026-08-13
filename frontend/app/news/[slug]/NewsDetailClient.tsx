@@ -52,6 +52,7 @@ import {
   getRelativeTime,
 } from '@/data';
 import { useApp } from '@/components/AppProvider';
+import { useAutoTranslate, TranslatedText } from '@/lib/translate';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
@@ -325,6 +326,16 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
   return cleaned.trim();
 }
 
+function TranslatedParagraph({ rawHtml, language }: { rawHtml: string; language: any }) {
+  const translatedContent = useAutoTranslate(rawHtml, language);
+
+  return (
+    <div
+      className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+      dangerouslySetInnerHTML={{ __html: translatedContent || rawHtml }}
+    />
+  );
+}
 
 interface Props {
   article: Article;
@@ -485,9 +496,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }
   };
 
-  const title = getArticleTitle(article, language);
-  const excerpt = getArticleExcerptHtml(article, language);
-  const body = getArticleContent(article, language);
+  const rawTitle = getArticleTitle(article, language);
+  const rawExcerpt = getArticleExcerptHtml(article, language);
+  const rawBody = getArticleContent(article, language);
+
+  const title = useAutoTranslate(rawTitle, language);
+  const excerpt = useAutoTranslate(rawExcerpt, language);
+  const body = useAutoTranslate(rawBody, language);
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
   const authorDesignation = getLocalized(language, {
@@ -1212,22 +1227,40 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   idx = next + 4;
                   search = idx;
                 }
-                if (idx === -1 || count < atPara) return [html, ''];
-                return [html.slice(0, idx), html.slice(idx)];
-              };
-              const [topHtml, bottomHtml] = splitHtml(formattedArticleBodyHtml, SPLIT_AT);
-              return (
-                <>
-                  <ArticleContentBody html={topHtml || formattedArticleBodyHtml} />
-                  {bottomHtml && (
-                    <>
-                      <AdSectionBanner section="IN_ARTICLE" className="my-4" />
-                      <ArticleContentBody html={bottomHtml} />
-                    </>
-                  )}
-                </>
-              );
-            })()}
+
+                // 2. Check if this paragraph is an Embedded Image markdown ![alt](url)
+                const imgMatch = trimmed.match(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
+                if (imgMatch) {
+                  const imgAlt = imgMatch[1];
+                  const imgUrl = imgMatch[2];
+                  return (
+                    <figure key={idx} className="my-6 space-y-2">
+                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm">
+                        <Image
+                          src={imgUrl}
+                          alt={imgAlt || title}
+                          fill
+                          unoptimized={imgUrl.includes('localhost')}
+                          className="object-cover"
+                        />
+                      </div>
+                      <figcaption className="flex items-center justify-between text-xs text-neutral-500 font-medium">
+                        <span>{title}</span>
+                        <span>{language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}</span>
+                      </figcaption>
+                    </figure>
+                  );
+                }
+
+                const cleanedParagraph = sanitizeParagraphHtml(trimmed);
+                if (!cleanedParagraph) return null;
+
+                // 3. Formatted text paragraph with HTML & Markdown rendering and Auto-Translation
+                return (
+                  <TranslatedParagraph key={idx} rawHtml={cleanedParagraph} language={language} />
+                );
+              })}
+            </div>
 
           </article>
 
@@ -1246,7 +1279,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                     return (
                       <Link key={item.id} href={`/news/${item.slug}`} className="s-rank hover:opacity-85 transition-opacity">
                         <span className="n">{rankNum}</span>
-                        <h3>{getArticleTitle(item, language)}</h3>
+                        <h3><TranslatedText text={getArticleTitle(item, language)} /></h3>
                       </Link>
                     );
                   })}
@@ -1270,9 +1303,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       <Link key={item.id} href={`/news/${item.slug}`} className="s-compact hover:opacity-85 transition-opacity">
                         <div>
                           <span className="kick">{itemCategory}</span>
-                          <h3>{itemTitle}</h3>
+                          <h3><TranslatedText text={itemTitle} /></h3>
                           <div className="meta">
-                            <span>{formatDate(item.publishedAt)}</span>
+                            <span>{formatDate(item.publishedAt, language)}</span>
                           </div>
                         </div>
                         <div className="imgwrap">
@@ -1343,46 +1376,33 @@ export default function NewsDetailClient({ article, related, trending, articleUr
               const itemCategory = getCategoryLabel(item, language);
               const isSaved = savedIds.includes(item.id);
               return (
-                <Link
-                  key={item.id}
-                  href={`/news/${item.slug}`}
-                  className="group relative flex flex-col rounded-2xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:border-[#B3121B]/20 hover:shadow-[0_8px_32px_rgba(0,0,0,0.10)] dark:hover:shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:-translate-y-1 transition-all duration-300"
-                >
-                  {/* Image */}
-                  <div className="relative aspect-[16/10] overflow-hidden bg-neutral-100 dark:bg-neutral-800">
-                    <Image
-                      src={getCardThumbnail(item, index)}
-                      alt={itemTitle}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
-                      }}
-                    />
-                    {/* Gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    {/* Category badge */}
-                    <span className="absolute top-3 left-3 z-10 bg-[#B3121B] text-white text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-md">
-                      {itemCategory}
-                    </span>
-                    {isSaved && (
-                      <span className="absolute top-3 right-3 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
-                        🔖
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex flex-col flex-1 p-3.5 gap-2">
-                    <h3 className="line-clamp-3 text-[14px] font-bold leading-snug text-neutral-900 dark:text-neutral-100 group-hover:text-[#B3121B] dark:group-hover:text-red-400 transition-colors duration-200">
-                      {itemTitle}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-auto pt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-medium">
-                      <svg viewBox="0 0 24 24" className="w-3 h-3 shrink-0 fill-none stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                      </svg>
-                      <span>{formatDate(item.publishedAt)}</span>
+                <div key={item.id} className="zoomhost relative group flex flex-col">
+                  <Link href={`/news/${item.slug}`} className="s-standard flex flex-col group">
+                    <div className="imgwrap relative aspect-[3/2] overflow-hidden rounded-md mb-2 bg-neutral-100 dark:bg-neutral-800">
+                      <Image
+                        src={getCardThumbnail(item, index)}
+                        alt={item.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover transition duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
+                        }}
+                      />
+                      {isSaved && (
+                        <span className="absolute top-2 right-2 z-10 bg-white/90 dark:bg-black/90 p-1.5 rounded-full text-xs shadow-md">
+                          🔖
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="kick mb-1 mt-0.5">{itemCategory}</span>
+                      <h3 className="line-clamp-3 leading-snug text-foreground hover:text-accent transition-colors">
+                        <TranslatedText text={itemTitle} />
+                      </h3>
+                      <div className="meta select-none">
+                        <span>{formatDate(item.publishedAt, language)}</span>
+                      </div>
                     </div>
                   </div>
                 </Link>

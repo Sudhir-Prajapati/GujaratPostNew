@@ -34,16 +34,22 @@ export function formatViews(value: number): string {
   return String(value);
 }
 
-export function formatDate(dateStr: string, language: string = "gu"): string {
+export function formatDate(dateStr: string, language?: string): string {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr || '';
 
-    if (language === 'gu') {
+    let activeLang = language;
+    if (!activeLang && typeof document !== 'undefined') {
+      activeLang = document.documentElement.lang || 'gu';
+    }
+    if (!activeLang) activeLang = 'gu';
+
+    if (activeLang === 'gu') {
       const monthGu = ['જાન્યુઆરી', 'ફેબ્રુઆરી', 'માર્ચ', 'એપ્રિલ', 'મે', 'જૂન', 'જુલાઈ', 'ઓગસ્ટ', 'સપ્ટેમ્બર', 'ઓક્ટોબર', 'નવેમ્બર', 'ડિસેમ્બર'][d.getMonth()];
       return `${d.getDate()} ${monthGu}, ${d.getFullYear()}`;
     }
-    if (language === 'hi') {
+    if (activeLang === 'hi') {
       const monthHi = ['जनवरी', 'फरवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'][d.getMonth()];
       return `${d.getDate()} ${monthHi}, ${d.getFullYear()}`;
     }

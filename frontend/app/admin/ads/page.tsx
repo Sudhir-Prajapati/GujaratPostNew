@@ -22,8 +22,17 @@ import {
   ImageIcon,
   Sidebar,
   Sliders,
+  PanelTop,
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+
+const HEADER_SLOTS = [
+  {
+    id: 'HEADER',
+    label: 'Top Header Ad Banner (728×90)',
+    description: 'Header advertisement banner displayed at top next to Gujarat Post logo (728×90 desktop banner)',
+  },
+];
 
 const HOME_SECTIONS = [
   { id: 'AFTER_HERO', label: 'After Hero Section (Top Banner)', description: 'Placed directly below the main hero news grid' },
@@ -31,7 +40,9 @@ const HOME_SECTIONS = [
   { id: 'AFTER_WEBSTORIES', label: 'After Web Stories', description: 'Placed below interactive web stories bar' },
   { id: 'AFTER_VIDEOS', label: 'After Latest Videos', description: 'Placed below video section' },
   { id: 'AFTER_GALLERY', label: 'After Photo Gallery', description: 'Placed below photo gallery section' },
-  { id: 'IN_ARTICLE', label: 'In-Article Ad (Inside Article Body)', description: 'Shown after paragraph 3 inside every article — 728×90 or 300×250 recommended' },
+  { id: 'RANDOM_ADS_1', label: 'Random Bottom Ads (Section 1 - 7 Cards)', description: 'Displays in 7-card grid section at bottom of website' },
+  { id: 'RANDOM_ADS_2', label: 'Random Bottom Ads (Section 2 - 7 Cards)', description: 'Displays in 2nd 7-card grid section at bottom of website' },
+  { id: 'RANDOM_ADS_3', label: 'Random Bottom Ads (Section 3 - 7 Cards)', description: 'Displays in 3rd 7-card grid section at bottom of website' },
 ];
 
 const FIXED_SIDEBAR_SLOTS = [
@@ -61,8 +72,21 @@ const FIXED_SIDEBAR_SLOTS = [
   },
 ];
 
+const isValidMediaUrl = (url: string | null | undefined): boolean => {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith('/') || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return true;
+  try {
+    const parsed = new URL(trimmed);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname && parsed.hostname.includes('.'));
+  } catch {
+    return false;
+  }
+};
+
 export default function AdminAdsPage() {
-  const [activeTab, setActiveTab] = useState<'section' | 'sidebar'>('section');
+  const [activeTab, setActiveTab] = useState<'header' | 'section' | 'sidebar' | 'random'>('header');
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,13 +95,13 @@ export default function AdminAdsPage() {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Form State
-  const [selectedSection, setSelectedSection] = useState<string>('AFTER_HERO');
+  const [selectedSection, setSelectedSection] = useState<string>('HEADER');
   const [adTitle, setAdTitle] = useState<string>('');
   const [isActive, setIsActive] = useState<boolean>(true);
-  const [imageCount, setImageCount] = useState<number>(1); // 1, 2, or 3 images
+  const [imageCount, setImageCount] = useState<number>(1); // 1, 2, or 3 images for section
   const [mediaType, setMediaType] = useState<'IMAGE' | 'VIDEO'>('IMAGE');
 
-  // Image/Video & Link fields (max 3 for section, 1 for fixed sidebar)
+  // Image/Video & Link fields
   const [image1, setImage1] = useState('');
   const [link1, setLink1] = useState('');
 
@@ -115,8 +139,12 @@ export default function AdminAdsPage() {
   }, []);
 
   const resetForm = () => {
-    if (activeTab === 'sidebar') {
+    if (activeTab === 'header') {
+      setSelectedSection('HEADER');
+    } else if (activeTab === 'sidebar') {
       setSelectedSection('SIDEBAR_HERO_TOP');
+    } else if (activeTab === 'random') {
+      setSelectedSection('RANDOM_ADS_1');
     } else {
       setSelectedSection('AFTER_HERO');
     }
@@ -136,20 +164,27 @@ export default function AdminAdsPage() {
   };
 
   // Switch tab resets form state accordingly
-  const handleTabChange = (tab: 'section' | 'sidebar') => {
+  const handleTabChange = (tab: 'header' | 'section' | 'sidebar' | 'random') => {
     setActiveTab(tab);
     resetForm();
-    if (tab === 'sidebar') {
+    if (tab === 'header') {
+      setSelectedSection('HEADER');
+    } else if (tab === 'sidebar') {
       setSelectedSection('SIDEBAR_HERO_TOP');
+    } else if (tab === 'random') {
+      setSelectedSection('RANDOM_ADS_1');
     } else {
       setSelectedSection('AFTER_HERO');
     }
   };
 
   const handleEdit = (ad: any) => {
-    const isSidebarSlot = FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
-    if (isSidebarSlot) {
+    if (ad.section === 'HEADER') {
+      setActiveTab('header');
+    } else if (FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section)) {
       setActiveTab('sidebar');
+    } else if (ad.section.includes('RANDOM') || ad.section.includes('BOTTOM')) {
+      setActiveTab('random');
     } else {
       setActiveTab('section');
     }
@@ -179,8 +214,20 @@ export default function AdminAdsPage() {
 
   const handleFileUpload = async (index: number, file: File) => {
     if (!file) return;
-    setUploadingIndex(index);
     setErrorMessage('');
+
+    // Strictly validate media type based on selected mediaType (Video vs Image)
+    const isVideoMode = (activeTab === 'header' || activeTab === 'sidebar') && mediaType === 'VIDEO';
+    if (isVideoMode && !file.type.startsWith('video/')) {
+      setErrorMessage('Only video files (MP4, WebM, MOV) can be uploaded when Video Banner mode is selected.');
+      return;
+    }
+    if (!isVideoMode && !file.type.startsWith('image/')) {
+      setErrorMessage('Only image files (JPG, PNG, WebP, GIF) can be uploaded when Image Banner mode is selected.');
+      return;
+    }
+
+    setUploadingIndex(index);
 
     try {
       const formData = new FormData();
@@ -217,21 +264,23 @@ export default function AdminAdsPage() {
       return;
     }
 
-    if (!image1) {
+    if (!image1 || !isValidMediaUrl(image1)) {
       setErrorMessage(
-        activeTab === 'sidebar'
-          ? 'Please provide an Image or Video for the sidebar ad'
+        activeTab === 'header'
+          ? 'Please provide a valid Image or Video URL/file for the header ad banner'
+          : activeTab === 'sidebar'
+          ? 'Please provide a valid Image or Video URL/file for the sidebar ad'
           : 'Please provide at least Image 1'
       );
       return;
     }
 
-    if (activeTab === 'section' && imageCount >= 2 && !image2) {
+    if (activeTab === 'section' && imageCount >= 2 && (!image2 || !isValidMediaUrl(image2))) {
       setErrorMessage('Please provide Image 2 or change image count to 1');
       return;
     }
 
-    if (activeTab === 'section' && imageCount >= 3 && !image3) {
+    if (activeTab === 'section' && imageCount >= 3 && (!image3 || !isValidMediaUrl(image3))) {
       setErrorMessage('Please provide Image 3 or change image count to 2');
       return;
     }
@@ -289,6 +338,23 @@ export default function AdminAdsPage() {
     }
   };
 
+  const handleToggleRandom = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/ads/${id}/toggle-random`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeInRandom: !currentStatus }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setAds(ads.map((a) => (a.id === id ? { ...a, includeInRandom: !currentStatus } : a)));
+        setSuccessMessage('Random pool status updated successfully!');
+      }
+    } catch (err) {
+      console.error('Failed to toggle random status:', err);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this advertisement configuration?')) return;
 
@@ -306,8 +372,9 @@ export default function AdminAdsPage() {
   };
 
   const filteredAdsList = ads.filter((ad) => {
-    const isSidebar = FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
-    return activeTab === 'sidebar' ? isSidebar : !isSidebar;
+    if (activeTab === 'header') return ad.section === 'HEADER';
+    if (activeTab === 'sidebar') return FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
+    return ad.section !== 'HEADER' && !FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
   });
 
   return (
@@ -324,7 +391,7 @@ export default function AdminAdsPage() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Manage both In-Between Section Banners (1, 2, or 3 images) and Fixed Right Sidebar Ads (Image or Video with click redirect).
+            Manage Header Banners (728×90), In-Between Section Ads, and Fixed Right Sidebar Ads easily.
           </p>
         </div>
 
@@ -340,11 +407,24 @@ export default function AdminAdsPage() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 p-1.5 bg-zinc-100 dark:bg-zinc-800/60 rounded-2xl max-w-xl border border-zinc-200 dark:border-zinc-700/50">
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-zinc-100 dark:bg-zinc-800/60 rounded-2xl max-w-2xl border border-zinc-200 dark:border-zinc-700/50">
+        <button
+          type="button"
+          onClick={() => handleTabChange('header')}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            activeTab === 'header'
+              ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+          }`}
+        >
+          <PanelTop className="h-4 w-4 text-emerald-500" />
+          <span>Header Ad (728×90)</span>
+        </button>
+
         <button
           type="button"
           onClick={() => handleTabChange('section')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
             activeTab === 'section'
               ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800'
               : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -357,7 +437,7 @@ export default function AdminAdsPage() {
         <button
           type="button"
           onClick={() => handleTabChange('sidebar')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
             activeTab === 'sidebar'
               ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-800'
               : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -366,7 +446,156 @@ export default function AdminAdsPage() {
           <Sidebar className="h-4 w-4 text-blue-500" />
           <span>Fixed Sidebar Ads</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => handleTabChange('random')}
+          className={`flex-1 min-w-[140px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all ${
+            activeTab === 'random'
+              ? 'bg-white dark:bg-zinc-900 text-[#B3121B] dark:text-red-400 shadow-sm border border-red-200 dark:border-red-900/50'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+          }`}
+        >
+          <Layers className="h-4 w-4 text-[#B3121B]" />
+          <span>Random Bottom Ads</span>
+        </button>
       </div>
+
+      {/* Option 1: Existing Advertisements Selector for Random Bottom Ads Tab */}
+      {activeTab === 'random' && (
+        <div className="space-y-6">
+          {/* Header Banner for Random Ads Tab with Brand Red Color & Gujarat Post Logo */}
+          <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-[#700910] via-[#B3121B] to-[#420407] text-white shadow-lg border border-red-500/30 space-y-3 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-white/15 backdrop-blur-xs border border-white/20">
+                  <Sparkles className="h-5 w-5 text-amber-300" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-white">
+                    Random Bottom Advertisements Pool
+                  </h2>
+                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300">
+                    7-Card Grid Layout • Gujarat Post Sponsored Ads
+                  </span>
+                </div>
+              </div>
+              <div className="shrink-0 bg-white px-2 py-1 rounded-lg shadow-2xs border border-white/30">
+                <Image
+                  src="/assets/gujarat-post-logo-chip.png"
+                  alt="Gujarat Post"
+                  width={90}
+                  height={20}
+                  className="h-5 w-auto object-contain"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-red-100/90 leading-relaxed font-medium pt-2 border-t border-white/15">
+              • <strong>Option 1:</strong> Select & toggle any existing website advertisement into the bottom Random 7-card grid pool.<br />
+              • <strong>Option 2:</strong> Create a brand new custom advertisement specifically for the bottom random section.
+            </p>
+          </div>
+
+          {/* Option 1 Card: Select Existing Ads */}
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-red-200 dark:border-red-950/60 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                  <LayoutGrid className="h-4 w-4 text-[#B3121B]" /> Option 1: Select Existing Website Advertisements
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Toggle on any existing ad (Header, Sidebar, In-between section) to automatically display it in the bottom Random Ads grid!
+                </p>
+              </div>
+              <span className="text-xs font-black text-[#B3121B] dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-3.5 py-1 rounded-full border border-red-200 dark:border-red-900/60">
+                {ads.filter((a) => a.includeInRandom || a.section?.includes('RANDOM')).length} Active in Pool
+              </span>
+            </div>
+
+            {ads.length === 0 ? (
+              <div className="py-6 text-center text-zinc-400 text-xs">
+                No existing advertisements found on website. You can create a new advertisement below.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ads.map((ad) => {
+                  const isIncluded = Boolean(ad.includeInRandom) || ad.section?.includes('RANDOM');
+                  const secLabel =
+                    HEADER_SLOTS.find((s) => s.id === ad.section)?.label ||
+                    FIXED_SIDEBAR_SLOTS.find((s) => s.id === ad.section)?.label ||
+                    HOME_SECTIONS.find((s) => s.id === ad.section)?.label ||
+                    ad.section;
+
+                  return (
+                    <div
+                      key={ad.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-4 ${
+                        isIncluded
+                          ? 'border-red-300 dark:border-red-800 bg-red-50/40 dark:bg-red-950/20 shadow-sm'
+                          : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        {/* Thumbnail */}
+                        <div className="relative h-14 w-20 shrink-0 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-800">
+                          {ad.image1 ? (
+                            <Image src={ad.image1} alt={ad.title || 'Ad'} fill unoptimized={true} className="object-cover" />
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-[10px] text-zinc-400 font-bold">AD</div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 space-y-1">
+                          <span className="inline-block text-[9px] font-black uppercase text-[#B3121B] dark:text-red-300 bg-red-100/80 dark:bg-red-950/60 px-2 py-0.5 rounded truncate max-w-full">
+                            {secLabel}
+                          </span>
+                          <h4 className="text-xs font-black text-zinc-900 dark:text-zinc-100 truncate">
+                            {ad.title || 'Untitled Ad'}
+                          </h4>
+                          <p className="text-[10px] font-bold text-zinc-500">
+                            {isIncluded ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                ● Visible in Random Section
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400 flex items-center gap-1">
+                                ○ Deselected (Hidden from Random)
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Deselect / Select Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleRandom(ad.id, isIncluded)}
+                        className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-black transition-all shadow-sm ${
+                          isIncluded
+                            ? 'bg-[#B3121B] hover:bg-zinc-900 text-white'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-[#B3121B] hover:text-white border border-zinc-300 dark:border-zinc-700'
+                        }`}
+                      >
+                        {isIncluded ? (
+                          <>
+                            <X className="h-3.5 w-3.5" />
+                            <span>Deselect from Random Pool (Hide)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-[#B3121B]" />
+                            <span>+ Select for Random Pool (Show)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main Form & Preview Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -376,8 +605,24 @@ export default function AdminAdsPage() {
             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-red-500" />
               {editingId
-                ? `Edit ${activeTab === 'sidebar' ? 'Fixed Sidebar Ad' : 'Section Ad'}`
-                : `Add ${activeTab === 'sidebar' ? 'Fixed Sidebar Ad' : 'New Section Ad'}`}
+                ? `Edit ${
+                    activeTab === 'header'
+                      ? 'Header Ad Banner'
+                      : activeTab === 'sidebar'
+                      ? 'Fixed Sidebar Ad'
+                      : activeTab === 'random'
+                      ? 'Random Bottom Ad'
+                      : 'Section Ad'
+                  }`
+                : activeTab === 'random'
+                ? 'Option 2: Create New Custom Random Ad'
+                : `Add ${
+                    activeTab === 'header'
+                      ? 'Header Ad Banner'
+                      : activeTab === 'sidebar'
+                      ? 'Fixed Sidebar Ad'
+                      : 'New Section Ad'
+                  }`}
             </h2>
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-zinc-500">Status:</span>
@@ -420,7 +665,19 @@ export default function AdminAdsPage() {
               <label className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">
                 1. Target Position / Slot <span className="text-red-500">*</span>
               </label>
-              {activeTab === 'sidebar' ? (
+              {activeTab === 'header' ? (
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+                >
+                  {HEADER_SLOTS.map((sec) => (
+                    <option key={sec.id} value={sec.id}>
+                      {sec.label}
+                    </option>
+                  ))}
+                </select>
+              ) : activeTab === 'sidebar' ? (
                 <select
                   value={selectedSection}
                   onChange={(e) => setSelectedSection(e.target.value)}
@@ -446,7 +703,9 @@ export default function AdminAdsPage() {
                 </select>
               )}
               <p className="text-xs text-zinc-500">
-                {activeTab === 'sidebar'
+                {activeTab === 'header'
+                  ? HEADER_SLOTS.find((s) => s.id === selectedSection)?.description
+                  : activeTab === 'sidebar'
                   ? FIXED_SIDEBAR_SLOTS.find((s) => s.id === selectedSection)?.description
                   : HOME_SECTIONS.find((s) => s.id === selectedSection)?.description}
               </p>
@@ -461,13 +720,13 @@ export default function AdminAdsPage() {
                 type="text"
                 value={adTitle}
                 onChange={(e) => setAdTitle(e.target.value)}
-                placeholder="e.g. Summer Promo 2026"
+                placeholder="e.g. Top Header Brand Promotion 2026"
                 className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/60 px-4 py-2.5 text-sm font-medium text-zinc-900 dark:text-zinc-100 focus:border-red-500 focus:outline-none"
               />
             </div>
 
-            {/* Media Type Selector (For Fixed Sidebar Ads) */}
-            {activeTab === 'sidebar' && (
+            {/* Media Type Selector (For Header & Fixed Sidebar Ads) */}
+            {(activeTab === 'header' || activeTab === 'sidebar') && (
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-zinc-800 dark:text-zinc-200">
                   2. Media Type (Image or Video) <span className="text-red-500">*</span>
@@ -532,11 +791,12 @@ export default function AdminAdsPage() {
 
             {/* Media Upload & Link Input Fields */}
             <div className="space-y-5 pt-2">
-              {(activeTab === 'sidebar' ? [0] : [0, 1, 2].slice(0, imageCount)).map((idx) => {
+              {(activeTab === 'header' || activeTab === 'sidebar' ? [0] : [0, 1, 2].slice(0, imageCount)).map((idx) => {
                 const imgVal = idx === 0 ? image1 : idx === 1 ? image2 : image3;
                 const setImgVal = idx === 0 ? setImage1 : idx === 1 ? setImage2 : setImage3;
                 const linkVal = idx === 0 ? link1 : idx === 1 ? link2 : link3;
                 const setLinkVal = idx === 0 ? setLink1 : idx === 1 ? setLink2 : setLink3;
+                const isMediaValid = isValidMediaUrl(imgVal);
 
                 return (
                   <div
@@ -545,13 +805,22 @@ export default function AdminAdsPage() {
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                        {activeTab === 'sidebar' ? (
+                        {activeTab === 'header' ? (
+                          mediaType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <PanelTop className="h-3.5 w-3.5" />
+                        ) : activeTab === 'sidebar' ? (
                           mediaType === 'VIDEO' ? <Video className="h-3.5 w-3.5" /> : <ImageIcon className="h-3.5 w-3.5" />
                         ) : (
                           <LayoutGrid className="h-3.5 w-3.5" />
                         )}
-                        {activeTab === 'sidebar' ? 'Sidebar Media & Link' : `Ad Image Slot ${idx + 1}`}
+                        {activeTab === 'header'
+                          ? 'Header Media & Link'
+                          : activeTab === 'sidebar'
+                          ? 'Sidebar Media & Link'
+                          : `Ad Image Slot ${idx + 1}`}
                       </span>
+                      {activeTab === 'header' && (
+                        <span className="text-[11px] text-zinc-400 font-semibold">Recommended: 728×90 banner</span>
+                      )}
                       {activeTab === 'section' && (
                         <span className="text-[11px] text-zinc-400 font-semibold">
                           {imageCount === 1 ? 'Full Banner' : imageCount === 2 ? 'Half Banner' : '1/3 Banner'}
@@ -562,7 +831,7 @@ export default function AdminAdsPage() {
                     {/* Field 1: Media (Image or Video) */}
                     <div className="space-y-2">
                       <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                        {activeTab === 'sidebar' && mediaType === 'VIDEO'
+                        {(activeTab === 'header' || activeTab === 'sidebar') && mediaType === 'VIDEO'
                           ? 'Video File (MP4/WebM Upload) or Video URL'
                           : 'Image File (Upload) or Image URL'}{' '}
                         <span className="text-red-500">*</span>
@@ -573,7 +842,7 @@ export default function AdminAdsPage() {
                           value={imgVal}
                           onChange={(e) => setImgVal(e.target.value)}
                           placeholder={
-                            activeTab === 'sidebar' && mediaType === 'VIDEO'
+                            (activeTab === 'header' || activeTab === 'sidebar') && mediaType === 'VIDEO'
                               ? 'https://example.com/banner-video.mp4'
                               : 'https://example.com/banner-image.jpg'
                           }
@@ -582,7 +851,7 @@ export default function AdminAdsPage() {
                         <input
                           type="file"
                           ref={fileInputRefs[idx]}
-                          accept={activeTab === 'sidebar' && mediaType === 'VIDEO' ? 'video/*,image/*' : 'image/*'}
+                          accept={(activeTab === 'header' || activeTab === 'sidebar') && mediaType === 'VIDEO' ? 'video/mp4,video/webm,video/quicktime,video/*' : 'image/*'}
                           className="hidden"
                           onChange={(e) => {
                             if (e.target.files?.[0]) handleFileUpload(idx, e.target.files[0]);
@@ -606,16 +875,22 @@ export default function AdminAdsPage() {
                       {/* Media Preview */}
                       {imgVal && (
                         <div className="relative h-32 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-900 mt-2 flex items-center justify-center">
-                          {mediaType === 'VIDEO' || /\.(mp4|webm|mov)(\?.*)?$/i.test(imgVal) ? (
-                            <video src={imgVal} autoPlay loop muted playsInline className="h-full w-full object-cover" />
+                          {isMediaValid ? (
+                            mediaType === 'VIDEO' || /\.(mp4|webm|mov)(\?.*)?$/i.test(imgVal) ? (
+                              <video src={imgVal} autoPlay loop muted playsInline className="h-full w-full object-cover" />
+                            ) : (
+                              <Image
+                                src={imgVal}
+                                alt={`Preview ${idx + 1}`}
+                                fill
+                                unoptimized={true}
+                                className="object-cover"
+                              />
+                            )
                           ) : (
-                            <Image
-                              src={imgVal}
-                              alt={`Preview ${idx + 1}`}
-                              fill
-                              unoptimized={imgVal.startsWith('http')}
-                              className="object-cover"
-                            />
+                            <div className="flex flex-col items-center justify-center text-amber-400 text-xs p-2">
+                              <span>Enter valid URL or upload a file</span>
+                            </div>
                           )}
                           <button
                             type="button"
@@ -666,8 +941,16 @@ export default function AdminAdsPage() {
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 <span>
                   {editingId
-                    ? activeTab === 'sidebar' ? 'Update Sidebar Ad' : 'Update Section Ad'
-                    : activeTab === 'sidebar' ? 'Save Sidebar Ad' : 'Save Section Ad'}
+                    ? activeTab === 'header'
+                      ? 'Update Header Ad'
+                      : activeTab === 'sidebar'
+                      ? 'Update Sidebar Ad'
+                      : 'Update Section Ad'
+                    : activeTab === 'header'
+                    ? 'Save Header Ad'
+                    : activeTab === 'sidebar'
+                    ? 'Save Sidebar Ad'
+                    : 'Save Section Ad'}
                 </span>
               </button>
             </div>
@@ -683,7 +966,9 @@ export default function AdminAdsPage() {
                 <Eye className="h-4 w-4 text-emerald-500" /> Live Layout Preview
               </h3>
               <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded-md">
-                {activeTab === 'sidebar'
+                {activeTab === 'header'
+                  ? '728×90 Banner'
+                  : activeTab === 'sidebar'
                   ? `${mediaType} Banner`
                   : imageCount === 1 ? '100% Width' : imageCount === 2 ? '50% / 50%' : '33.3% Grid'}
               </span>
@@ -695,13 +980,41 @@ export default function AdminAdsPage() {
 
             {/* Simulated Banner Container */}
             <div className="p-3 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950">
-              {activeTab === 'sidebar' ? (
+              {activeTab === 'header' ? (
+                <div className="relative aspect-[21/6] rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-[#0c1729] flex items-center justify-between p-3 text-white">
+                  {isValidMediaUrl(image1) ? (
+                    mediaType === 'VIDEO' || /\.(mp4|webm|mov)(\?.*)?$/i.test(image1) ? (
+                      <video src={image1} autoPlay loop muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+                    ) : (
+                      <Image src={image1} alt="Header Ad Preview" fill unoptimized={true} className="object-cover" />
+                    )
+                  ) : (
+                    <div className="flex items-center justify-between w-full z-10 px-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-red-600 text-white">
+                          <Megaphone className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black uppercase text-red-400 tracking-wider">Grow with Gujarat Post</p>
+                          <p className="text-xs font-bold">Put your brand in front of Gujarat.</p>
+                        </div>
+                      </div>
+                      <div className="text-[10px] bg-white text-black font-bold px-2 py-1 rounded-full">
+                        Advertise now ↗
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2 bg-black/70 text-white text-[9px] font-bold px-1.5 py-0.5 rounded z-20">
+                    HEADER AD · 728×90
+                  </div>
+                </div>
+              ) : activeTab === 'sidebar' ? (
                 <div className="relative aspect-[16/9] rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-900 flex flex-col items-center justify-center text-center p-2">
-                  {image1 ? (
+                  {isValidMediaUrl(image1) ? (
                     mediaType === 'VIDEO' || /\.(mp4|webm|mov)(\?.*)?$/i.test(image1) ? (
                       <video src={image1} autoPlay loop muted playsInline className="h-full w-full object-cover" />
                     ) : (
-                      <Image src={image1} alt="Sidebar Preview" fill unoptimized={image1.startsWith('http')} className="object-cover" />
+                      <Image src={image1} alt="Sidebar Preview" fill unoptimized={true} className="object-cover" />
                     )
                   ) : (
                     <div className="flex flex-col items-center justify-center text-zinc-400 text-xs p-4">
@@ -726,19 +1039,18 @@ export default function AdminAdsPage() {
                 >
                   {[0, 1, 2].slice(0, imageCount).map((idx) => {
                     const img = idx === 0 ? image1 : idx === 1 ? image2 : image3;
-                    const link = idx === 0 ? link1 : idx === 1 ? link2 : link3;
 
                     return (
                       <div
                         key={idx}
                         className="relative aspect-[16/8] rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-800 flex flex-col items-center justify-center text-center p-2 group"
                       >
-                        {img ? (
+                        {isValidMediaUrl(img) ? (
                           <Image
                             src={img}
                             alt={`Slot ${idx + 1}`}
                             fill
-                            unoptimized={img.startsWith('http')}
+                            unoptimized={true}
                             className="object-cover"
                           />
                         ) : (
@@ -762,7 +1074,12 @@ export default function AdminAdsPage() {
           <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm space-y-4">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
               <Layers className="h-4 w-4 text-blue-500" />
-              {activeTab === 'sidebar' ? 'Configured Sidebar Ads' : 'Configured Section Ads'} ({filteredAdsList.length})
+              {activeTab === 'header'
+                ? 'Configured Header Ad'
+                : activeTab === 'sidebar'
+                ? 'Configured Sidebar Ads'
+                : 'Configured Section Ads'}{' '}
+              ({filteredAdsList.length})
             </h3>
 
             {loading ? (
@@ -772,12 +1089,13 @@ export default function AdminAdsPage() {
               </div>
             ) : filteredAdsList.length === 0 ? (
               <div className="py-8 text-center text-zinc-400 text-xs">
-                No custom {activeTab === 'sidebar' ? 'sidebar' : 'section'} ads created yet. Fill the form to add one.
+                No custom {activeTab} ad created yet. Fill the form to add one.
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredAdsList.map((ad) => {
                   const secLabel =
+                    HEADER_SLOTS.find((s) => s.id === ad.section)?.label ||
                     FIXED_SIDEBAR_SLOTS.find((s) => s.id === ad.section)?.label ||
                     HOME_SECTIONS.find((s) => s.id === ad.section)?.label ||
                     ad.section;

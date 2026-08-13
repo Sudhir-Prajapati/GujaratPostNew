@@ -148,43 +148,6 @@ body {
     linear-gradient(180deg, var(--background), var(--background));
 }
 
-/* ── Rich Text, List & Blockquote Styles ── */
-.prose ol,
-.article-body ol,
-[contenteditable] ol {
-  list-style-type: decimal !important;
-  padding-left: 1.75rem !important;
-  margin-top: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
-}
-
-.prose ul,
-.article-body ul,
-[contenteditable] ul {
-  list-style-type: disc !important;
-  padding-left: 1.75rem !important;
-  margin-top: 0.5rem !important;
-  margin-bottom: 0.5rem !important;
-}
-
-.prose li,
-.article-body li,
-[contenteditable] li {
-  display: list-item !important;
-  margin-top: 0.25rem !important;
-  margin-bottom: 0.25rem !important;
-}
-
-.prose blockquote,
-.article-body blockquote,
-[contenteditable] blockquote {
-  border-left: 3px solid #B3121B !important;
-  padding-left: 1rem !important;
-  margin-top: 0.75rem !important;
-  margin-bottom: 0.75rem !important;
-  font-weight: 700 !important;
-}
-
 /* ── Force footer to always display in dark mode regardless of page theme ── */
 footer[data-theme="dark"] {
   --paper: #09090b;
@@ -323,24 +286,20 @@ img {
 }
 
 @keyframes ticker-scroll {
-  0% {
-    transform: translate3d(0, 0, 0);
+  from {
+    transform: translateX(0);
   }
 
-  100% {
-    transform: translate3d(-50%, 0, 0);
+  to {
+    transform: translateX(-50%);
   }
 }
 
 .ticker-animation {
-  display: inline-flex;
-  align-items: center;
-  width: max-content;
+  display: inline-block;
+  min-width: max-content;
   white-space: nowrap;
-  will-change: transform;
-  backface-visibility: hidden;
-  transform: translate3d(0, 0, 0);
-  animation: ticker-scroll var(--ticker-duration, 80s) linear infinite;
+  animation: ticker-scroll 36s linear infinite;
 }
 
 @keyframes shimmer {
@@ -498,9 +457,15 @@ img {
 }
 
 .news-loader-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100vw;
   height: 100vh;
-  background: radial-gradient(circle at 50% 50%, #1e0508 0%, #000000 75%);
+  z-index: 9999999;
+  background: #040810;
   color: #ffffff;
 }
 
@@ -2548,218 +2513,3 @@ html[lang="gu"] .leading-snug,
 html[lang="gu"] .leading-tight {
   line-height: 1.55 !important;
 }
-
-/* ── Article Attachment Cards (rendered via innerHTML) ── */
-.gp-x-card,
-.gp-pdf-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.gp-x-card:hover,
-.gp-pdf-card:hover {
-  transform: translateY(-2px);
-}
-
-/* X card */
-.gp-x-card {
-  background: linear-gradient(135deg, #111 0%, #1c1c1c 60%, #000 100%);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 20px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  margin: 28px 0;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
-}
-.gp-x-card:hover {
-  box-shadow: 0 16px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10);
-}
-.gp-x-card::before {
-  content: '𝕏';
-  position: absolute;
-  right: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 120px;
-  font-weight: 900;
-  color: rgba(255,255,255,0.04);
-  pointer-events: none;
-  line-height: 1;
-  user-select: none;
-}
-.gp-x-icon {
-  width: 48px; height: 48px;
-  background: #fff;
-  border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px; font-weight: 900; color: #000;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-.gp-x-title {
-  font-size: 15px; font-weight: 800;
-  color: #fff; line-height: 1.3; display: block;
-}
-.gp-x-sub {
-  font-size: 12px; color: rgba(255,255,255,0.55);
-  font-weight: 500; display: block; margin-top: 3px;
-}
-.gp-x-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: #fff; color: #000 !important;
-  font-size: 12px; font-weight: 800;
-  padding: 10px 20px; border-radius: 100px;
-  text-decoration: none !important;
-  flex-shrink: 0;
-  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 14px rgba(255,255,255,0.15);
-  white-space: nowrap;
-}
-.gp-x-btn:hover {
-  background: #e5e5e5;
-  transform: scale(1.04);
-  box-shadow: 0 6px 20px rgba(255,255,255,0.25);
-}
-.gp-x-btn span { color: #000 !important; }
-
-/* PDF card */
-.gp-pdf-card {
-  background: linear-gradient(135deg, #fff5f5 0%, #fff 50%, #fef2f2 100%);
-  border: 1.5px solid #fca5a5;
-  border-radius: 20px;
-  padding: 20px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  margin: 28px 0;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 24px rgba(179,18,27,0.08);
-}
-.gp-pdf-card:hover {
-  border-color: #f87171;
-  box-shadow: 0 12px 40px rgba(179,18,27,0.15);
-}
-.dark .gp-pdf-card {
-  background: linear-gradient(135deg, #2a0a0c 0%, #1a0507 100%);
-  border-color: rgba(239,68,68,0.25);
-}
-.gp-pdf-icon {
-  width: 48px; height: 48px;
-  background: linear-gradient(135deg, #B3121B, #8E0E15);
-  border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 16px rgba(179,18,27,0.4);
-}
-.gp-pdf-title {
-  font-size: 15px; font-weight: 800;
-  color: #7f1d1d; line-height: 1.3; display: block;
-}
-.dark .gp-pdf-title { color: #fca5a5; }
-.gp-pdf-sub {
-  font-size: 12px; color: #b91c1c;
-  font-weight: 500; display: block; margin-top: 3px;
-  opacity: 0.75;
-}
-.dark .gp-pdf-sub { color: #f87171; }
-.gp-pdf-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: linear-gradient(135deg, #B3121B, #8E0E15);
-  color: #fff !important;
-  font-size: 12px; font-weight: 800;
-  padding: 10px 20px; border-radius: 100px;
-  text-decoration: none !important;
-  flex-shrink: 0;
-  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
-  box-shadow: 0 4px 16px rgba(179,18,27,0.4);
-  white-space: nowrap;
-}
-.gp-pdf-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 8px 28px rgba(179,18,27,0.55);
-  filter: brightness(1.08);
-}
-.gp-pdf-btn span { color: #fff !important; }
-.gp-pdf-btn .dl-arrow {
-  display: inline-block;
-}
-
-/* ============================================================
-   SplashLoader 3D Mic — keyframes & utility classes
-   (moved from inline <style> to eliminate React warning)
-   ============================================================ */
-.perspective-container {
-  perspective: 1400px;
-  perspective-origin: 50% 40%;
-}
-
-@keyframes mic-spin-3d {
-  0%   { transform: translateY(0px)   rotateY(0deg)   rotateX(8deg);  }
-  25%  { transform: translateY(-14px) rotateY(90deg)  rotateX(-2deg); }
-  50%  { transform: translateY(-22px) rotateY(180deg) rotateX(8deg);  }
-  75%  { transform: translateY(-14px) rotateY(270deg) rotateX(-2deg); }
-  100% { transform: translateY(0px)   rotateY(360deg) rotateX(8deg);  }
-}
-
-@keyframes floor-shadow {
-  0%, 100% { transform: scale(1);    opacity: 0.7;  }
-  50%       { transform: scale(0.75); opacity: 0.35; }
-}
-
-@keyframes ripple {
-  0%   { transform: scale(0.8);  opacity: 0.9; }
-  100% { transform: scale(1.45); opacity: 0;   }
-}
-
-@keyframes glow {
-  0%, 100% { opacity: 0.35; }
-  50%       { opacity: 0.9;  }
-}
-
-@keyframes sweep {
-  0%   { transform: translateX(-100%); }
-  100% { transform: translateX(100%);  }
-}
-
-@keyframes rotate-orbit {
-  0%   { transform: rotate(0deg);   }
-  100% { transform: rotate(360deg); }
-}
-
-.animate-mic-3d {
-  animation: mic-spin-3d 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-  transform-style: preserve-3d;
-}
-.animate-floor-shadow {
-  animation: floor-shadow 6.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-}
-.animate-pulse-glow {
-  animation: glow 2s ease-in-out infinite;
-}
-.animate-ripple-1 {
-  animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
-  transform-origin: center;
-}
-.animate-ripple-2 {
-  animation: ripple 2.4s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
-  animation-delay: 1.2s;
-  transform-origin: center;
-}
-.animate-sweep {
-  animation: sweep 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-.animate-rotate-orbit {
-  animation: rotate-orbit 14s linear infinite;
-}
-.cube-flag {
-  transform-style: preserve-3d;
-}
-

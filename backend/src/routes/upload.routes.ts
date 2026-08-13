@@ -34,18 +34,18 @@ function getPdfPageCount(filePath: string): number {
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dvcffkyjz',
-  api_key: process.env.CLOUDINARY_API_KEY || '495845865934762',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'ea99jiIs2CS9jRYnPpTmF9PjNIM',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 't6pf4kyu',
+  api_key: process.env.CLOUDINARY_API_KEY || '683952475537554',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'SeCrA1OZ6g7oqKLPEfBFZ9L8XvY',
 });
 
-// Disk storage for 100% reliable local file saving with correct extension
+// Disk storage for 100% reliable file saving before Cloudinary stream upload
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.pdf';
+    const ext = path.extname(file.originalname) || '.jpg';
     const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9]/g, '_');
     const uniqueName = `${cleanBase}_${Date.now()}_${Math.round(Math.random() * 1e4)}${ext}`;
     cb(null, uniqueName);
@@ -76,16 +76,18 @@ const fileFilter = (req: any, file: any, cb: any) => {
 const upload = multer({
   storage: diskStorage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // Increased to 100MB for videos
+    fileSize: 200 * 1024 * 1024, // 200MB max limit
   },
   fileFilter,
 });
 
 const handleUpload = (req: any, res: any) => {
-  // Support multiple common field names in Multer
+  // Support 'file', 'image', 'video', 'pdf', 'photo', and 'avatar' field names
   const singleUpload = upload.fields([
     { name: 'file', maxCount: 1 },
     { name: 'image', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
+    { name: 'pdf', maxCount: 1 },
     { name: 'photo', maxCount: 1 },
     { name: 'avatar', maxCount: 1 },
   ]);
@@ -98,73 +100,72 @@ const handleUpload = (req: any, res: any) => {
 
     const uploadedFile =
       req.file ||
-      (req.files && (req.files.file?.[0] || req.files.image?.[0] || req.files.photo?.[0] || req.files.avatar?.[0]));
+      (req.files &&
+        (req.files.file?.[0] ||
+          req.files.image?.[0] ||
+          req.files.video?.[0] ||
+          req.files.pdf?.[0] ||
+          req.files.photo?.[0] ||
+          req.files.avatar?.[0]));
 
     if (!uploadedFile) {
       return res.status(400).json({ success: false, error: 'No file uploaded.' });
     }
 
-    // Construct local fallback URL
-    const host = req.get('host') || 'localhost:5000';
-    const protocol = req.protocol || 'http';
-    const localUrl = `/uploads/${uploadedFile.filename}`;
-    const fullLocalUrl = `${protocol}://${host}${localUrl}`;
+    const filePath = uploadedFile.path;
+    const isPdf = uploadedFile.originalname?.toLowerCase().endsWith('.pdf') || uploadedFile.mimetype?.includes('pdf');
+    const totalPages = isPdf && filePath ? getPdfPageCount(filePath) : undefined;
 
-    // Read buffer if diskStorage was used
-    const fileBuffer =
-      uploadedFile.buffer ||
-      (uploadedFile.path && fs.existsSync(uploadedFile.path) ? fs.readFileSync(uploadedFile.path) : null);
-
-    if (!fileBuffer) {
-      return res.status(200).json({
-        success: true,
-        url: fullLocalUrl,
-        data: { url: fullLocalUrl },
-      });
-    }
-
-    // Attempt upload to Cloudinary stream with automatic local fallback
     try {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'gujarat-post',
-          resource_type: 'auto',
-        },
-        (uploadErr: any, result: any) => {
-          // Clean up temp disk file after Cloudinary upload
-          if (uploadedFile.path && fs.existsSync(uploadedFile.path)) {
-            try {
-              fs.unlinkSync(uploadedFile.path);
-            } catch (e) {
-              // Ignore cleanup error
-            }
-          }
+      // Determine resource_type for Cloudinary ('image', 'video', or 'auto')
+      let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
+      if (uploadedFile.mimetype?.startsWith('image/')) resourceType = 'image';
+      else if (uploadedFile.mimetype?.startsWith('video/')) resourceType = 'video';
+      else if (isPdf) resourceType = 'auto';
 
-          if (uploadErr) {
-            console.warn('Cloudinary upload warning, using local file URL fallback:', uploadErr.message || uploadErr);
-            return res.status(200).json({
-              success: true,
-              url: fullLocalUrl,
-              data: { url: fullLocalUrl },
-            });
-          }
+      console.log(`📤 Uploading to Cloudinary [${uploadedFile.originalname}] resourceType=${resourceType}...`);
 
-          const fileUrl = result?.secure_url || result?.url || fullLocalUrl;
-          return res.status(200).json({
-            success: true,
-            url: fileUrl,
-            data: { url: fileUrl },
-          });
-        }
-      );
+      const result = await cloudinary.uploader.upload(filePath, {
+        folder: 'gujarat-post',
+        resource_type: resourceType,
+      });
 
-      uploadStream.end(fileBuffer);
-    } catch (error: any) {
-      console.warn('Upload route catch error, using local URL fallback:', error.message || error);
+      const fileUrl = result.secure_url || result.url;
+      console.log(`✅ Cloudinary Upload Success: ${fileUrl}`);
+
+      // Clean up temporary local file if uploaded to Cloudinary
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {}
+      }
+
       return res.status(200).json({
         success: true,
-        url: fullLocalUrl,
-        data: { url: fullLocalUrl },
+        url: fileUrl,
+        data: {
+          url: fileUrl,
+          public_id: result.public_id,
+          format: result.format,
+          resource_type: result.resource_type,
+          totalPages,
+        },
+      });
+    } catch (cloudinaryErr: any) {
+      console.error('⚠️ Cloudinary Upload Error, falling back to local URL:', cloudinaryErr?.message || cloudinaryErr);
+
+      // Fallback: Return local upload URL if Cloudinary fails
+      const protocol = req.protocol || 'http';
+      const host = req.get('host') || 'localhost:5000';
+      const localUrl = `${protocol}://${host}/uploads/${uploadedFile.filename}`;
+
+      return res.status(200).json({
+        success: true,
+        url: localUrl,
+        data: {
+          url: localUrl,
+          totalPages,
+        },
       });
     }
   });
@@ -172,5 +173,6 @@ const handleUpload = (req: any, res: any) => {
 
 router.post('/', handleUpload);
 router.post('/image', handleUpload);
+router.post('/video', handleUpload);
 
 export default router;
