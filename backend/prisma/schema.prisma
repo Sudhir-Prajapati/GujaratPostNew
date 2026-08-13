@@ -302,6 +302,7 @@ model Reel {
   headingHi   String    @db.Text
   videoUrl    String?   @db.Text // Used if type is "VIDEO"
   instaUrl    String?   @db.Text // Used if type is "INSTAGRAM"
+  thumbnail   String?   @db.Text // Cover thumbnail image URL
   isActive    Boolean   @default(true)
   scheduledAt DateTime?
   createdAt   DateTime  @default(now())
@@ -326,5 +327,5 @@ model Advertisement {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@map("reels")
+  @@map("advertisements")
 }
