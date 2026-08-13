@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { isMediaVideo } from '@/lib/media';
 
 const ReadingProgressBar = memo(function ReadingProgressBar() {
   const [progress, setProgress] = useState(0);
@@ -35,6 +36,42 @@ const ArticleContentBody = memo(function ArticleContentBody({ html }: { html: st
     <div
       ref={bodyRef}
       className="article-body space-y-4 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:list-item [&_li]:my-1 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:font-bold [&_blockquote]:not-italic [&_blockquote]:my-3 [&_img]:rounded-xl [&_figure]:my-6"
+    />
+  );
+});
+
+const DetailSlideVideo = memo(function DetailSlideVideo({
+  src,
+  isActive,
+  onEnded,
+}: {
+  src: string;
+  isActive: boolean;
+  onEnded: () => void;
+}) {
+  const vidRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (isActive && vidRef.current) {
+      vidRef.current.currentTime = 0;
+      vidRef.current.defaultMuted = true;
+      vidRef.current.play().catch(() => {});
+    } else if (!isActive && vidRef.current) {
+      vidRef.current.pause();
+    }
+  }, [isActive]);
+
+  return (
+    <video
+      ref={vidRef}
+      src={src}
+      controls
+      playsInline
+      autoPlay
+      muted
+      onEnded={onEnded}
+      className="h-full w-full object-cover"
+      poster="/assets/placeholder.jpg"
     />
   );
 });
@@ -397,6 +434,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const slideImages = useMemo(() => {
     const images: string[] = [];
     if (article.image) images.push(article.image);
+    if ((article as any).featuredImage && !images.includes((article as any).featuredImage)) {
+      images.push((article as any).featuredImage);
+    }
 
     // Extract secondary images from direct properties if present
     if ((article as any).image2) images.push((article as any).image2);
@@ -435,11 +475,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
   useEffect(() => {
     if (slideImages.length <= 1) return;
+    const currentSrc = slideImages[activeImageIndex];
+    if (isMediaVideo(currentSrc)) return; // Pause auto-rotation when viewing a video
     const timer = setInterval(() => {
       handleNextImage();
     }, 4000);
     return () => clearInterval(timer);
-  }, [handleNextImage, slideImages.length]);
+  }, [handleNextImage, slideImages, activeImageIndex]);
 
   const [savedIds, setSavedIds] = useState<string[]>([]);
 
@@ -1034,19 +1076,19 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 )}
 
                 {slideImages.map((src, index) => {
-                  const isVideo = Boolean(src && (src.match(/\.(mp4|webm|mov|m4v|avi|mkv)(\?.*)?$/i) || src.includes('/video/upload/')));
+                  const isVideo = isMediaVideo(src);
+                  const isActive = index === activeImageIndex;
                   return (
                     <div
                       key={src + index}
-                      className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === activeImageIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                      className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'
                         }`}
                     >
                       {isVideo ? (
-                        <video
+                        <DetailSlideVideo
                           src={src}
-                          controls
-                          className="h-full w-full object-cover"
-                          poster="/assets/placeholder.jpg"
+                          isActive={isActive}
+                          onEnded={handleNextImage}
                         />
                       ) : (
                         <Image

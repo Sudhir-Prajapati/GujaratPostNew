@@ -1031,7 +1031,7 @@ interface ExtraDescriptionSlot {
       fetch('/api/revalidate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: result.article?.slug || result.slug || slug }),
+        body: JSON.stringify({ path: '/', slug: result.article?.slug || result.slug || slug }),
       }).catch(() => {});
 
       // Route back to list
