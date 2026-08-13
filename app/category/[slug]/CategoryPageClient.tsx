@@ -109,8 +109,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     return (art as any).views || formatViews(art.views);
   };
 
-  /* Most-read = top 5 from all articles by views in this category */
-  /* Most-read = Top 10 articles published/updated within current running month (last 30 days) sorted by views */
+  /* Most-read = Top 6 articles published/updated within current running month (last 30 days) sorted by views */
   const mostReadToDisplay = useMemo(() => {
     const all = articles || [];
     if (all.length === 0) return [];
@@ -126,7 +125,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
 
     // If there are articles in the current running month, sort them by views; otherwise use overall category articles
     const pool = currentMonthArticles.length > 0 ? currentMonthArticles : all;
-    return [...pool].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+    return [...pool].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 7);
   }, [articles]);
 
   /* Trending tags */
@@ -198,20 +197,23 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   // #1 Latest News Article for Hero Card
   const heroArticle = filteredArticles[0];
 
-  // Guaranteed 4 items (articles 2, 3, 4, 5) for Top Stories column on the right
+  // #2 Small Article below Hero Card on the left side
+  const subHeroArticle = filteredArticles[1];
+
+  // Guaranteed 4 items (articles 3, 4, 5, 6) for Top Stories column on the right
   const topStories = useMemo(() => {
-    const sliced = filteredArticles.slice(1, 5);
+    const sliced = filteredArticles.slice(2, 6);
     if (sliced.length >= 4) return sliced;
 
-    const usedIds = new Set([heroArticle?.id, ...sliced.map((a) => a.id)].filter(Boolean));
-    const pool = displayArticles.length > 1 ? displayArticles : (GUJARAT_MOCK_ARTICLES as any[]);
+    const usedIds = new Set([heroArticle?.id, subHeroArticle?.id, ...sliced.map((a) => a.id)].filter(Boolean));
+    const pool = displayArticles.length > 2 ? displayArticles : (GUJARAT_MOCK_ARTICLES as any[]);
     const fallbacks = pool.filter((a: any) => !usedIds.has(a.id));
     return [...sliced, ...fallbacks].slice(0, 4);
-  }, [filteredArticles, heroArticle, displayArticles]);
+  }, [filteredArticles, heroArticle, subHeroArticle, displayArticles]);
 
-  const topStoriesIds = useMemo(() => new Set([heroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, topStories]);
+  const topStoriesIds = useMemo(() => new Set([heroArticle?.id, subHeroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, subHeroArticle, topStories]);
 
-  // Remaining articles (excluding Hero and Top Stories) for Lokpriya / Remaining Grid
+  // Remaining articles (excluding Hero, Sub-Hero, and Top Stories) for Lokpriya / Remaining Grid
   const popularArticles = useMemo(() => {
     return filteredArticles.filter((art) => !topStoriesIds.has(art.id));
   }, [filteredArticles, topStoriesIds]);
@@ -287,34 +289,69 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
 
           {/* ── LEFT: Hero + Top Stories ─────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-[1.25fr_1fr] gap-8 min-w-0">
-            {/* Hero Article */}
-            <Link href={`/news/${heroArticle.slug}`} className="group block">
-              <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
-                <Image
-                  src={heroArticle.image || '/assets/placeholder.jpg'}
-                  alt={getArticleTitle(heroArticle, language)}
-                  fill
-                  priority
-                  unoptimized={heroArticle.image?.includes('localhost')}
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, 45vw"
-                  onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
-                />
-              </div>
-              <div className="mt-3">
-                <span className="text-xs font-black uppercase tracking-wide text-accent">
-                  {getArticleLocation(heroArticle)}
-                </span>
-                <h2 className="mt-1 text-xl md:text-[23px] font-black leading-snug tracking-tight text-foreground group-hover:text-accent transition-colors line-clamp-3">
-                  {getArticleTitle(heroArticle, language)}
-                </h2>
-                <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground font-semibold">
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-muted-foreground/70" />{getArticleTime(heroArticle)}</span>
-                  <span>·</span>
-                  <span>{formatDate(heroArticle.publishedAt)}</span>
+            {/* Left Column: Hero Article + Sub Hero Small Article */}
+            <div className="flex flex-col">
+              {/* Main Big Hero Article */}
+              <Link href={`/news/${heroArticle.slug}`} className="group block">
+                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
+                  <Image
+                    src={heroArticle.image || '/assets/placeholder.jpg'}
+                    alt={getArticleTitle(heroArticle, language)}
+                    fill
+                    priority
+                    unoptimized={heroArticle.image?.includes('localhost')}
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, 45vw"
+                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
+                  />
                 </div>
-              </div>
-            </Link>
+                <div className="mt-3">
+                  <span className="text-xs font-black uppercase tracking-wide text-accent">
+                    {getArticleLocation(heroArticle)}
+                  </span>
+                  <h2 className="mt-1 text-xl md:text-[22px] font-black leading-snug tracking-tight text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                    {getArticleTitle(heroArticle, language)}
+                  </h2>
+                  <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground font-semibold">
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-muted-foreground/70" />{getArticleTime(heroArticle)}</span>
+                    <span>·</span>
+                    <span>{formatDate(heroArticle.publishedAt)}</span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Small Article below Hero Article */}
+              {subHeroArticle && (
+                <div className="mt-4 pt-3.5 border-t border-border">
+                  <Link href={`/news/${subHeroArticle.slug}`} className="group flex items-start gap-4">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-black uppercase tracking-wide text-accent">
+                        {getArticleLocation(subHeroArticle)}
+                      </span>
+                      <h3 className="mt-0.5 text-[13.5px] md:text-[14px] font-bold leading-snug tracking-tight text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                        {getArticleTitle(subHeroArticle, language)}
+                      </h3>
+                      <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-foreground font-semibold">
+                        <span>{getArticleTime(subHeroArticle)}</span>
+                        <span>·</span>
+                        <span>{formatDate(subHeroArticle.publishedAt)}</span>
+                      </div>
+                    </div>
+                    <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
+                      <Image
+                        src={subHeroArticle.image || '/assets/placeholder.jpg'}
+                        alt={getArticleTitle(subHeroArticle, language)}
+                        fill
+                        unoptimized={subHeroArticle.image?.includes('localhost')}
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        sizes="80px"
+                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/80x64/e2e8f0/94a3b8?text=GP'; }}
+                      />
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
 
             {/* Top Stories column */}
             <div>
