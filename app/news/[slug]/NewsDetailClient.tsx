@@ -17,6 +17,7 @@ import {
   getRelativeTime,
 } from '@/data';
 import { useApp } from '@/components/AppProvider';
+import { useAutoTranslate, TranslatedText } from '@/lib/translate';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
@@ -237,6 +238,17 @@ function sanitizeParagraphHtml(html: string): string {
   return cleaned.trim();
 }
 
+function TranslatedParagraph({ rawHtml, language }: { rawHtml: string; language: any }) {
+  const translatedContent = useAutoTranslate(rawHtml, language);
+
+  return (
+    <div
+      className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
+      dangerouslySetInnerHTML={{ __html: translatedContent || rawHtml }}
+    />
+  );
+}
+
 interface Props {
   article: Article;
   related: Article[];
@@ -376,9 +388,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }
   };
 
-  const title = getArticleTitle(article, language);
-  const excerpt = getArticleExcerptHtml(article, language);
-  const body = getArticleContent(article, language);
+  const rawTitle = getArticleTitle(article, language);
+  const rawExcerpt = getArticleExcerptHtml(article, language);
+  const rawBody = getArticleContent(article, language);
+
+  const title = useAutoTranslate(rawTitle, language);
+  const excerpt = useAutoTranslate(rawExcerpt, language);
+  const body = useAutoTranslate(rawBody, language);
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
   const authorDesignation = getLocalized(language, {
@@ -987,13 +1003,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 const cleanedParagraph = sanitizeParagraphHtml(trimmed);
                 if (!cleanedParagraph) return null;
 
-                // 3. Formatted text paragraph with HTML & Markdown rendering
+                // 3. Formatted text paragraph with HTML & Markdown rendering and Auto-Translation
                 return (
-                  <div
-                    key={idx}
-                    className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
-                    dangerouslySetInnerHTML={{ __html: cleanedParagraph }}
-                  />
+                  <TranslatedParagraph key={idx} rawHtml={cleanedParagraph} language={language} />
                 );
               })}
             </div>
@@ -1015,7 +1027,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                     return (
                       <Link key={item.id} href={`/news/${item.slug}`} className="s-rank hover:opacity-85 transition-opacity">
                         <span className="n">{rankNum}</span>
-                        <h3>{getArticleTitle(item, language)}</h3>
+                        <h3><TranslatedText text={getArticleTitle(item, language)} /></h3>
                       </Link>
                     );
                   })}
@@ -1039,9 +1051,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       <Link key={item.id} href={`/news/${item.slug}`} className="s-compact hover:opacity-85 transition-opacity">
                         <div>
                           <span className="kick">{itemCategory}</span>
-                          <h3>{itemTitle}</h3>
+                          <h3><TranslatedText text={itemTitle} /></h3>
                           <div className="meta">
-                            <span>{formatDate(item.publishedAt)}</span>
+                            <span>{formatDate(item.publishedAt, language)}</span>
                           </div>
                         </div>
                         <div className="imgwrap">
@@ -1127,10 +1139,10 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                     <div>
                       <span className="kick mb-1 mt-0.5">{itemCategory}</span>
                       <h3 className="line-clamp-3 leading-snug text-foreground hover:text-accent transition-colors">
-                        {itemTitle}
+                        <TranslatedText text={itemTitle} />
                       </h3>
                       <div className="meta select-none">
-                        <span>{formatDate(item.publishedAt)}</span>
+                        <span>{formatDate(item.publishedAt, language)}</span>
                       </div>
                     </div>
                   </Link>
