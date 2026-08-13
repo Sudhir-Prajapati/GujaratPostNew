@@ -1227,40 +1227,22 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   idx = next + 4;
                   search = idx;
                 }
-
-                // 2. Check if this paragraph is an Embedded Image markdown ![alt](url)
-                const imgMatch = trimmed.match(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/i);
-                if (imgMatch) {
-                  const imgAlt = imgMatch[1];
-                  const imgUrl = imgMatch[2];
-                  return (
-                    <figure key={idx} className="my-6 space-y-2">
-                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm">
-                        <Image
-                          src={imgUrl}
-                          alt={imgAlt || title}
-                          fill
-                          unoptimized={imgUrl.includes('localhost')}
-                          className="object-cover"
-                        />
-                      </div>
-                      <figcaption className="flex items-center justify-between text-xs text-neutral-500 font-medium">
-                        <span>{title}</span>
-                        <span>{language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}</span>
-                      </figcaption>
-                    </figure>
-                  );
-                }
-
-                const cleanedParagraph = sanitizeParagraphHtml(trimmed);
-                if (!cleanedParagraph) return null;
-
-                // 3. Formatted text paragraph with HTML & Markdown rendering and Auto-Translation
-                return (
-                  <TranslatedParagraph key={idx} rawHtml={cleanedParagraph} language={language} />
-                );
-              })}
-            </div>
+                if (idx === -1 || count < atPara) return [html, ''];
+                return [html.slice(0, idx), html.slice(idx)];
+              };
+              const [topHtml, bottomHtml] = splitHtml(formattedArticleBodyHtml, SPLIT_AT);
+              return (
+                <>
+                  <ArticleContentBody html={topHtml || formattedArticleBodyHtml} />
+                  {bottomHtml && (
+                    <>
+                      <AdSectionBanner section="IN_ARTICLE" className="my-4" />
+                      <ArticleContentBody html={bottomHtml} />
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
           </article>
 
@@ -1404,8 +1386,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         <span>{formatDate(item.publishedAt, language)}</span>
                       </div>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               );
             })}
           </div>
