@@ -491,61 +491,25 @@ export async function fetchLiveInstagramReels(): Promise<any[]> {
 }
 
 /**
- * Fetch Instagram Reels (Combines DB reels + Live scraped Reels from @gujaratpost.in)
+ * Fetch Instagram Reels — serves all synced DB reels (up to 50).
+ * Falls back to live Instagram scrape if DB is empty.
  */
 export async function getPublicReels(): Promise<any[]> {
-  const combined: any[] = [];
-  const seenUrls = new Set<string>();
-
-  const getShortcodeKey = (item: any): string => {
-    const url = item?.instaUrl || item?.videoUrl || item?.thumbnail || '';
-    const m = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
-    if (m && m[1]) return m[1];
-    return item?.id || '';
-  };
-
   try {
-    // 1. Fetch backend database reels
-    const dbUrl = `${API_BASE_URL}/reels?isActive=true`;
-    const json = await fetchCachedJson<any>(dbUrl, 60 * 1000);
+    // Primary: serve top 50 newest active reels synced into the database
+    const dbUrl = `${API_BASE_URL}/reels?isActive=true&limit=50`;
+    const json = await fetchCachedJson<any>(dbUrl, 60 * 1000); // 60s cache
     const dbReels: any[] = (json?.success && Array.isArray(json.data?.reels)) ? json.data.reels : [];
 
-    // 2. Fetch live scraped Instagram Reels from @gujaratpost.in profile
-    const liveReels = await fetchLiveInstagramReels();
-
-    const liveMap = new Map<string, any>();
-    for (const lr of liveReels) {
-      const key = getShortcodeKey(lr);
-      if (key) liveMap.set(key, lr);
+    if (dbReels.length > 0) {
+      // Return all DB reels — they are already sorted newest-first by the backend
+      return dbReels;
     }
-
-    // Add DB reels first
-    for (const dbr of dbReels) {
-      const key = getShortcodeKey(dbr);
-      if (key) seenUrls.add(key);
-      const liveMatch = liveMap.get(key);
-      combined.push({
-        ...dbr,
-        thumbnail: dbr.thumbnail || liveMatch?.thumbnail || null,
-        views: liveMatch?.views || dbr.views || 0,
-      });
-    }
-
-    // Add live Instagram reels from profile that are not yet in DB
-    for (const lr of liveReels) {
-      const key = getShortcodeKey(lr);
-      if (key && !seenUrls.has(key)) {
-        seenUrls.add(key);
-        combined.push(lr);
-      }
-    }
-
-    if (combined.length > 0) return combined;
   } catch (error: any) {
     console.warn('Backend API fetch error for reels:', error?.message || error);
   }
 
-  // Fallback to live Instagram reels alone if DB is empty or fails
+  // Fallback: fetch directly from live Instagram scrape (12 reels max)
   return fetchLiveInstagramReels();
 }
 

@@ -34,9 +34,19 @@ const formatInstaViews = (views: number | undefined | null): string | null => {
 };
 
 export function getReelThumbnail(reel: ReelItem): string | null {
-  if (reel.thumbnail?.trim()) return reel.thumbnail.trim();
-
   const url = (reel.videoUrl || reel.instaUrl || '').trim();
+  const instaMatch = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
+  const shortcode = instaMatch?.[1] || '';
+
+  // Direct thumbnail URL (proxy Instagram CDN links)
+  if (reel.thumbnail?.trim()) {
+    const rawThumb = reel.thumbnail.trim();
+    if (rawThumb.includes('instagram') || rawThumb.includes('fbcdn.net') || shortcode) {
+      return `/api/instagram-image?url=${encodeURIComponent(rawThumb)}&shortcode=${shortcode}`;
+    }
+    return rawThumb;
+  }
+
   if (!url) return null;
 
   // 1. YouTube video or shorts URL
@@ -45,10 +55,9 @@ export function getReelThumbnail(reel: ReelItem): string | null {
     return `https://i.ytimg.com/vi/${ytId}/hqdefault.jpg`;
   }
 
-  // 2. Instagram post / reel URL
-  const instaMatch = url.match(/instagram\.com\/(?:p|reel|reels|tv)\/([a-zA-Z0-9_-]+)/i);
-  if (instaMatch && instaMatch[1]) {
-    return `https://www.instagram.com/p/${instaMatch[1]}/media/?size=l`;
+  // 2. Instagram shortcode proxy
+  if (shortcode) {
+    return `/api/instagram-image?shortcode=${shortcode}`;
   }
 
   // 3. Direct image link
@@ -85,6 +94,7 @@ function ReelCard({ reel, language, onReelClick }: { reel: ReelItem; language: s
             <img
               src={thumbUrl}
               alt={displayTitle || 'Reel'}
+              referrerPolicy="no-referrer"
               className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               onError={() => setImgFailed(true)}
               loading="lazy"
@@ -140,6 +150,8 @@ export default function InstagramStories() {
   const { language } = useApp();
   const [reels, setReels] = useState<ReelItem[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const scrollPosRef = useRef<number>(0);
+  const isPausedRef = useRef<boolean>(false);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
@@ -158,26 +170,70 @@ export default function InstagramStories() {
     setShowRightArrow(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
   }, []);
 
+  // Continuous smooth 60fps auto-scroll loop (like YouTube Shorts)
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (!el) return;
+    if (!el || reels.length === 0) return;
+
     updateArrows();
-    el.addEventListener('scroll', updateArrows);
+
+    let animId: number;
+    let lastTime = performance.now();
+    const SPEED = 40; // pixels per second for smooth drifting
+
+    const scrollStep = (now: number) => {
+      const dt = Math.min(now - lastTime, 50);
+      lastTime = now;
+
+      if (!isPausedRef.current && el) {
+        scrollPosRef.current += (SPEED * dt) / 1000;
+        const maxScroll = el.scrollWidth - el.clientWidth;
+        if (scrollPosRef.current >= maxScroll && maxScroll > 0) {
+          scrollPosRef.current = 0;
+        }
+        el.scrollLeft = scrollPosRef.current;
+      }
+      animId = requestAnimationFrame(scrollStep);
+    };
+
+    animId = requestAnimationFrame(scrollStep);
+
+    const handleNativeScroll = () => {
+      if (el) {
+        scrollPosRef.current = el.scrollLeft;
+        updateArrows();
+      }
+    };
+
+    el.addEventListener('scroll', handleNativeScroll, { passive: true });
     window.addEventListener('resize', updateArrows);
+
     return () => {
-      el.removeEventListener('scroll', updateArrows);
+      cancelAnimationFrame(animId);
+      el.removeEventListener('scroll', handleNativeScroll);
       window.removeEventListener('resize', updateArrows);
     };
-  }, [updateArrows]);
+  }, [reels, updateArrows]);
 
+  // Smooth button scroll like YouTube Shorts
   const handleScroll = (direction: 'left' | 'right') => {
     const el = scrollContainerRef.current;
     if (!el) return;
+    isPausedRef.current = true;
     const scrollAmount = el.clientWidth * 0.75;
-    el.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
+    const target = Math.max(0, Math.min(
+      el.scrollWidth - el.clientWidth,
+      direction === 'left' ? el.scrollLeft - scrollAmount : el.scrollLeft + scrollAmount
+    ));
+    el.scrollTo({ left: target, behavior: 'smooth' });
+    scrollPosRef.current = target;
+    setShowLeftArrow(target > 10);
+    setShowRightArrow(target < el.scrollWidth - el.clientWidth - 10);
+
+    setTimeout(() => {
+      if (el) scrollPosRef.current = el.scrollLeft;
+      isPausedRef.current = false;
+    }, 700);
   };
 
   const handleReelClick = (reel: ReelItem) => {
@@ -189,16 +245,18 @@ export default function InstagramStories() {
 
   if (reels.length === 0) return null;
 
+  const displayList = reels.length > 0 ? [...reels, ...reels] : [];
+
   return (
-    <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden">
+    <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden select-none">
       <div className="relative">
         {/* Section Header */}
         <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-3 mb-4">
           <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg select-none leading-none tracking-tight">
-            {language === 'gu' ? 'ઇન્સ્ટાગ્રામ રિલ્સ' : language === 'hi' ? 'इन्स्टाग्राम रील्स' : 'Instagram Reels'}
+            {language === 'gu' ? 'ઇન્સ્ટાગ્રામ રિલ્સ' : language === 'hi' ? 'इन्स्टाग्राम रीલ્સ' : 'Instagram Reels'}
           </span>
           <a
-            href="https://www.instagram.com/gujaratpostnews"
+            href="https://www.instagram.com/gujaratpost.in/"
             target="_blank"
             rel="noopener noreferrer"
             className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
@@ -207,16 +265,22 @@ export default function InstagramStories() {
           </a>
         </div>
 
-        {/* Horizontal Grid Scroll */}
-        <div className="relative group/slider-wrap">
+        {/* Horizontal Grid Scroll Container with YouTube Shorts-Style Smooth Auto-Scroll */}
+        <div
+          className="relative group/slider-wrap"
+          onMouseEnter={() => { isPausedRef.current = true; }}
+          onMouseLeave={() => { isPausedRef.current = false; }}
+          onTouchStart={() => { isPausedRef.current = true; }}
+          onTouchEnd={() => { isPausedRef.current = false; }}
+        >
           {showLeftArrow && (
             <button
               type="button"
               onClick={() => handleScroll('left')}
-              className="absolute left-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/60 transition-all duration-200 shadow-md backdrop-blur-sm cursor-pointer border-0"
+              className="absolute -left-2 sm:-left-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white text-[#B3121B] dark:bg-slate-900 dark:text-white flex items-center justify-center shadow-2xl border border-slate-200 dark:border-slate-800 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
               aria-label="Scroll left"
             >
-              <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
+              <ChevronLeft className="h-6 w-6 stroke-[3]" />
             </button>
           )}
 
@@ -224,20 +288,20 @@ export default function InstagramStories() {
             <button
               type="button"
               onClick={() => handleScroll('right')}
-              className="absolute right-4 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white hover:bg-black/60 transition-all duration-200 shadow-md backdrop-blur-sm cursor-pointer border-0"
+              className="absolute -right-2 sm:-right-3 top-1/2 -translate-y-1/2 z-40 w-11 h-11 rounded-full bg-white text-[#B3121B] dark:bg-slate-900 dark:text-white flex items-center justify-center shadow-2xl border border-slate-200 dark:border-slate-800 hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
               aria-label="Scroll right"
             >
-              <ChevronRight className="h-5 w-5 stroke-[2.5]" />
+              <ChevronRight className="h-6 w-6 stroke-[3]" />
             </button>
           )}
 
           <div
             ref={scrollContainerRef}
-            className="scrollbar-hide flex gap-4 overflow-x-auto pb-2"
+            className="scrollbar-hide flex gap-4 overflow-x-auto pb-2 py-1"
           >
-            {reels.map((reel) => (
+            {displayList.map((reel, idx) => (
               <ReelCard
-                key={reel.id}
+                key={`${reel.id}-${idx}`}
                 reel={reel}
                 language={language}
                 onReelClick={handleReelClick}
@@ -252,7 +316,7 @@ export default function InstagramStories() {
             <div className="w-full border-t border-red-200 dark:border-red-950/40" />
           </div>
           <a
-            href="https://www.instagram.com/gujaratpostnews"
+            href="https://www.instagram.com/gujaratpost.in/"
             target="_blank"
             rel="noopener noreferrer"
             className="relative flex items-center gap-2.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-2.5 shadow-sm text-slate-900 dark:text-white font-black text-[13px] md:text-[14px] hover:border-[#B3121B] hover:text-[#B3121B] transition-all select-none"
