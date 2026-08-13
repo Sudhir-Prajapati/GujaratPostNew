@@ -57,13 +57,19 @@ const fileFilter = (req: any, file: any, cb: any) => {
   const mimetype = (file.mimetype || '').toLowerCase();
   const originalName = (file.originalname || '').toLowerCase();
 
-  const isImageMime = mimetype.startsWith('image/') || mimetype.startsWith('video/') || mimetype === 'application/octet-stream';
-  const isImageExt = /\.(jpg|jpeg|png|gif|webp|jfif|pjpeg|avif|svg|bmp|mp4|webm|mov|mkv)$/i.test(originalName);
+  const isMimeOk =
+    mimetype.startsWith('image/') ||
+    mimetype.startsWith('video/') ||
+    mimetype === 'application/pdf' ||
+    mimetype === 'application/x-pdf' ||
+    mimetype === 'application/octet-stream';
 
-  if (isAllowedMime || isAllowedExt) {
+  const isExtOk = /\.(jpg|jpeg|png|gif|webp|jfif|pjpeg|avif|svg|bmp|mp4|webm|mov|mkv|pdf)$/i.test(originalName);
+
+  if (isMimeOk || isExtOk) {
     cb(null, true);
   } else {
-    cb(new Error('Only valid image and video files are allowed.'), false);
+    cb(new Error('Only valid image, video, and PDF files are allowed.'), false);
   }
 };
 

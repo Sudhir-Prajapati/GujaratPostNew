@@ -11,7 +11,16 @@ function slugify(text: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
+let lastAutoPublishTime = 0;
+const AUTO_PUBLISH_COOLDOWN_MS = 5 * 60 * 1000; // Run at most once every 5 minutes
+
 export async function autoPublishDueArticles() {
+  const nowMs = Date.now();
+  if (nowMs - lastAutoPublishTime < AUTO_PUBLISH_COOLDOWN_MS) {
+    return;
+  }
+  lastAutoPublishTime = nowMs;
+
   try {
     const now = new Date();
     await prisma.post.updateMany({
@@ -65,9 +74,19 @@ export class ArticleController {
       }
 
       if (categorySlug) {
-        where.category = {
-          slug: categorySlug,
-        };
+        const catSlugLower = categorySlug.toLowerCase().trim();
+        if (catSlugLower === 'other-cities' || catSlugLower === 'othercities') {
+          where.OR = [
+            { category: { slug: { in: ['other-cities', 'othercities', 'gujarat', 'state'] } } },
+            { location: { notIn: ['Ahmedabad', 'Gandhinagar', 'Surat', 'Vadodara', 'Rajkot', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'વડોદરા', 'રાજકોટ'] } },
+          ];
+        } else {
+          where.OR = [
+            { category: { slug: catSlugLower } },
+            { location: { contains: catSlugLower } },
+            { location: { contains: categorySlug } },
+          ];
+        }
       }
 
       if (status) {
