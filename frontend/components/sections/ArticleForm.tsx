@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, UploadCloud, Link as LinkIcon, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextArea from '@/components/ui/RichTextArea';
@@ -874,14 +874,20 @@ interface ExtraDescriptionSlot {
       });
 
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload image.');
+      if (!res.ok) throw new Error(json.error || json.message || 'Failed to upload media file.');
 
-      setFeaturedImage(json.url);
+      const mediaUrl = json.url || json.data?.url || (json.file ? json.file.url : '');
+      if (mediaUrl) {
+        setFeaturedImage(mediaUrl);
+      } else {
+        throw new Error('No media URL returned by server.');
+      }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to upload image from computer.');
+      console.error('Media upload error:', err);
+      setError(err.message || 'Failed to upload image/video from your computer.');
     } finally {
       setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
@@ -1527,7 +1533,7 @@ interface ExtraDescriptionSlot {
         </div>
 
         {/* 🖼️ DISTINCT SECTION 2: Upload Primary Featured Media (Photo / Video) [Size: 1100px X 541px] */}
-        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5 dark:border-zinc-800 dark:bg-zinc-950/20">
+        <div className="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-5 dark:border-zinc-800 dark:bg-zinc-950/20">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-200/80 pb-3 dark:border-zinc-800 gap-3">
             <div>
               <label className="block text-xs font-extrabold text-zinc-800 uppercase tracking-wider dark:text-zinc-200 flex items-center gap-1.5 flex-wrap">
@@ -1537,68 +1543,125 @@ interface ExtraDescriptionSlot {
                 <span className="text-red-500 font-bold">*</span>
               </label>
               <p className="text-[11px] text-zinc-400 mt-0.5">
-                Upload an Image (.jpg, .png, .webp) or Video (.mp4, .webm, .mov) file, or paste a direct media URL.
+                Upload an Image or Video directly from your device (.jpg, .png, .webp, .mp4, .webm, .mov), or paste a direct media URL.
               </p>
             </div>
             <div className="flex items-center gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800 shrink-0 w-fit">
               <button
                 type="button"
                 onClick={() => setImageMode('upload')}
-                className={`text-xs font-extrabold px-3 py-1 rounded-md transition-all whitespace-nowrap ${imageMode === 'upload'
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${imageMode === 'upload'
                   ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
                   : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                   }`}
               >
-                Upload File
+                <UploadCloud className="h-3.5 w-3.5" />
+                <span>Upload from Device</span>
               </button>
               <button
                 type="button"
                 onClick={() => setImageMode('url')}
-                className={`text-xs font-extrabold px-3 py-1 rounded-md transition-all whitespace-nowrap ${imageMode === 'url'
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${imageMode === 'url'
                   ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-xs'
                   : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
                   }`}
               >
-                Media URL
+                <LinkIcon className="h-3.5 w-3.5" />
+                <span>Media URL</span>
               </button>
             </div>
           </div>
 
           {imageMode === 'upload' ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
+            <div className="space-y-3">
+              <div className="relative rounded-2xl border-2 border-dashed border-zinc-300 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900/60 text-center transition-all hover:border-red-500 hover:bg-red-50/20 dark:hover:border-red-500">
                 <input
                   type="file"
-                  accept="image/*,video/*"
+                  id="primary-media-file-input"
+                  accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.avi,.jpg,.jpeg,.png,.webp,.gif"
                   onChange={handleImageUpload}
                   disabled={uploadingImage}
-                  className="block w-full text-xs text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 dark:file:bg-red-950/30 dark:file:text-red-400 cursor-pointer"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
                 />
-                {uploadingImage && <Loader2 className="h-4 w-4 animate-spin text-red-600" />}
+                <div className="flex flex-col items-center justify-center gap-2 pointer-events-none">
+                  {uploadingImage ? (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <Loader2 className="h-8 w-8 animate-spin text-red-600" />
+                      <span className="text-xs font-bold text-red-600">Uploading media from device to server...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                        <UploadCloud className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                          Click to browse or drag & drop Image or Video from your computer
+                        </p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5 font-medium">
+                          Supports Photos (JPG, PNG, WebP) & Videos (MP4, WebM, MOV) up to 200MB
+                        </p>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-xs">
+                        <UploadCloud className="h-4 w-4" />
+                        <span>Choose Photo or Video from Device</span>
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
-            <input
-              type="url"
-              value={featuredImage || ''}
-              onChange={(e) => setFeaturedImage(e.target.value)}
-              placeholder="https://images.unsplash.com/... or https://domain.com/video.mp4"
-              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
-            />
+            <div className="space-y-2">
+              <input
+                type="url"
+                value={featuredImage || ''}
+                onChange={(e) => setFeaturedImage(e.target.value)}
+                placeholder="Paste direct Image URL (https://images.unsplash.com/...) or Video URL (https://domain.com/video.mp4)"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-xs focus:border-red-500 focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+              />
+              <p className="text-[11px] text-zinc-400">
+                You can paste direct web links to photos or MP4/WebM videos.
+              </p>
+            </div>
           )}
 
           {featuredImage && (
-            <div className="space-y-2 pt-1">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) ? '📹 Video Preview' : '🖼️ Image Preview'}
-              </span>
-              <div className="relative aspect-[16/9] max-w-md overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-black">
-                {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) ? (
-                  <video src={featuredImage} controls className="h-full w-full object-cover" />
+            <div className="space-y-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                  {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || featuredImage.includes('/video/upload/') ? (
+                    <>
+                      <Video className="h-3.5 w-3.5 text-red-600" />
+                      <span>📹 Attached Video Preview</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-3.5 w-3.5 text-red-600" />
+                      <span>🖼️ Attached Photo Preview</span>
+                    </>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFeaturedImage('')}
+                  className="text-xs font-bold text-red-600 hover:text-red-800 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove Media</span>
+                </button>
+              </div>
+
+              <div className="relative aspect-[16/9] max-w-lg overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-black shadow-sm">
+                {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || featuredImage.includes('/video/upload/') ? (
+                  <video src={featuredImage} controls autoPlay muted loop className="h-full w-full object-contain" />
                 ) : (
                   <img src={featuredImage} alt="Featured preview" className="h-full w-full object-cover" />
                 )}
               </div>
+              <p className="text-[11px] font-mono text-zinc-400 truncate max-w-lg">
+                {featuredImage}
+              </p>
             </div>
           )}
         </div>
@@ -1727,7 +1790,7 @@ interface ExtraDescriptionSlot {
                     <div className="flex items-center gap-3">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*,.mp4,.webm,.mov,.m4v,.avi,.jpg,.jpeg,.png,.webp,.gif"
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file) return;
@@ -1737,11 +1800,13 @@ interface ExtraDescriptionSlot {
                             formData.append('file', file);
                             const res = await authFetch(getBackendApiUrl('/api/admin/upload'), { method: 'POST', body: formData });
                             const json = await res.json();
-                            if (res.ok && json.url) updateExtraImage(idx, { url: json.url });
+                            const mediaUrl = json.url || json.data?.url || (json.file ? json.file.url : '');
+                            if (res.ok && mediaUrl) updateExtraImage(idx, { url: mediaUrl });
                           } catch (err) {
                             console.error(err);
                           } finally {
                             updateExtraImage(idx, { uploading: false });
+                            e.target.value = '';
                           }
                         }}
                         disabled={slot.uploading}
@@ -1754,7 +1819,7 @@ interface ExtraDescriptionSlot {
                       type="url"
                       value={slot.url || ''}
                       onChange={(e) => updateExtraImage(idx, { url: e.target.value })}
-                      placeholder="https://images.unsplash.com/photo-..."
+                      placeholder="Paste Image URL (https://...) or Video URL (https://.../video.mp4)"
                       className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-4 py-2.5 text-xs focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
                     />
                   )}
@@ -1763,16 +1828,20 @@ interface ExtraDescriptionSlot {
                     <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                       <div className="flex items-center gap-3">
                         <div className="relative h-14 w-24 overflow-hidden rounded-lg border border-zinc-200 bg-black shrink-0">
-                          <img src={slot.url} alt={`Image ${photoNum} preview`} className="h-full w-full object-cover" />
+                          {slot.url.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || slot.url.includes('/video/upload/') ? (
+                            <video src={slot.url} controls className="h-full w-full object-cover" />
+                          ) : (
+                            <img src={slot.url} alt={`Media ${photoNum} preview`} className="h-full w-full object-cover" />
+                          )}
                         </div>
                         <span className="text-[11px] font-mono text-zinc-400 truncate max-w-xs">{slot.url}</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => updateExtraImage(idx, { url: '' })}
-                        className="text-xs font-bold text-red-600 hover:underline"
+                        className="text-xs font-bold text-red-600 hover:underline cursor-pointer"
                       >
-                        Clear Photo {photoNum}
+                        Clear Slot {photoNum}
                       </button>
                     </div>
                   )}
