@@ -5,6 +5,10 @@ import { withDbRetry } from '../utils/db.js';
 import { HeroController } from '../controllers/hero.controller.js';
 import { InstagramReelController } from '../controllers/instagramReel.controller.js';
 import { WebStoryController } from '../controllers/webStory.controller.js';
+import { EPaperController } from '../controllers/epaper.controller.js';
+import { AdController } from '../controllers/ad.controller.js';
+import { GalleryController } from '../controllers/gallery.controller.js';
+import { autoPublishDueArticles } from '../controllers/article.controller.js';
 
 const router = Router();
 

@@ -60,7 +60,7 @@ const fileFilter = (req: any, file: any, cb: any) => {
   const isImageMime = mimetype.startsWith('image/') || mimetype.startsWith('video/') || mimetype === 'application/octet-stream';
   const isImageExt = /\.(jpg|jpeg|png|gif|webp|jfif|pjpeg|avif|svg|bmp|mp4|webm|mov|mkv)$/i.test(originalName);
 
-  if (isAllowedMime || isAllowedExt) {
+  if (isImageMime || isImageExt) {
     cb(null, true);
   } else {
     cb(new Error('Only valid image and video files are allowed.'), false);
