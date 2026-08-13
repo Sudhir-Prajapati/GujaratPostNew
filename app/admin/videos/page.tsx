@@ -59,16 +59,15 @@ export default function VideosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selectedType, setSelectedType] = useState('video');
-  const [selectedCategory, setSelectedCategory] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalVideosCount, setTotalVideosCount] = useState(0);
+  const [totalFeaturedCount, setTotalFeaturedCount] = useState(0);
 
   // Categories list state
   const [categories, setCategories] = useState<any[]>([]);
 
   // Modals state
-  const [addModalOpen, setAddModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importingCv, setImportingCv] = useState<any>(null);
@@ -134,28 +133,62 @@ export default function VideosPage() {
     }
   };
 
+  const [syncingYouTube, setSyncingYouTube] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
+
   // Fetch videos
-  useEffect(() => {
-    async function loadVideos() {
-      setLoading(true);
-      try {
-        const typeFilter = selectedType || 'video';
-        const catFilter = selectedCategory ? `&categoryId=${selectedCategory}` : '';
-        const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=${typeFilter}${catFilter}`));
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
-        const loadedVideos: VideoData[] = json.data.videos || [];
-        const regularVideosOnly = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
-        setVideos(regularVideosOnly);
-        setTotalPages(json.data.totalPages || 1);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
+  const loadVideos = async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(getBackendApiUrl(`/api/admin/videos?page=${page}&limit=12&query=${encodeURIComponent(query)}&type=video`));
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch videos');
+      const loadedVideos: VideoData[] = json.data.videos || [];
+      const regularVideosOnly = loadedVideos.filter((v: VideoData) => v.type === 'video' || !v.type);
+      setVideos(regularVideosOnly);
+      setTotalPages(json.data.totalPages || 1);
+      if (json.data.total !== undefined) setTotalVideosCount(json.data.total);
+      if (json.data.totalFeatured !== undefined) setTotalFeaturedCount(json.data.totalFeatured);
+      else setTotalFeaturedCount(regularVideosOnly.filter((v: VideoData) => v.isFeatured).length);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadVideos();
-  }, [page, query, selectedType, selectedCategory]);
+  }, [page, query]);
+
+  // One-click / background sync with YouTube channel
+  const handleSyncYouTubeChannel = async (silent = false) => {
+    if (!silent) setSyncingYouTube(true);
+    try {
+      const res = await authFetch(getBackendApiUrl('/api/admin/videos/sync-youtube'), {
+        method: 'POST',
+      });
+      const json = await res.json();
+      if (res.ok) {
+        if (!silent) {
+          setSyncMessage(`✅ Synced ${json.data?.syncedCount || 0} YouTube videos (${json.data?.newCount || 0} newly saved). Top 20 latest are auto-featured!`);
+          setTimeout(() => setSyncMessage(null), 6000);
+        }
+        loadVideos();
+      } else if (!silent) {
+        alert(json.error || 'Failed to sync YouTube channel');
+      }
+    } catch (e: any) {
+      if (!silent) alert(e.message || 'YouTube sync failed');
+    } finally {
+      if (!silent) setSyncingYouTube(false);
+    }
+  };
+
+  // Background auto-sync when page mounts
+  useEffect(() => {
+    handleSyncYouTubeChannel(true);
+  }, []);
 
   // Load channel videos from YouTube RSS
   const loadChannelVideos = async () => {
@@ -212,7 +245,7 @@ export default function VideosPage() {
           type: 'video',
           description: '',
           duration: importingCv.duration || '0:00',
-          isFeatured: false,
+          isFeatured: true,
           channel: 'Gujarat Post News',
           categoryId: importCategoryId || null,
           categoryName: selectedCatObj ? selectedCatObj.name : null,
@@ -223,13 +256,13 @@ export default function VideosPage() {
       setSavedIds(prev => new Set([...prev, cleanId]));
       setImportModalOpen(false);
       setImportingCv(null);
+      loadVideos();
     } catch (err: any) {
       alert(err.message);
     } finally {
       setChannelImporting(null);
     }
   };
-
 
   // Toggle featured for a channel video (auto-saves to DB if not yet saved)
   const toggleFeatured = async (cv: any) => {
@@ -241,17 +274,9 @@ export default function VideosPage() {
       const json = await res.json();
       const allDbVideos: VideoData[] = json.data?.videos || [];
       const dbVideo = allDbVideos.find((v: VideoData) => safeYouTubeId(v.youtubeId) === cleanId);
-      const currentFeaturedCount = allDbVideos.filter(v => v.isFeatured).length;
 
       if (dbVideo) {
         const newFeatured = !dbVideo.isFeatured;
-
-        // VALIDATION: Minimum 3 featured videos required for homepage layout
-        if (!newFeatured && currentFeaturedCount <= 3) {
-          alert('Minimum 3 featured videos are required for the homepage layout! Please feature another video before unfeaturing this one.');
-          return;
-        }
-
         const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${dbVideo.id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -296,19 +321,10 @@ export default function VideosPage() {
       setChannelFeaturing(null);
     }
   };
+
   // Toggle featured status for a video in Saved Videos tab
   const handleToggleFeaturedSaved = async (video: VideoData) => {
     const newFeatured = !video.isFeatured;
-    if (!newFeatured) {
-      const resCount = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
-      const jsonCount = await resCount.json();
-      const featCount = (jsonCount.data?.videos || []).filter((v: any) => v.isFeatured).length;
-      if (featCount <= 3) {
-        alert('Minimum 3 featured videos are compulsory for the homepage layout! Please feature another video before unfeaturing this one.');
-        return;
-      }
-    }
-
     try {
       const upRes = await authFetch(getBackendApiUrl(`/api/admin/videos/${video.id}`), {
         method: 'PUT',
@@ -332,58 +348,7 @@ export default function VideosPage() {
   };
 
 
-  // Submit Add video
-  const handleAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!titleGu || !youtubeId) return alert('Title (Gujarati) and YouTube Video ID are required');
-    setTitle(titleGu);
-    setTitleHi(titleGu);
-    setSaving(true);
-    try {
-      const res = await authFetch(getBackendApiUrl('/api/admin/videos'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: titleGu,
-          titleGu,
-          titleHi: titleGu,
-          youtubeId,
-          type,
-          description,
-          duration,
-          isFeatured,
-          channel,
-          categoryId: categoryId || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to save video');
 
-      clearApiCache();
-
-      setAddModalOpen(false);
-      setTitle('');
-      setTitleGu('');
-      setTitleHi('');
-      setYoutubeId('');
-      setType('video');
-      setCategoryId('');
-      setDescription('');
-      setDuration('0:00');
-      setIsFeatured(false);
-      setPage(1);
-
-      // reload list
-      const catFilter = selectedCategory ? `&categoryId=${selectedCategory}` : '';
-      const rRes = await authFetch(getBackendApiUrl(`/api/admin/videos?page=1&limit=12&query=${encodeURIComponent(query)}&type=${selectedType}${catFilter}`));
-      const rJson = await rRes.json();
-      if (rRes.ok) setVideos(rJson.data.videos);
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
 
   // Open Edit Modal
   const openEdit = (video: VideoData) => {
@@ -459,16 +424,6 @@ export default function VideosPage() {
   // Delete Video
   const handleDelete = async (id: string) => {
     const target = videos.find(v => v.id === id);
-    if (target?.isFeatured) {
-      const resCount = await authFetch(getBackendApiUrl('/api/admin/videos?page=1&limit=200'));
-      const jsonCount = await resCount.json();
-      const featCount = (jsonCount.data?.videos || []).filter((v: any) => v.isFeatured).length;
-      if (featCount <= 3) {
-        alert('Minimum 3 featured videos are required for the homepage layout! You cannot delete this video while only 3 featured videos exist.');
-        return;
-      }
-    }
-
     if (!confirm('Are you sure you want to delete this video?')) return;
     try {
       const res = await authFetch(getBackendApiUrl(`/api/admin/videos/${id}`), { method: 'DELETE' });
@@ -494,19 +449,27 @@ export default function VideosPage() {
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Video Management</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Embed, organize, and feature YouTube videos, shorts, podcasts, and interviews.
+            Auto-sync YouTube channel videos, automatically save them into database, and feature latest top 20 videos.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setAddModalOpen(true);
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Video</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => handleSyncYouTubeChannel(false)}
+            disabled={syncingYouTube}
+            className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-all hover:bg-red-700 shadow-sm shadow-red-600/20 disabled:opacity-50 cursor-pointer"
+            title="Auto-sync and save all YouTube channel videos"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncingYouTube ? 'animate-spin' : ''}`} />
+            <span>{syncingYouTube ? 'Syncing YouTube...' : '⚡ Auto-Sync YouTube'}</span>
+          </button>
+        </div>
       </div>
+
+      {syncMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 flex items-center gap-2 animate-fade-in">
+          <span>{syncMessage}</span>
+        </div>
+      )}
 
       {/* Tab switcher */}
       <div className="flex gap-1 rounded-xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900 w-fit">
@@ -537,53 +500,32 @@ export default function VideosPage() {
         <>
           {/* Toolbar */}
           <div className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap items-center gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-400">
-                  <Search className="h-4 w-4" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search title or description..."
-                  value={query}
-                  onChange={(e) => {
-                    setQuery(e.target.value);
-                    setPage(1);
-                  }}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
-                />
+            <div className="relative w-full max-w-lg">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-zinc-400">
+                <Search className="h-4 w-4" />
+              </span>
+              <input
+                type="text"
+                placeholder="Search title or description..."
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-4 text-sm text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-xs font-bold text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-zinc-200 shadow-sm">
+                <VideoIcon className="h-4 w-4 text-zinc-600 dark:text-zinc-400" />
+                <span>Total Videos: <strong className="text-zinc-950 dark:text-white">{totalVideosCount || videos.length}</strong></span>
               </div>
 
-              <select
-                value={selectedType}
-                onChange={(e) => {
-                  setSelectedType(e.target.value);
-                  setPage(1);
-                }}
-                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
-              >
-                <option value="ALL">All Video Types (બધા વીડિયો & શોર્ટ્સ)</option>
-                <option value="video">Standard Videos Only (માત્ર વીડિયો)</option>
-                <option value="short">YouTube Shorts Only (માત્ર શોર્ટ વીડિયો)</option>
-                <option value="podcast">Podcasts Only</option>
-                <option value="interview">Interviews Only</option>
-              </select>
-
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
-                  setPage(1);
-                }}
-                className="rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 px-4 text-sm font-semibold text-zinc-900 focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
-              >
-                <option value="">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.nameGu || c.name})
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300 shadow-sm">
+                <Bookmark className="h-4 w-4 text-amber-500 fill-amber-500" />
+                <span>Featured: <strong className="text-amber-950 dark:text-amber-200">{totalFeaturedCount || videos.filter(v => v.isFeatured).length}</strong></span>
+              </div>
             </div>
           </div>
 
@@ -737,14 +679,24 @@ export default function VideosPage() {
                 <p className="text-xs text-zinc-500">Showing latest videos (no Shorts) — use ⭐ to feature or 📥 to import</p>
               </div>
             </div>
-            <button
-              onClick={loadChannelVideos}
-              disabled={channelLoading}
-              className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${channelLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleSyncYouTubeChannel(false)}
+                disabled={syncingYouTube}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3 py-2 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-50 transition cursor-pointer"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${syncingYouTube ? 'animate-spin' : ''}`} />
+                {syncingYouTube ? 'Syncing...' : '⚡ Sync & Save All to Database'}
+              </button>
+              <button
+                onClick={loadChannelVideos}
+                disabled={channelLoading}
+                className="inline-flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 cursor-pointer"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${channelLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {/* Channel videos grid */}
@@ -934,166 +886,7 @@ export default function VideosPage() {
         </div>
       )}
 
-      {/* ─── ADD VIDEO MODAL ─── */}
-      {addModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/45 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3 border-zinc-150 dark:border-zinc-850">
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                <VideoIcon className="h-5 w-5 text-zinc-500" />
-                Add Video Embed
-              </h3>
-              <button
-                onClick={() => setAddModalOpen(false)}
-                className="rounded-lg p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleAddSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  YouTube URL અથવા Video ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="YouTube link paste કરો (youtu.be/... અથવા youtube.com/watch?v=...)"
-                  value={youtubeId}
-                  onChange={(e) => handleYoutubeInputChange(e.target.value)}
-                  onPaste={(e) => {
-                    e.preventDefault();
-                    handleYoutubeInputChange(e.clipboardData.getData('text'));
-                  }}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  required
-                />
-                {youtubeId && /^[a-zA-Z0-9_-]{11}$/.test(youtubeId) && (
-                  <div className="mt-2 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 dark:border-green-800 dark:bg-green-950/20">
-                    <img
-                      src={`https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg`}
-                      alt="thumbnail"
-                      className="h-10 w-16 rounded-lg object-cover flex-shrink-0"
-                    />
-                    <div>
-                      <p className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">✓ Video ID મળ્યો</p>
-                      <p className="text-xs font-mono text-zinc-700 dark:text-zinc-300">{youtubeId}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Gujarati title only */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  શીર્ષક (ગુજરાતી)
-                </label>
-                <input
-                  type="text"
-                  value={titleGu}
-                  onChange={(e) => setTitleGu(e.target.value)}
-                  placeholder="ગુજરાતીમાં શીર્ષક લખો..."
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  required
-                />
-              </div>
-
-              {/* Video metadata settings */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Video Type
-                  </label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  >
-                    <option value="video">Standard Video</option>
-                    <option value="short">YouTube Short</option>
-                    <option value="podcast">Podcast</option>
-                    <option value="interview">Interview</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                    Duration
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 12:45"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              {/* Category selection */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Category (કૅટેગરી)
-                </label>
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm font-semibold focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                >
-                  <option value="">Select Category (Optional)</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name} ({cat.nameGu || cat.name})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
-                  Description
-                </label>
-                <textarea
-                  placeholder="Brief summary of the video content..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-2.5 text-sm focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="isFeatured"
-                  checked={isFeatured}
-                  onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="rounded border-zinc-300 accent-primary"
-                />
-                <label htmlFor="isFeatured" className="text-sm font-bold text-zinc-650 dark:text-zinc-350 cursor-pointer">
-                  Feature this video on homepage slider
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
-                <button
-                  type="button"
-                  onClick={() => setAddModalOpen(false)}
-                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-55 dark:border-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-850 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-                >
-                  Save Video
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* ─── EDIT VIDEO MODAL ─── */}
       {editModalOpen && selectedVideo && (
@@ -1228,23 +1021,23 @@ export default function VideosPage() {
                   onChange={(e) => setIsFeatured(e.target.checked)}
                   className="rounded border-zinc-300 accent-primary"
                 />
-                <label htmlFor="editIsFeatured" className="text-sm font-bold text-zinc-650 dark:text-zinc-350 cursor-pointer">
+                <label htmlFor="editIsFeatured" className="text-sm font-bold text-zinc-600 dark:text-zinc-300 cursor-pointer">
                   Feature this video on homepage slider
                 </label>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-150 dark:border-zinc-850">
+              <div className="flex justify-end gap-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={() => setEditModalOpen(false)}
-                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-55 dark:border-zinc-800"
+                  className="rounded-xl border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-850 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+                  className="rounded-xl bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
                 >
                   Save Changes
                 </button>

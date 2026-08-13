@@ -61,7 +61,16 @@ export default function WatchPageClient() {
 
   useEffect(() => {
     getPublicVideos().then((res) => {
-      setVideoList(res || []);
+      const seen = new Set<string>();
+      const clean: any[] = [];
+      for (const item of (res || [])) {
+        const key = item.youtubeId?.trim() || item.id;
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          clean.push(item);
+        }
+      }
+      setVideoList(clean);
     });
   }, []);
 

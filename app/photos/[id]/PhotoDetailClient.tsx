@@ -1,62 +1,94 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
-  ChevronLeft, ChevronRight, Clock, Eye, Phone, Globe, Mail, ChevronRight as ChevronRightIcon,
-  Bookmark, Printer, Copy
+  ChevronLeft, ChevronRight, Clock, Eye, Phone, Globe, Mail,
+  Bookmark, Printer, Copy, Maximize2, X, Camera, Share2, Sparkles, Layers
 } from 'lucide-react';
-import { getLocalized, PHOTOS } from '@/data';
+import { 
+  getLocalized, PHOTOS, formatDate, formatTime, formatViews, 
+  getArticleTitle, getCategoryLabel, getRelativeTime 
+} from '@/data';
 import { useApp } from '@/components/AppProvider';
-import NewsCard from '@/components/ui/NewsCard';
+import { NativeAdsSection } from '@/components/sections/HeroSection';
 
-const shareUrl = (platform: string, url: string, text: string) => {
-  const encodedUrl = encodeURIComponent(url);
-  const encodedText = encodeURIComponent(text);
-  if (platform === 'facebook') return `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
-  if (platform === 'twitter') return `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`;
-  if (platform === 'whatsapp') return `https://api.whatsapp.com/send?text=${encodedText}%20${encodedUrl}`;
-  return '#';
-};
+const ReadingProgressBar = memo(function ReadingProgressBar() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(total > 0 ? Math.min(100, (window.scrollY / total) * 100) : 0);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return <div className="reading-progress" style={{ width: `${progress}%` }} />;
+});
+
+const DEMO_THUMBNAILS = [
+  'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&auto=format&fit=crop&q=80',
+];
+
+function getCardThumbnail(art: any, index: number = 0): string {
+  const raw = art?.image || art?.featuredImage || art?.thumbnail || art?.src;
+  if (
+    raw &&
+    raw.trim() !== '' &&
+    !raw.includes('photo-1599930113854') &&
+    !raw.includes('placehold.co')
+  ) {
+    return raw;
+  }
+  return DEMO_THUMBNAILS[index % DEMO_THUMBNAILS.length];
+}
 
 const MOCK_DESCRIPTIONS: Record<string, { en: string; gu: string; hi: string; category: { en: string; gu: string; hi: string } }> = {
   ph1: {
     category: { en: "Gujarat", gu: "ગુજરાત", hi: "गुजरात" },
     en: "Ahmedabad witnessed heavy continuous rain causing traffic snarls and waterlogging in low-lying areas. The Sabarmati Riverfront development authority has monitored the water level closely and opened key gates to maintain safety guidelines. Civic teams are working continuously to clear roads and ensure public safety across major zones.\n\nLocal authorities have issued emergency contact numbers for residents and activated multiple rescue centers. Citizens are advised to plan their commute according to rain alerts and avoid underpasses during heavy spells.",
     gu: "અમદાવાદમાં અવિરત ભારે વરસાદને પગલે નીચાણવાળા વિસ્તારોમાં પાણી ભરાયા છે અને ટ્રાફિક જામની સમસ્યા સર્જાઈ છે. સાબરમતી રિવરફ્રન્ટ ડેવલપમેન્ટ ઓથોરિટી દ્વારા પાણીના સ્તર પર ચાંપતી નજર રાખવામાં આવી રહી છે અને સુરક્ષા માર્ગદર્શિકા જાળવવા માટે મુખ્ય દરવાજા ખોલવામાં આવ્યા છે. મ્યુનિસિપલ ટીમો રસ્તાઓ સાફ કરવા માટે સતત કામ કરી રહી છે.\n\nસ્થાનિક તંત્ર દ્વારા નાગરિકો માટે ઈમરજન્સી હેલ્પલાઈન નંબરો જાહેર કરવામાં આવ્યા છે અને બચાવ કેન્દ્રો સક્રિય કરાયા છે. ભારે વરસાદ દરમિયાન લોકોને અંડરપાસથી બચવા અને સાવચેતી રાખવા અપીલ કરાઈ છે.",
-    hi: "अहमदाबाद में लगातार भारी बारिश के कारण निचले इलाकों में जलभराव हो गया और ट्रैफिक जाम की समस्या पैदा हो गई। साबरमती रिवरफ्रंट विकास प्राधिकरण पानी के स्तर पर पैनी नजर रख रहा है और सुरक्षा बनाए रखने के लिए मुख्य गेट खोल दिए गए हैं। नगर निगम की टीमें सड़कों को साफ करने और सार्वजनिक सुरक्षा सुनिश्चित करने के लिए काम कर रही हैं।\n\nप्रशासन ने नागरिकों के लिए आपातकालीन हेल्पलाइन नंबर जारी किए हैं और विभिन्न राहत केंद्रों को सक्रिय कर दिया है। लोगों को सलाह दी गई है कि वे जलभराव वाले क्षेत्रों और अंडरपासों की ओर जाने से बचें।"
+    hi: "अहमदाबाद में लगातार भारी बारिश के कारण निचले इलाकों में जलभराव हो गया और ट्रैफिक जाम की समस्या पैदा हो गई। साबरमती रिवरफ्रंट विकास प्राधिकरण पानी के स्तर पर पैनी नजर रख रहा है और सुरक्षा बनाए रखने के लिए मुख्य गेट खोल दिए गए हैं।"
   },
   ph2: {
     category: { en: "Sports", gu: "રમતગમત", hi: "खेल" },
-    en: "The Gujarat Cricket Team was seen during an intense practice session at the Narendra Modi Stadium. With the upcoming domestic and IPL seasons, key batsmen and bowlers were seen refining their skills under head coach's supervision. The energy was high as the young talent blended with experienced pros during training drills.\n\nCoaches focused heavily on fielding accuracy and fast bowling lengths. The session also saw tactical discussions regarding target setting in powerplays, with players showing promising shape ahead of the tournaments.",
-    gu: "ગુજરાત ક્રિકેટ ટીમ નરેન્દ્ર મોદી સ્ટેડિયમમાં સઘન પ્રેક્ટિસ સેશન દરમિયાન જોવા મળી હતી. આગામી સ્થાનિક અને આઈપીએલ સીઝનને ધ્યાનમાં રાખીને, મુખ્ય બેટ્સમેનો અને બોલરો હેડ કોચની દેખરેખ હેઠળ તેમની કુશળતા સુધારી રહ્યા છે. તાલીમ દરમિયાન અનુભવી ખેલાડીઓ સાથે યુવા પ્રતિભાઓ ઉત્સાહભેર જોડાઈ હતી.\n\nકોચિંગ સ્ટાફ દ્વારા ફિલ્ડિંગ ચોકસાઈ અને બોલિંગ લેન્થ પર વિશેષ ભાર મૂકવામાં આવ્યો હતો. આ સત્રમાં પાવરપ્લે દરમિયાન રન રેટ વધારવાની વ્યુહરચના અંગે ચર્ચાઓ પણ કરવામાં આવી હતી.",
-    hi: "नरेंद्र मोदी स्टेडियम में गुजरात क्रिकेट टीम अभ्यास सत्र के दौरान नजर आई। आगामी घरेलू और आईपीएल सीज़न को देखते हुए, मुख्य बल्लेबाज और गेंदबाज मुख्य कोच की देखरेख में अपने कौशल को निखार रहे हैं। प्रशिक्षण के दौरान अनुभवी खिलाड़ियों के साथ युवा प्रतिभाएं भी काफी सक्रिय नजर आईं।\n\nकोचिंग स्टाफ ने फील्डिंग और गेंदबाजी की सटीक लेंथ पर विशेष ध्यान दिया। अभ्यास सत्र के दौरान पावरप्ले की रणनीतियों और खिलाड़ियों की फिटनेस स्तर पर भी चर्चा की गई।"
+    en: "The Gujarat Cricket Team was seen during an intense practice session at the Narendra Modi Stadium. With the upcoming domestic and IPL seasons, key batsmen and bowlers were seen refining their skills under head coach's supervision.",
+    gu: "ગુજરાત ક્રિકેટ ટીમ નરેન્દ્ર મોદી સ્ટેડિયમમાં સઘન પ્રેક્ટિસ સેશન દરમિયાન જોવા મળી હતી. આગામી સ્થાનિક અને આઈપીએલ સીઝનને ધ્યાનમાં રાખીને, મુખ્ય બેટ્સમેનો અને બોલરો હેડ કોચની દેખરેખ હેઠળ તેમની કુશળતા સુધારી રહ્યા છે.",
+    hi: "नरेंद्र मोदी स्टेडियम में गुजरात क्रिकेट टीम अभ्यास सत्र के दौरान नजर आई। आगामी घरेलू और आईपीएल सीज़न को देखते हुए।"
   },
   ph3: {
     category: { en: "Politics", gu: "રાજકારણ", hi: "राजनीति" },
-    en: "A massive crowd gathered at the district election rally showing high enthusiasm and support. Political leaders addressed key developmental schemes, civic infrastructure plans, and employment initiatives targeted for the upcoming 2027 state assembly elections. Strict police deployment ensured smooth crowd management and traffic movement.\n\nSpeakers highlighted achievements in industry growth, agricultural subsidies, and smart-city implementations. Opposition leaders simultaneously scheduled parallel town halls, marking an early start to campaign trails.",
-    gu: "જિલ્લા ચૂંટણી રેલીમાં ભારે ઉત્સાહ અને સમર્થન દર્શાવતી વિશાળ જનમેદની એકઠી થઈ હતી. રાજકીય નેતાઓએ આગામી 2027ની વિધાનસભા ચૂંટણી માટે નિર્ધારિત કલ્યાણકારી યોજનાઓ, ઈન્ફ્રાસ્ટ્રક્ચર વિકાસ અને રોજગાર પહેલ અંગે સંબોધન કર્યું હતું. પોલીસ બંદોબસ્તને કારણે જનમેદની વ્યવસ્થા સુચારૂ રહી હતી.\n\nનેતાઓએ ઉદ્યોગ વિકાસ, કૃષિ સબસિડી અને સ્માર્ટ સિટી પ્રોજેક્ટ્સની સિદ્ધિઓ રજૂ કરી હતી. બીજી તરફ, વિપક્ષી પક્ષોએ પણ સમાંતર જનસભાઓનું આયોજન કરીને ચૂંટણી પ્રચારના શ્રીગણેશ કરી દીધા છે.",
-    hi: "जिला चुनाव रैली में भारी उत्साह और समर्थन दिखाते हुए विशाल जनसमुदाय एकत्रित हुआ। राजनीतिक नेताओं ने आगामी 2027 के राज्य विधानसभा चुनावों के लिए लक्षित प्रमुख विकास योजनाओं, बुनियादी ढांचे और रोजगार पहलों पर चर्चा की। पुलिस की मुस्तैदी से भीड़ प्रबंधन सुचारू रहा।\n\nनेताओं ने औद्योगिक प्रगति, कृषि सब्सिडी और स्मार्ट सिटी परियोजनाओं की उपलब्धियों पर ध्यान केंद्रित किया। इस बीच विपक्षी दलों ने भी समानांतर रैलियों के जरिए चुनाव अभियान तेज कर दिया है।"
+    en: "A massive crowd gathered at the district election rally showing high enthusiasm and support. Political leaders addressed key developmental schemes, civic infrastructure plans, and employment initiatives.",
+    gu: "જિલ્લા ચૂંટણી રેલીમાં ભારે ઉત્સાહ અને સમર્થન દર્શાવતી વિશાળ જનમેદની એકઠી થઈ હતી. રાજકીય નેતાઓએ આગામી 2027ની વિધાનસભા ચૂંટણી માટે નિર્ધારિત કલ્યાણકારી યોજનાઓ અંગે સંબોધન કર્યું હતું.",
+    hi: "जिला चुनाव रैली में भारी उत्साह और समर्थन दिखाते हुए विशाल जनसमुदाय एकत्रित हुआ।"
   },
   ph4: {
     category: { en: "Entertainment", gu: "મનોરંજન", hi: "मनोरंजन" },
-    en: "Navratri Garba celebrations reached peak excitement in Gujarat as thousands of youngsters danced to traditional folk tunes. Dressed in vibrant ethnic attire, the participants showcased coordinated choreography. Organizing committees highlighted high-end security measures, CCTV surveillance, and first-aid counters at all major venues.\n\nSeveral celebrity guests attended the commercial venues, raising the festive energy. Traditional musicians and modern acoustic bands blended classical garba roots with contemporary tempos, creating memorable evenings.",
-    gu: "નવરાત્રી ગરબા મહોત્સવ ગુજરાતમાં ચરમસીમા પર પહોંચ્યો હતો જ્યાં હજારો ખેલૈયાઓ પરંપરાગત લોકધૂન પર ઝૂમ્યા હતા. વાઇબ્રન્ટ પરંપરાગત પોશાક સજ્જ થઈને ખેલૈયાઓએ રાસ-ગરબાની રમઝટ બોલાવી હતી. આયોજક સમિતિઓએ તમામ મુખ્ય સ્થળોએ હાઈ-એન્ડ સુરક્ષા પગલાં, સીસીટીવી સર્વેલન્સ અને પ્રાથમિક સારવાર કાઉન્ટર્સની વ્યવસ્થા કરી હતી.\n\nકેટલાક સેલિબ્રિટી મહેમાનોએ ગરબા પંડાલોની મુલાકાત લીધી હતી. પરંપરાગત ગાયકો અને સંગીતકારોએ શાસ્ત્રીય ગરબા રાગને આધુનિક બીટ્સ સાથે જોડીને અદ્ભુત માહોલ સરજ્યો હતો.",
-    hi: "गुजरात में नवरात्रि गरबा महोत्सव का उत्साह चरम पर पहुंच गया जहां हजारों युवाओं ने पारंपरिक धुनों पर नृत्य किया। रंग-बिरंगे पारंपरिक परिधानों में सजे प्रतिभागियों ने शानदार प्रदर्शन किया। आयोजन समितियों ने सुरक्षा उपायों, सीसीटीवी निगरानी और प्राथमिक चिकित्सा काउंटरों की व्यवस्था की।\n\nमहोत्सव के दौरान विभिन्न हस्तियों ने गरबा पंडालों में शिरकत की। पारंपरिक गायकों और आधुनिक ऑर्केस्ट्रा ने शास्त्रीय गरबा गीतों को नई धुनों के साथ पेश कर शाम को बेहद खास बना दिया।"
+    en: "Navratri Garba celebrations reached peak excitement in Gujarat as thousands of youngsters danced to traditional folk tunes. Dressed in vibrant ethnic attire, participants showcased traditional ras garba.",
+    gu: "નવરાત્રી ગરબા મહોત્સવ ગુજરાતમાં ચરમસીમા પર પહોંચ્યો હતો જ્યાં હજારો ખેલૈયાઓ પરંપરાગત લોકધૂન પર ઝૂમ્યા હતા. વાઇબ્રન્ટ પરંપરાગત પોશાક સજ્જ થઈને ખેલૈયાઓએ રાસ-ગરબાની રમઝટ બોલાવી હતી.",
+    hi: "गुजरात में नवरात्रि गरबा महोत्सव का उत्साह चरम पर पहुंच गया जहां हजारों युवाओं ने पारंपरिक धुनों पर नृत्य किया।"
   },
   ph5: {
     category: { en: "Business", gu: "બિઝનેસ", hi: "बिजनेस" },
-    en: "The iconic GIFT City skyline captured during twilight, representing Gujarat's growing corporate footprint and global financial integrations. With state-of-the-art infrastructure, tech hubs, and smart traffic control corridors, the district is rapidly emerging as a preferred investment destination for global multinational firms.\n\nMultiple global banks and fintech companies have recently expanded their office footprints in the international zone. Local infrastructure is scaling up with premium residential projects and metro connectivity nearing commercial operations.",
-    gu: "સંધ્યાકાળે લેવાયેલ GIFT સિટીની આકર્ષક સ્કાઇલાઇન, જે ગુજરાતના વધતા જતા કોર્પોરેટ ક્ષેત્ર અને વૈશ્વિક નાણાકીય એકીકરણનું પ્રતિનિધિત્વ કરે છે. અત્યાધુનિક ઇન્ફ્રાસ્ટ્રક્ચર, ટેક હબ અને સ્માર્ટ કંટ્રોલ કોરિડોર સાથે, આ ક્ષેત્ર વૈશ્વિક મલ્ટિનેશનલ કંપનીઓ માટે રોકાણનું કેન્દ્ર બની રહ્યું છે.\n\nકેટલીક વૈશ્વિક બેંકો અને ફિનટેક કંપનીઓએ તાજેતરમાં ઇન્ટરનેશનલ ઝોનમાં પોતાના એકમો શરૂ કર્યા છે. રહેણાંક પ્રોજેક્ટ્સ અને મેટ્રો કનેક્ટિવિટી પણ અહીં ઝડપથી પૂર્ણ થઈ રહી છે.",
-    hi: "संध्याकाल के समय ली गई गिफ्ट सिटी की स्काईलाइन, जो गुजरात के बढ़ते कॉर्पोरेट क्षेत्र और वैश्विक वित्तीय एकीकरण का प्रतिनिधित्व करती है। अत्याधुनिक बुनियादी ढांचे, तकनीकी हब और स्मार्ट नियंत्रण के साथ, यह क्षेत्र बहुराष्ट्रीय कंपनियों के लिए पसंदीदा निवेश गंतव्य बन रहा है।\n\nकई वैश्विक बैंकों और वित्तीय संस्थानों ने हाल ही में अंतरराष्ट्रीय वित्तीय केंद्र में काम शुरू किया है। आवासीय सुविधाओं और मेट्रो कनेक्टिविटी के विस्तार से यहां काफी तेजी आई है।"
+    en: "The iconic GIFT City skyline captured during twilight, representing Gujarat's growing corporate footprint and global financial integrations. With state-of-the-art infrastructure and tech hubs.",
+    gu: "સંધ્યાકાળે લેવાયેલ GIFT સિટીની આકર્ષક સ્કાઇલાઇન, જે ગુજરાતના વધતા જતા કોર્પોરેટ ક્ષેત્ર અને વૈશ્વિક નાણાકીય એકીકરણનું પ્રતિનિધિત્વ કરે છે. અત્યાધુનિક ઇન્ફ્રાસ્ટ્રક્ચર અને ટેક હબ સાથે.",
+    hi: "संध्याकाल के समय ली गई गिफ्ट सिटी की स्काईलाइन, जो गुजरात के बढ़ते कॉर्पोरेट क्षेत्र का प्रतिनिधित्व करती है।"
   },
   ph6: {
     category: { en: "Education", gu: "શિક્ષણ", hi: "शिक्षा" },
-    en: "Students interacting in a modern digital classroom implemented across municipal schools in Gujarat. Equipped with interactive smartboards, educational software, and tablet-based learning, the initiative aims to bridge the digital divide and foster conceptual clarity and cognitive skill development at secondary school levels.\n\nEducation departments recorded double-digit improvements in term assessments following digital integrations. Training programs for teachers have also been streamlined to ensure effective delivery of interactive learning modules.",
-    gu: "ગુજરાતની સરકારી શાળાઓમાં અમલીકૃત આધુનિક ડિજિટલ ક્લાસરૂમમાં વિદ્યાર્થીઓ અભ્યાસ કરી રહ્યા છે. ઇન્ટરેક્ટિવ સ્માર્ટબોર્ડ્સ, શૈક્ષણિક સોફ્ટવેર અને ટેબ્લેટ-આધારિત લર્નિંગથી સજ્જ આ પહેલનો હેતુ ડિજિટલ વિભાજનને દૂર કરવાનો અને ગુણવત્તાયુક્ત શિક્ષણ પ્રદાન કરવાનો છે.\n\nઆ ડિજિટલ શિક્ષણ પદ્ધતિ અપનાવ્યા બાદ વિદ્યાર્થીઓના પરિણામોમાં સારો સુધારો નોંધાયો છે. શિક્ષકોને પણ આધુનિક સાધનો દ્વારા રસપ્રદ શિક્ષણ આપવા માટે તાલીમ આપવામાં આવી રહી છે.",
-    hi: "गुजरात के सरकारी स्कूलों में लागू आधुनिक डिजिटल कक्षा में छात्र पढ़ाई कर रहे हैं। इंटरैक्टिव स्मार्टबोर्ड, शैक्षिक सॉफ्टवेयर और टैबलेट-आधारित लर्निंग से लैस इस पहल का उद्देश्य डिजिटल विभाजन को दूर करना और माध्यमिक स्तर पर गुणवत्तापूर्ण शिक्षा प्रदान करना है।\n\nडिजिटल माध्यमों के इस्तेमाल से छात्रों के शैक्षणिक प्रदर्शन में सकारात्मक सुधार देखा गया है। शिक्षकों को भी इन आधुनिक उपकरणों का उपयोग कर कक्षा को प्रभावी बनाने के लिए प्रशिक्षित किया गया है।"
+    en: "Students interacting in a modern digital classroom implemented across municipal schools in Gujarat. Equipped with interactive smartboards, educational software, and tablet-based learning.",
+    gu: "ગુજરાતની સરકારી શાળાઓમાં અમલીકૃત આધુનિક ડિજિટલ ક્લાસરૂમમાં વિદ્યાર્થીઓ અભ્યાસ કરી રહ્યા છે. ઇન્ટરેક્ટિવ સ્માર્ટબોર્ડ્સ અને શૈક્ષણિક સોફ્ટવેર સાથે.",
+    hi: "गुजरात के सरकारी स्कूलों में लागू आधुनिक डिजिटल कक्षा में छात्र पढ़ाई कर रहे हैं।"
   }
 };
 
@@ -72,283 +104,458 @@ export default function PhotoDetailClient({ activeId, photo: dbPhoto, allPhotos:
   const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const photosList = dbAllPhotos && dbAllPhotos.length > 0 ? dbAllPhotos : PHOTOS;
   const photo = dbPhoto || photosList.find(p => p.id === activeId || p.id === `photo-${activeId}` || p.id === activeId.replace('photo-', '')) || photosList[0];
   const activeIndex = photosList.findIndex((item) => item.id === photo?.id);
+  const currentPhotoIndex = activeIndex >= 0 ? activeIndex : 0;
+  
   const photoUrl = typeof window !== 'undefined' ? window.location.href : 'https://gujaratpost.com/photos';
 
-  const nextIndex = photosList.length > 0 ? (activeIndex + 1) % photosList.length : 0;
-  const prevIndex = photosList.length > 0 ? (activeIndex - 1 + photosList.length) % photosList.length : 0;
+  const nextIndex = photosList.length > 0 ? (currentPhotoIndex + 1) % photosList.length : 0;
+  const prevIndex = photosList.length > 0 ? (currentPhotoIndex - 1 + photosList.length) % photosList.length : 0;
 
-  const handleNext = () => {
-    if (photosList[nextIndex]) router.push(`/photos/${photosList[nextIndex].id}`);
-  };
+  const handleNext = useCallback(() => {
+    if (photosList[nextIndex]) {
+      router.push(`/photos/${photosList[nextIndex].id}`);
+    }
+  }, [nextIndex, photosList, router]);
 
-  const handlePrev = () => {
-    if (photosList[prevIndex]) router.push(`/photos/${photosList[prevIndex].id}`);
-  };
+  const handlePrev = useCallback(() => {
+    if (photosList[prevIndex]) {
+      router.push(`/photos/${photosList[prevIndex].id}`);
+    }
+  }, [prevIndex, photosList, router]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') handleNext();
+      if (e.key === 'ArrowLeft') handlePrev();
+      if (e.key === 'Escape' && isLightboxOpen) setIsLightboxOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleNext, handlePrev, isLightboxOpen]);
 
   const copyUrl = async () => {
-    await navigator.clipboard.writeText(photoUrl);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
+    try {
+      await navigator.clipboard.writeText(photoUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback
+    }
   };
 
-  const caption = getLocalized(language, { en: photo?.caption || '', gu: photo?.captionGu || '', hi: photo?.captionHi || '' });
+  const rawCaption = photo?.captionGu || photo?.caption || photo?.alt || 'Photo Gallery';
+  const caption = getLocalized(language, { 
+    en: photo?.caption || photo?.alt || '', 
+    gu: photo?.captionGu || photo?.caption || photo?.alt || '', 
+    hi: photo?.captionHi || photo?.caption || photo?.alt || '' 
+  }) || rawCaption;
+
+  const title = caption;
   
   const descriptionData = (photo && MOCK_DESCRIPTIONS[photo.id]) || {
-    category: { en: photo?.category || "Gallery", gu: photo?.captionGu || '', hi: photo?.captionHi || '' },
+    category: { en: photo?.category || "Photo Gallery", gu: photo?.category || 'ફોટો ગેલેરી', hi: photo?.category || 'फोटो गैलरी' },
     en: photo?.caption || '',
-    gu: photo?.captionGu || '',
-    hi: photo?.captionHi || ''
+    gu: photo?.captionGu || photo?.caption || '',
+    hi: photo?.captionHi || photo?.caption || ''
   };
 
   const category = getLocalized(language, descriptionData.category);
   const bodyText = getLocalized(language, descriptionData);
   const paragraphs = bodyText.split(/\n\n+/);
 
-  const trendingList = dbTrending;
+  const authorName = photo?.photographer || (language === 'gu' ? 'ગુજરાત પોસ્ટ ફોટોગ્રાફર' : language === 'hi' ? 'गुजरात पोस्ट फोटोग्राफर' : 'Gujarat Post Photographer');
 
-  const shareLinks = [
-    { 
-      label: 'Facebook', 
-      href: shareUrl('facebook', photoUrl, caption), 
-      style: 'bg-[#1877f2]/8 text-[#1877f2] border border-[#1877f2]/10 hover:bg-[#1877f2]/15',
-      icon: (className: string) => <svg viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
-    },
-    { 
-      label: 'WhatsApp', 
-      href: shareUrl('whatsapp', photoUrl, caption), 
-      style: 'bg-[#25d366]/8 text-[#25d366] border border-[#25d366]/10 hover:bg-[#25d366]/15',
-      icon: (className: string) => <svg viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.455 5.703 1.458h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-    },
-    { 
-      label: 'X', 
-      href: shareUrl('twitter', photoUrl, caption), 
-      style: 'bg-black/[0.03] dark:bg-white/[0.03] text-foreground border border-foreground/10 hover:bg-black/[0.06] dark:hover:bg-white/[0.06]',
-      icon: (className: string) => <svg viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
-    },
-    { 
-      label: 'Telegram', 
-      href: `https://t.me/share/url?url=${encodeURIComponent(photoUrl)}&text=${encodeURIComponent(caption)}`, 
-      style: 'bg-[#229ed9]/8 text-[#229ed9] border border-[#229ed9]/10 hover:bg-[#229ed9]/15',
-      icon: (className: string) => <svg viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.53-1.39.51-.46-.01-1.35-.26-2.01-.48-.81-.27-1.46-.42-1.4-.88.03-.24.37-.49 1.03-.75 4.04-1.76 6.74-2.92 8.09-3.48 3.85-1.6 4.64-1.88 5.17-1.89.11 0 .37.03.54.17.14.12.18.28.2.45-.02.07-.02.13-.03.2z" /></svg>
-    },
-    { 
-      label: 'Google News', 
-      href: `https://news.google.com/search?q=Gujarat+Post`, 
-      style: 'bg-[#4285f4]/8 text-[#4285f4] border border-[#4285f4]/10 hover:bg-[#4285f4]/15',
-      icon: (className: string) => <svg viewBox="0 0 24 24" className={className} fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 10h-4v-2h4v2zm0-4h-4V6h4v2zm-5 8H5v-2h8v2zm5 0h-4v-2h4v2zM12 6H5v6h7V6z" /></svg>
-    },
-  ];
+  const gistPoints = useMemo(() => {
+    return [
+      caption,
+      `${language === 'gu' ? 'સ્થળ / કેટેગરી:' : language === 'hi' ? 'स्थान / श्रेणी:' : 'Category:'} ${category}`,
+      `${language === 'gu' ? 'કવરેજ સ્તરો:' : language === 'hi' ? 'कवरेज स्तर:' : 'Coverage:'} ${language === 'gu' ? 'સ્થાનિક તસવીરો અને તાજા સમાચાર' : language === 'hi' ? 'स्थानीय तस्वीरें और ताजा खबरें' : 'Local HD Imagery'}`,
+    ];
+  }, [caption, category, language]);
+
+  const tags = useMemo(() => {
+    if (language === 'gu') {
+      return ['ફોટો ગેલેરી', 'ગુજરાત', 'અમદાવાદ', 'તાજા સમાચાર', 'લાઈવ', 'વિશેષ કવરેજ', 'તસવીરો', 'ગુજરાત પોસ્ટ'];
+    } else if (language === 'hi') {
+      return ['फोटो गैलरी', 'गुजरात', 'अहमदाबाद', 'ताजा समाचार', 'लाइव', 'विशेष कवरेज', 'तस्वीरें', 'गुजरात पोस्ट'];
+    }
+    return ['Photo Gallery', 'Gujarat', 'Ahmedabad', 'Breaking News', 'Live', 'Special Coverage', 'Pictures', 'Gujarat Post'];
+  }, [language]);
+
+  const trendingList = dbTrending || [];
+  const sidebarRecommendedPool = photosList.filter(p => p.id !== photo.id);
 
   return (
-    <div className="mx-auto max-w-screen-xl px-4 py-6">
-      <div className="grid gap-8 lg:grid-cols-3">
-        <article className="lg:col-span-2">
-          
-          {/* Breadcrumbs */}
-          <nav className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-neutral-500 font-medium select-none">
-            <Link href="/" className="hover:text-[var(--red)] transition-colors">
-              {language === 'gu' ? 'હોમ' : language === 'hi' ? 'होम' : 'Home'}
-            </Link>
-            <span>/</span>
-            <Link href="/photos" className="hover:text-[var(--red)] transition-colors">
-              {getLocalized(language, { en: 'Photo Gallery', gu: 'ફોટો ગેલેરી', hi: 'फोटो गैलरी' })}
-            </Link>
-            <span>:</span>
-            <span className="text-red-700 dark:text-red-400 font-bold line-clamp-1">{caption}</span>
-          </nav>
+    <>
+      <ReadingProgressBar />
+      
+      {/* Lightbox Modal */}
+      {isLightboxOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4 backdrop-blur-md animate-in fade-in duration-200">
+          <button
+            type="button"
+            onClick={() => setIsLightboxOpen(false)}
+            className="absolute top-5 right-5 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-all border border-white/20"
+            aria-label="Close Lightbox"
+          >
+            <X className="h-6 w-6" />
+          </button>
 
-          {/* Category Tag */}
-          <div className="mb-3 flex items-center gap-2">
-            <span className="cat-badge bg-accent text-white rounded px-2 py-0.5 text-xs font-black uppercase">
-              {category}
-            </span>
-            <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-              {activeIndex + 1} / {photosList.length}
-            </span>
-          </div>
-
-          {/* Caption / Heading */}
-          <h1 className="mb-4 text-2xl font-black leading-tight text-foreground md:text-4xl">{caption}</h1>
-
-          {/* Author/Date Row */}
-          <div className="mb-5 flex flex-wrap items-center gap-4 border-y border-border py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent font-black text-sm">
-              GP
-            </div>
-            <div>
-              <p className="text-sm font-black text-foreground">
-                {getLocalized(language, { en: 'Gujarat Post Photographer', gu: 'ગુજરાત પોસ્ટ ફોટોગ્રાફર', hi: 'गुजरात पोस्ट फोटोग्राफर' })}
-              </p>
-              <p className="text-xs font-semibold text-muted-foreground">
-                {getLocalized(language, { en: 'Special Coverage', gu: 'ખાસ કવરેજ', hi: 'विशेष कवरेज' })}
-              </p>
-            </div>
-            <div className="ml-auto text-xs text-muted-foreground text-right">
-              <p className="flex items-center gap-1"><Clock className="h-3 w-3" />
-                {new Date().toLocaleDateString(language === 'gu' ? 'gu-IN' : language === 'hi' ? 'hi-IN' : 'en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
-              <p className="flex items-center gap-1 justify-end"><Eye className="h-3 w-3" />10K+ {getLocalized(language, { en: 'views', gu: 'વ્યુઝ', hi: 'વ્યુઝ' })}</p>
-            </div>
-          </div>
-
-          {/* Share Action Row */}
-          <div className="no-print mb-5 flex flex-wrap gap-2">
-            {shareLinks.map(({ label, href, style, icon: Icon }) => (
-              <a key={label} href={href} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-black transition-all duration-200 ${style}`}>
-                {Icon("h-3.5 w-3.5")}
-                {label}
-              </a>
-            ))}
-            <button type="button" onClick={() => setSaved((value) => !value)} className="inline-flex items-center gap-2 rounded-full bg-muted/60 border border-border/40 px-3 py-2 text-xs font-black text-foreground/80 hover:bg-muted hover:text-foreground transition-all duration-200">
-              <Bookmark className="h-3.5 w-3.5" />
-              {saved ? 'Saved' : 'Save Story'}
-            </button>
-            <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-full bg-muted/60 border border-border/40 px-3 py-2 text-xs font-black text-foreground/80 hover:bg-muted hover:text-foreground transition-all duration-200">
-              <Printer className="h-3.5 w-3.5" />
-              Printer
-            </button>
-            <button type="button" onClick={copyUrl} className="inline-flex items-center gap-2 rounded-full bg-muted/60 border border-border/40 px-3 py-2 text-xs font-black text-foreground/80 hover:bg-muted hover:text-foreground transition-all duration-200">
-              <Copy className="h-3.5 w-3.5" />
-              {copied ? 'Copied' : 'Copy URL'}
-            </button>
-          </div>
-
-          {/* Main Photo Card with Prev/Next Overlay */}
-          <div className="group relative aspect-[16/10] bg-muted/40 w-full overflow-hidden rounded-xl mb-6 shadow-sm border border-border">
-            <Image 
-              src={photo.src} 
-              alt={photo.alt} 
-              fill 
-              sizes="(max-width: 1024px) 100vw, 66vw"
-              className="object-cover" 
+          <div className="relative h-[85vh] w-[92vw] max-w-6xl">
+            <Image
+              src={photo.src}
+              alt={photo.alt || caption}
+              fill
+              sizes="100vw"
+              className="object-contain"
               priority
             />
-            
-            {/* Prev / Next buttons inside image bounds */}
-            <button 
-              type="button" 
-              onClick={handlePrev} 
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2.5 text-white hover:bg-accent transition opacity-0 group-hover:opacity-100 duration-200"
+
+            {/* Prev / Next controls in lightbox */}
+            <button
+              type="button"
+              onClick={handlePrev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-3 text-white hover:bg-red-600 transition-all border border-white/20"
               aria-label="Previous photo"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className="h-7 w-7" />
             </button>
-            <button 
-              type="button" 
-              onClick={handleNext} 
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-2.5 text-white hover:bg-accent transition opacity-0 group-hover:opacity-100 duration-200"
+
+            <button
+              type="button"
+              onClick={handleNext}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-3 text-white hover:bg-red-600 transition-all border border-white/20"
               aria-label="Next photo"
             >
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className="h-7 w-7" />
             </button>
-          </div>
 
-          {/* Descriptions */}
-          <div className="space-y-5 text-sm font-semibold leading-relaxed text-muted-foreground/90 border-b border-border pb-6">
-            {paragraphs.map((paragraph, index) => (
-              <p key={index}>{paragraph}</p>
-            ))}
+            {/* Lightbox Caption Bar */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/80 backdrop-blur-md px-6 py-2.5 text-center text-white border border-white/15 max-w-2xl w-full shadow-2xl">
+              <p className="text-sm font-bold truncate">{caption}</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">
+                {currentPhotoIndex + 1} of {photosList.length} • {photo.photographer || 'Gujarat Post'}
+              </p>
+            </div>
           </div>
+        </div>
+      )}
 
-          {/* Other Photos thumbnails inside main column */}
-          <div className="mt-8">
-            <h3 className="text-sm font-black uppercase tracking-wider text-foreground mb-4 border-b border-border pb-2">
-              {getLocalized(language, { en: 'Browse Photo Gallery', gu: 'ફોટો ગેલેરી બ્રાઉઝ કરો', hi: 'फोटो गैलरी ब्राउज़ करें' })}
-            </h3>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {photosList.filter((item) => item.id !== photo.id).map((item) => {
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/photos/${item.id}`}
-                    className="group relative aspect-[4/3] rounded-lg overflow-hidden border border-border bg-muted transition duration-200 hover:-translate-y-0.5 hover:border-accent"
-                  >
-                    <Image 
-                      src={item.src} 
-                      alt={item.alt} 
-                      fill 
-                      sizes="150px"
-                      className="object-cover transition duration-300 group-hover:scale-105"
-                    />
-                    <div 
-                      className="absolute inset-0 bg-black/85 opacity-0 transition-opacity duration-300 group-hover:opacity-100 flex items-center justify-center p-2 text-center"
-                      title={getLocalized(language, { en: item.caption, gu: item.captionGu, hi: item.captionHi })}
+      <div className="wrap py-6">
+        <div className="article-grid" suppressHydrationWarning>
+          <article suppressHydrationWarning>
+            
+            {/* Breadcrumbs matching NewsDetailClient */}
+            <nav className="breadcrumb select-none flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-neutral-500 font-medium">
+              <Link href="/" className="hover:text-[var(--red)] transition-colors">
+                {language === 'gu' ? 'હોમ' : language === 'hi' ? 'होम' : 'Home'}
+              </Link>
+              <span>/</span>
+              <Link href="/photos" className="hover:text-[var(--red)] transition-colors">
+                {getLocalized(language, { en: 'Photo Gallery', gu: 'ફોટો ગેલેરી', hi: 'फोटो गैलरी' })}
+              </Link>
+              <span>:</span>
+              <span className="text-red-700 dark:text-red-400 font-bold truncate max-w-[280px] sm:max-w-md">
+                {title}
+              </span>
+            </nav>
+
+            {/* Category kick bar */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="art-kick">
+                <span className="bar"></span>
+                <span>{category} · {language === 'gu' ? 'અંતરદૃશ્ય કવરેજ' : language === 'hi' ? 'विशेष कवरेज' : 'Special Coverage'}</span>
+              </div>
+              <span className="live-badge rounded bg-accent px-2 py-0.5 text-xs font-black text-white ml-2">
+                📷 {currentPhotoIndex + 1} / {photosList.length} {language === 'gu' ? 'ફોટા' : language === 'hi' ? 'तस्वीरें' : 'Photos'}
+              </span>
+            </div>
+
+            {/* Article Title */}
+            <h1 className="article-title">{title}</h1>
+
+            {/* Byline / Author card matching NewsDetailClient */}
+            <div className="byline select-none" suppressHydrationWarning>
+              <div className="flex items-center gap-[11px]">
+                <div className="shrink-0 w-[38px] h-[38px] rounded-full bg-[var(--red)] text-white flex items-center justify-center font-bold text-sm">
+                  GP
+                </div>
+                <div>
+                  <div className="text-[13.5px]">
+                    <span className="text-[var(--ink-2)]">{language === 'gu' ? 'લેખક:' : language === 'hi' ? 'लेखक:' : 'Author:'} </span>
+                    <span className="font-bold text-[var(--red)]">
+                      {authorName}
+                    </span>
+                  </div>
+                  <div className="text-[12px] text-[var(--ink-3)] mt-[2px]" suppressHydrationWarning>
+                    <span>{formatDate(photo?.createdAt || '2026-08-12')}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-[12.5px] text-[var(--ink-2)]" suppressHydrationWarning>
+                  👁 {formatViews(photo?.views || 10450)} {getLocalized(language, { en: 'views', gu: 'વ્યૂઝ', hi: 'વ્યૂઝ' })}
+                </span>
+                
+                {/* Google News Follow Badge */}
+                <a
+                  href="https://news.google.com/search?q=Gujarat+Post"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Follow Gujarat Post on Google News"
+                  className="group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm hover:shadow-md hover:border-[#4285F4]/50 transition-all duration-200 hover:scale-[1.03] active:scale-95 select-none"
+                  style={{ textDecoration: 'none' }}
+                >
+                  <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0" aria-hidden="true">
+                    <rect x="2" y="2" width="8.5" height="20" rx="1.5" fill="#4285F4" />
+                    <rect x="12.5" y="3" width="9.5" height="3.8" rx="1" fill="#EA4335" />
+                    <rect x="12.5" y="9.1" width="9.5" height="3.8" rx="1" fill="#FBBC05" />
+                    <rect x="12.5" y="15.2" width="9.5" height="6.5" rx="1" fill="#34A853" />
+                  </svg>
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-[8px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">FOLLOW ON</span>
+                    <span className="text-[11px] font-bold text-neutral-800 dark:text-neutral-100 tracking-tight" style={{ fontFamily: 'Google Sans, sans-serif' }}>Google News</span>
+                  </span>
+                </a>
+              </div>
+            </div>
+
+            {/* Share Row matching NewsDetailClient */}
+            <div className="share-row-custom select-none flex flex-wrap gap-3 items-center mb-6 p-3.5 rounded-2xl bg-neutral-50/80 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 shadow-sm backdrop-blur-sm">
+              <span className="lbl font-black text-neutral-900 dark:text-neutral-100 mr-1 text-[14px] tracking-wide uppercase flex items-center gap-1.5 select-none">
+                <span className="h-2 w-2 rounded-full bg-[#B3121B] animate-ping" />
+                {language === 'gu' ? 'શેર કરો:' : language === 'hi' ? 'શેર કરેં:' : 'Share:'}
+              </span>
+
+              {/* WhatsApp */}
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`${title} ${photoUrl}`)}`}
+                target="_blank"
+                rel="noreferrer"
+                title="WhatsApp"
+                className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(37,211,102,0.35)] hover:border-[#25D366]"
+              >
+                <svg viewBox="0 0 24 24" className="w-[20px] h-[20px] shrink-0 transition-transform duration-300 group-hover:rotate-[15deg] group-hover:scale-110">
+                  <path fill="#25D366" d="M12.01 0a12 12 0 0 0-10.4 18l-1.6 5.8 6-1.6a12 12 0 1 0 6-22.2z" />
+                  <path fill="#FFF" d="M16.9 14.1c-.3-.1-1.6-.8-1.9-.9-.3-.1-.5-.1-.7.2-.2.3-.7.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.8-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.2-.5 0-.2-.1-.4-.2-.6-.2-.4-.7-1.7-1-2.3-.3-.6-.6-.5-.8-.5H8c-.2 0-.6.1-.9.4C6.8 7.3 6 8.1 6 9.8c0 1.7 1.2 3.4 1.4 3.6.2.2 2.4 3.7 5.9 5.2.8.3 1.5.6 2 .7.8.3 1.6.2 2.2.1.7-.1 2.2-.9 2.5-1.8.3-.9.3-1.6.2-1.8-.1-.1-.3-.2-.5-.3z" />
+                </svg>
+              </a>
+
+              {/* Facebook */}
+              <a
+                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(photoUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Facebook"
+                className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(24,119,242,0.35)] hover:border-[#1877F2]"
+              >
+                <svg viewBox="0 0 24 24" className="w-[20px] h-[20px] shrink-0 transition-transform duration-300 group-hover:rotate-[15deg] group-hover:scale-110">
+                  <path fill="#1877F2" d="M24 12c0-6.627-5.373-12-12-12S0 5.373 0 12c0 5.99 4.388 10.954 10.125 11.854V15.47H7.078v-3.47h3.047V9.35c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12z" />
+                </svg>
+              </a>
+
+              {/* X */}
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(photoUrl)}`}
+                target="_blank"
+                rel="noreferrer"
+                title="Post on X"
+                className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.25)] dark:hover:shadow-[0_8px_20px_rgba(255,255,255,0.2)] hover:border-black dark:hover:border-white"
+              >
+                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0 text-neutral-900 dark:text-neutral-100 transition-transform duration-300 group-hover:rotate-[-12deg] group-hover:scale-110">
+                  <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                </svg>
+              </a>
+
+              {/* Action Buttons */}
+              <div className="ml-auto flex items-center gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setSaved(!saved)} 
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all duration-200 shadow-sm ${saved ? 'bg-amber-500 text-white border-amber-600' : 'bg-card border-border hover:bg-muted text-foreground'}`}
+                >
+                  <Bookmark className={`h-3.5 w-3.5 ${saved ? 'fill-white' : ''}`} />
+                  {saved ? 'Saved' : 'Save'}
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={() => window.print()} 
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-3.5 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition-all duration-200 shadow-sm"
+                >
+                  <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                  Print
+                </button>
+
+                <button 
+                  type="button" 
+                  onClick={copyUrl} 
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-3.5 py-1.5 text-xs font-bold text-foreground hover:bg-muted transition-all duration-200 shadow-sm"
+                >
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            {/* Main Featured Photo Figure & Viewer */}
+            <figure className="article-fig">
+              <div className="imgwrap relative aspect-[16/10] overflow-hidden bg-black/90 rounded-xl shadow-md group">
+                <Image 
+                  src={photo.src} 
+                  alt={photo.alt || caption} 
+                  fill 
+                  sizes="(max-width: 1024px) 100vw, 66vw"
+                  className="object-contain" 
+                  priority
+                />
+
+                {/* Top Right Fullscreen Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="absolute top-3.5 right-3.5 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-red-600 transition border border-white/20 shadow-md"
+                  title="Full Screen"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+
+                {/* Top Left Counter Pill */}
+                <div className="absolute top-3.5 left-3.5 z-20 flex items-center gap-1.5 rounded-full bg-black/75 backdrop-blur-md px-3 py-1 text-xs font-bold text-white border border-white/20 shadow">
+                  <Camera className="h-3.5 w-3.5 text-red-500" />
+                  {currentPhotoIndex + 1} / {photosList.length}
+                </div>
+
+                {/* Prev / Next Navigation Arrows */}
+                <button 
+                  type="button" 
+                  onClick={handlePrev} 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-red-600 transition border border-white/20 shadow-lg opacity-90 group-hover:opacity-100"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleNext} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-red-600 transition border border-white/20 shadow-lg opacity-90 group-hover:opacity-100"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+
+              <figcaption>
+                <span>{caption}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  {language === 'gu' ? 'તસવીર: ગુજરાત પોસ્ટ' : language === 'hi' ? 'તસવીર: ગુજરાત પોસ્ટ' : 'Photo: Gujarat Post'}
+                </span>
+              </figcaption>
+            </figure>
+
+            {/* Interactive Filmstrip Thumbnails Below Main Photo */}
+            <div className="my-5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 p-3 shadow-sm">
+              <div className="flex items-center justify-between text-[11px] font-black uppercase text-neutral-500 dark:text-neutral-400 tracking-wider mb-2">
+                <span>{language === 'gu' ? 'ફોટો ગેલેરી ફિલ્મસ્ટ્રીપ' : language === 'hi' ? 'फोटो गैलरी फिल्मस्ट्रिप' : 'Photo Gallery Filmstrip'}</span>
+                <span>{currentPhotoIndex + 1} / {photosList.length}</span>
+              </div>
+
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                {photosList.map((item, idx) => {
+                  const isActive = item.id === photo.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => router.push(`/photos/${item.id}`)}
+                      className={`relative aspect-[4/3] h-16 shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                        isActive 
+                          ? 'border-[#B3121B] ring-2 ring-[#B3121B]/30 scale-105 shadow-md' 
+                          : 'border-transparent opacity-65 hover:opacity-100 hover:border-neutral-300 dark:hover:border-neutral-700'
+                      }`}
                     >
-                      <span className="text-[10px] sm:text-xs font-black text-white leading-snug line-clamp-3">
-                        {getLocalized(language, { en: item.caption, gu: item.captionGu, hi: item.captionHi })}
+                      <Image
+                        src={item.src}
+                        alt={item.alt || `Thumbnail ${idx + 1}`}
+                        fill
+                        sizes="100px"
+                        className="object-cover"
+                      />
+                      <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.2 text-[9px] font-black text-white">
+                        #{idx + 1}
                       </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Article Content Body matching NewsDetailClient */}
+            <div className="article-body space-y-4 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:list-item [&_li]:my-1 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:font-bold [&_blockquote]:not-italic [&_blockquote]:my-3 [&_img]:rounded-xl [&_figure]:my-6">
+              {paragraphs.map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+            </div>
+
+            {/* Topics Tags Bar matching NewsDetailClient */}
+            <div className="flex flex-wrap items-center gap-2 mt-8 select-none border-t border-neutral-200 dark:border-neutral-800 pt-5">
+              <span className="topics-title font-extrabold text-neutral-900 dark:text-white mr-2 text-[14.5px] tracking-wide uppercase border-b-2 border-[#B3121B] pb-0.5">
+                {language === 'gu' ? 'ટોપિક્સ:' : language === 'hi' ? 'विषय:' : 'Topics:'}
+              </span>
+              {tags.map((tag, tIdx) => (
+                <Link
+                  key={tIdx}
+                  href={`/photos`}
+                  className="topic-pill cursor-pointer bg-neutral-100 dark:bg-neutral-800/80 hover:bg-[#B3121B] dark:hover:bg-[#B3121B] text-neutral-800 dark:text-neutral-200 hover:text-white dark:hover:text-white rounded-full px-4 py-1.5 text-xs font-bold border border-neutral-300 dark:border-neutral-700 hover:border-[#B3121B] dark:hover:border-[#B3121B] shadow-sm transition-all duration-200"
+                >
+                  {tag}
+                </Link>
+              ))}
+            </div>
+          </article>
+
+          {/* Sidebar matching NewsDetailClient */}
+          <aside className="select-none h-fit sticky top-[100px]" style={{ width: '100%', maxWidth: '336px' }} suppressHydrationWarning>
+            {/* Heading and recommended stories stick together below header */}
+            <div className="wtitle mb-3">
+              <span className="d"></span>
+              <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
+            </div>
+
+            <div className="space-y-0">
+              {sidebarRecommendedPool.slice(0, 5).map((item, index) => {
+                const itemTitle = getLocalized(language, { en: item.caption, gu: item.captionGu, hi: item.captionHi });
+                const itemCategory = item.category || (language === 'gu' ? 'ગેલેરી' : 'Gallery');
+                return (
+                  <Link key={item.id} href={`/photos/${item.id}`} className="s-compact hover:opacity-85 transition-opacity">
+                    <div>
+                      <span className="kick">{itemCategory}</span>
+                      <h3>{itemTitle}</h3>
+                      <div className="meta" suppressHydrationWarning>
+                        <span>{formatDate(item.createdAt || '2026-08-12')}</span>
+                      </div>
+                    </div>
+                    <div className="imgwrap">
+                      <Image src={getCardThumbnail(item, index)} alt={itemTitle} fill sizes="92px" className="object-cover" />
                     </div>
                   </Link>
                 );
               })}
             </div>
-          </div>
+          </aside>
+        </div>
 
-        </article>
-
-        {/* Right Sidebar */}
-        <aside className="space-y-6 lg:sticky lg:top-40 lg:self-start">
-          
-          {/* Simulated Advertisement */}
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 bg-red-600 text-white font-black text-[8px] uppercase px-2 py-0.5 rounded-bl">
-              Ad
-            </div>
-            <div className="flex items-center gap-1.5 text-accent text-[9px] font-black uppercase tracking-widest mb-2">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              Gujarat Post
-            </div>
-            <h5 className="text-xs font-black text-foreground mb-1 leading-snug">
-              Business Advertisement
-            </h5>
-            <p className="text-[10px] font-semibold text-muted-foreground leading-relaxed mb-3">
-              Reach lakhs of daily readers across Gujarat. Feature your businesses on our News Portal & Facebook Page.
-            </p>
-            
-            <div className="space-y-1.5 border-t border-border pt-3">
-              <a href="tel:+919909907227" className="flex items-center gap-2 text-[10px] font-bold text-foreground hover:text-accent transition">
-                <Phone className="h-3.5 w-3.5 text-accent shrink-0" />
-                +91 99099 07227
-              </a>
-              <a href="mailto:info@gujaratpost.in" className="flex items-center gap-2 text-[10px] font-bold text-foreground hover:text-accent transition">
-                <Mail className="h-3.5 w-3.5 text-accent shrink-0" />
-                info@gujaratpost.in
-              </a>
-              <a href="https://gujaratpost.in" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] font-bold text-foreground hover:text-accent transition">
-                <Globe className="h-3.5 w-3.5 text-accent shrink-0" />
-                www.gujaratpost.in
-              </a>
-            </div>
-
-            <a 
-              href="mailto:info@gujaratpost.in" 
-              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-accent text-white px-3 py-2 text-xs font-black hover:bg-accent/90 transition shadow-sm"
-            >
-              Advertise Now
-            </a>
-          </div>
-
-          {/* Trending Stories */}
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="bg-accent px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white">
-              {getLocalized(language, { en: 'Trending Stories', gu: 'ટ્રેન્ડિંગ સ્ટોરીઝ', hi: 'ट्रेंडિંગ स्टोरीज' })}
-            </div>
-            <div className="p-3 divide-y divide-border/60">
-              {trendingList.map((item, index) => (
-                <div key={item.id} className="flex gap-2 py-2 first:pt-0 last:pb-0">
-                  <span className="mt-2.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-black text-muted-foreground">{index + 1}</span>
-                  <NewsCard article={item} variant="compact" />
-                </div>
-              ))}
-            </div>
-          </section>
-
-        </aside>
+        {/* Sponsored Native Ads Section */}
+        <NativeAdsSection language={language} />
       </div>
-    </div>
+      <div style={{ height: '50px' }} />
+    </>
   );
 }
