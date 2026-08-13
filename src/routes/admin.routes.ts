@@ -16,6 +16,8 @@ import uploadRoutes from './upload.routes.js';
 import { requireAuth } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/role.middleware.js';
 import { Role } from '@prisma/client';
+import { prisma } from '../config/prisma.js';
+import { sendSuccess } from '../utils/response.js';
 
 const router = Router();
 
