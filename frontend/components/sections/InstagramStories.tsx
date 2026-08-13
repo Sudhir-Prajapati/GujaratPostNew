@@ -63,12 +63,10 @@ export default function InstagramStories() {
 
   useEffect(() => {
     getPublicReels().then((res) => {
-      if (res && Array.isArray(res) && res.length > 0) {
+      if (res && res.length > 0) {
         setReels(res);
-      } else {
-        setReels(DEMO_REELS);
       }
-    }).catch(() => setReels(DEMO_REELS));
+    });
   }, []);
 
   const updateArrows = useCallback(() => {
@@ -101,11 +99,13 @@ export default function InstagramStories() {
   };
 
   const handleReelClick = (reel: ReelItem) => {
-    const url = reel.type === 'VIDEO' ? (reel.videoUrl || reel.instaUrl) : (reel.instaUrl || 'https://www.instagram.com/gujaratpostnews');
+    const url = reel.type === 'VIDEO' ? reel.videoUrl : reel.instaUrl;
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
+
+  if (reels.length === 0) return null;
 
   return (
     <section className="mx-auto max-w-screen-xl px-4 mt-8 mb-6 relative overflow-hidden">
@@ -230,8 +230,10 @@ export default function InstagramStories() {
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        <ReelsBadgeIcon className="h-12 w-12 text-white/30" />
+                      )}
+                    </div>
 
                     {/* Bottom Title Container Box */}
                     <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">
@@ -240,7 +242,7 @@ export default function InstagramStories() {
                           <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
                         </div>
                         <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
-                          {displayTitle}
+                          {displayTitle || reel.heading}
                         </p>
                       </div>
                       <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shrink-0 ml-1 shadow-sm group-hover:scale-105 transition-transform">

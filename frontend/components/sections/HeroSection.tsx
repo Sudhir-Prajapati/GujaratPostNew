@@ -372,6 +372,7 @@ export default function HeroSection({
   // bottomFeatured: admin-selected 3 articles shown in the bottom image row
   const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initFeatured.slice(0, 3));
   const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(fillPool(initTrending, initialArticles, 10));
+  const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialArticles.slice(0, 5));
   const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
   const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
   const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
@@ -456,9 +457,12 @@ export default function HeroSection({
         const heroPool = customGridArts.length > 0 ? fillPool(customGridArts, autoHeroPool, 16) : autoHeroPool.slice(0, 16);
         setTopStories(heroPool);
         const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
+        const customMostReadArts: Article[] = (heroRes?.mostReadArticles || []).filter(Boolean);
         const trendingArts = arts.filter((a: Article) => a.isTrending);
         const popularPool = fillPool([...trendingArts, ...customPopularArts], arts, 10);
         setTrendingArtDB(popularPool);
+        const mostReadPool = customMostReadArts.length > 0 ? customMostReadArts : arts.slice(0, 5);
+        setMostReadArtDB(mostReadPool);
         setGujaratArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
         setCrimeArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'crime').slice(0, 4));
         setNationalArtDB(arts.filter((a: Article) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
@@ -891,7 +895,7 @@ export default function HeroSection({
             </div>
 
             <div className="flex flex-col divide-y divide-border">
-              {uniqueTrendingArt.slice(0, 5).map((art, idx) => (
+              {(mostReadArtDB.length > 0 ? mostReadArtDB : uniqueTrendingArt).slice(0, 5).map((art, idx) => (
                 <Link
                   key={art.id}
                   href={`/news/${art.slug}`}
