@@ -229,19 +229,30 @@ export class ArticleController {
         postSlug = `${postSlug}-${Math.random().toString(36).substring(2, 7)}`;
       }
 
-      const tagConnectOrCreate = Array.isArray(tags) ? tags.map((t: any) => {
-        const name = t.name.trim();
-        const tagSlug = slugify(name);
-        return {
-          where: { slug: tagSlug },
-          create: {
-            slug: tagSlug,
-            name,
-            nameGu: name,
-            nameHi: name,
-          },
-        };
-      }) : [];
+      // Deduplicate tags by slug to prevent unique constraint failures on post_tags
+      const uniqueTagsMap = new Map<string, { name: string; slug: string }>();
+      if (Array.isArray(tags)) {
+        for (const t of tags) {
+          const rawName = typeof t === 'string' ? t : t?.name;
+          if (rawName && typeof rawName === 'string' && rawName.trim() !== '') {
+            const name = rawName.trim();
+            const tagSlug = slugify(name);
+            if (tagSlug && !uniqueTagsMap.has(tagSlug)) {
+              uniqueTagsMap.set(tagSlug, { name, slug: tagSlug });
+            }
+          }
+        }
+      }
+
+      const tagConnectOrCreate = Array.from(uniqueTagsMap.values()).map(({ name, slug: tagSlug }) => ({
+        where: { slug: tagSlug },
+        create: {
+          slug: tagSlug,
+          name,
+          nameGu: name,
+          nameHi: name,
+        },
+      }));
 
       const post = await prisma.post.create({
         data: {
@@ -394,25 +405,33 @@ export class ArticleController {
       }
 
       if (tags !== undefined && Array.isArray(tags)) {
+        const uniqueTagsMap = new Map<string, { name: string; slug: string }>();
+        for (const t of tags) {
+          const rawName = typeof t === 'string' ? t : t?.name;
+          if (rawName && typeof rawName === 'string' && rawName.trim() !== '') {
+            const name = rawName.trim();
+            const tagSlug = slugify(name);
+            if (tagSlug && !uniqueTagsMap.has(tagSlug)) {
+              uniqueTagsMap.set(tagSlug, { name, slug: tagSlug });
+            }
+          }
+        }
+
         updateData.tags = {
           deleteMany: {},
-          create: tags.map((t: any) => {
-            const name = t.name.trim();
-            const tagSlug = slugify(name);
-            return {
-              tag: {
-                connectOrCreate: {
-                  where: { slug: tagSlug },
-                  create: {
-                    slug: tagSlug,
-                    name,
-                    nameGu: name,
-                    nameHi: name,
-                  },
+          create: Array.from(uniqueTagsMap.values()).map(({ name, slug: tagSlug }) => ({
+            tag: {
+              connectOrCreate: {
+                where: { slug: tagSlug },
+                create: {
+                  slug: tagSlug,
+                  name,
+                  nameGu: name,
+                  nameHi: name,
                 },
               },
-            };
-          }),
+            },
+          })),
         };
       }
 
