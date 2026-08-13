@@ -158,11 +158,11 @@ router.get('/articles', async (req, res, next) => {
           orderBy: isFeatured
             ? [{ createdAt: 'desc' }]
             : [
-                { isFeatured: 'desc' },
-                { articleNumber: 'desc' },
-                { createdAt: 'desc' },
-                { priority: 'desc' },
-              ],
+              { isFeatured: 'desc' },
+              { articleNumber: 'desc' },
+              { createdAt: 'desc' },
+              { priority: 'desc' },
+            ],
           skip,
           take: limit,
         }),
@@ -283,7 +283,7 @@ router.get('/articles/:slug', async (req, res, next) => {
     prisma.post.update({
       where: { id: p.id },
       data: { views: { increment: 1 } },
-    }).catch(() => {});
+    }).catch(() => { });
 
     const article = {
       id: p.id,
@@ -575,7 +575,7 @@ router.get('/live-center', async (req, res) => {
           const pct = Math.round((ch / prevClose) * 10000) / 100;
           return { name: defaultName, exchange: defaultEx, value: val, change: ch, changePercent: pct };
         }
-      } catch (e) {}
+      } catch (e) { }
       return { name: defaultName, exchange: defaultEx, value: defVal, change: defCh, changePercent: defPct };
     };
 
@@ -612,7 +612,7 @@ router.get('/live-center', async (req, res) => {
         });
         if (parsed.length > 0) footballMatches = parsed;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     const payload = {
       fuelPrices: {

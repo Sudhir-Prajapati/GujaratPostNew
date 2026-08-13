@@ -210,7 +210,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
-      
+
       {/* ── Mobile Sidebar Overlay ── */}
       {sidebarOpen && (
         <div
@@ -221,9 +221,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── Sidebar Navigation ── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 transition-transform duration-300 lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800">
@@ -273,11 +272,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <a
                 key={item.label}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${
-                  isActive
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${isActive
                     ? 'bg-[#B3121B] text-white shadow-md shadow-red-900/20'
                     : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="truncate">{item.label}</span>
@@ -301,10 +299,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── Main Layout Body ── */}
       <div className="flex flex-1 flex-col min-w-0 w-full lg:pl-64 overflow-x-hidden">
-        
+
         {/* Navbar Header */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-zinc-200 bg-white/80 px-6 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
-          
+
           {/* Left: Hamburger menu toggle for mobile */}
           <button
             onClick={() => setSidebarOpen(true)}
@@ -312,7 +310,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <Menu className="h-6 w-6" />
           </button>
-          
+
           <div className="hidden lg:flex items-center gap-3 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
             {userRole && currentRoleMeta ? (
               <div className="flex items-center gap-2">
@@ -329,7 +327,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           {/* Right: Actions (Theme Toggle & Account profile dropdown) */}
           <div className="flex items-center gap-4">
-            
+
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}

@@ -137,7 +137,7 @@ const handleUpload = (req: any, res: any) => {
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
-        } catch {}
+        } catch { }
       }
 
       return res.status(200).json({

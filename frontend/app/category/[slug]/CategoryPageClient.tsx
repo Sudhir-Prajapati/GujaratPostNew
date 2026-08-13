@@ -1,20 +1,21 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Eye, Clock } from 'lucide-react';
+import { Eye, Clock, Play, Video as VideoIcon } from 'lucide-react';
 import { Article } from '@/types';
 import { useApp } from '@/components/AppProvider';
 import {
   getLocalized,
   getArticleTitle,
-  getArticleExcerpt,
   getCategoryLabel,
   formatViews,
   formatDate,
 } from '@/data';
 import { getCategoryColor, toGu } from '@/lib/utils';
+import { getPublicVideos } from '@/lib/api';
+import { safeYouTubeId, youtubeEmbedUrl } from '@/lib/youtube';
 import NewsCard from '@/components/ui/NewsCard';
 import ArticleMedia from '@/components/ui/ArticleMedia';
 
@@ -28,11 +29,7 @@ interface Props {
   slug: string;
 }
 
-type FilterTab = 'all' | 'latest' | 'analysis' | 'video' | 'photo';
-
-/* ── Gujarat category specific mockup data ─────────────────── */
-const GUJARAT_MOCK_ARTICLES: any[] = [];
-const GUJARAT_MOCK_MOST_READ: any[] = [];
+type FilterTab = 'all' | 'latest' | 'video';
 
 const GUJARAT_MOCK_TAGS = {
   gu: ['ચૂંટણી 2027', 'વરસાદ', 'સોના-ચાંદી', 'ક્રિકેટ', 'મેટ્રો', 'સેમિકન્ડક્ટર', 'ડાયમંડ ઉદ્યોગ', 'ટ્રાફિક'],
@@ -49,14 +46,27 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
   const [sortBy, setSortBy] = useState<'latest' | 'popular'>('latest');
   const [visibleCount, setVisibleCount] = useState(9);
 
+  // Videos state for Video filter
+  const [videos, setVideos] = useState<any[]>([]);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+
   // Scroll page to top instantly whenever category page mounts or slug changes
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [slug]);
 
-  const isGujarat = true; // Apply the premium mockup layout to all category pages
+  // Fetch public videos stream for Video tab
+  useEffect(() => {
+    getPublicVideos('video')
+      .then((res) => {
+        if (res && Array.isArray(res)) {
+          setVideos(res);
+        }
+      })
+      .catch(() => { });
+  }, []);
 
-  // Get localized category name aligned exactly with the header menu links
+  // Get localized category name aligned exactly with header menu links
   const getCategoryTitleLocalized = () => {
     if (slug === 'other-cities' || slug === 'otherCities') {
       return getLocalized(language, { en: 'Other Cities', gu: 'અન્ય શહેરો', hi: 'अन्य शहर' });
@@ -71,10 +81,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
       return getLocalized(language, { en: 'Crime', gu: 'ક્રાઈમ', hi: 'क्राइम' });
     }
     if (slug === 'technology') {
-      return getLocalized(language, { en: 'Technology', gu: 'ટેક્નોલોજી', hi: 'टेक्नोलॉजी' });
+      return getLocalized(language, { en: 'Technology', gu: 'ટેક્નોલોજી', hi: 'ટેક્નોલોજી' });
     }
     if (slug === 'lifestyle') {
-      return getLocalized(language, { en: 'Lifestyle', gu: 'લાઈફસ્ટાઈલ', hi: 'लाइफस्टाइल' });
+      return getLocalized(language, { en: 'Lifestyle', gu: 'લાઈફસ્ટાઈલ', hi: 'લાઈફસ્ટાઈલ' });
     }
     return getLocalized(language, {
       en: category?.name || '',
@@ -118,27 +128,14 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     const now = Date.now();
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-    // Filter articles uploaded/updated within the last 30 days (current running month)
     const currentMonthArticles = all.filter((art) => {
       const artTime = new Date((art as any).updatedAt || art.publishedAt || (art as any).createdAt || 0).getTime();
       return !isNaN(artTime) && artTime > 0 && (now - artTime) <= THIRTY_DAYS_MS;
     });
 
-    // If there are articles in the current running month, sort them by views; otherwise use overall category articles
     const pool = currentMonthArticles.length > 0 ? currentMonthArticles : all;
     return [...pool].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 7);
   }, [articles]);
-
-  /* Trending tags */
-  const trendingTags = useMemo(() => {
-    const all = (articles || []).flatMap((a) => (language === 'gu' ? a.tagsGu : language === 'hi' ? a.tagsHi : a.tags));
-    const freq: Record<string, number> = {};
-    all.forEach((t) => { if (t) freq[t] = (freq[t] || 0) + 1; });
-    return Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t]) => t);
-  }, [articles, language]);
-
-  /* Resolve displaying lists with dynamic filtering and sorting */
-  const displayArticles = articles || [];
 
   const getArticleTimeMs = (art: Article) => {
     const updatedVal = (art as any).updatedAt;
@@ -149,53 +146,24 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     return isNaN(t) ? 0 : t;
   };
 
+  /* Filter & Sort logic based on activeTab */
   const filteredArticles = useMemo(() => {
-    let result = [...displayArticles];
+    let result = [...(articles || [])];
 
-    // 1. Filter by active tab format/category
-    if (activeTab === 'analysis') {
-      const matches = result.filter((a) =>
-        a.titleGu?.includes('વિશ્લેષણ') ||
-        a.title?.toLowerCase().includes('analysis') ||
-        a.excerptGu?.includes('વિશ્લેષણ') ||
-        a.tagsGu?.some(t => t.includes('વિશ્લેષણ')) ||
-        a.tags?.some(t => t.toLowerCase().includes('analysis'))
-      );
-      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 2 === 0);
-    } else if (activeTab === 'video') {
-      const matches = result.filter((a) =>
-        a.titleGu?.includes('વીડિયો') ||
-        a.title?.toLowerCase().includes('video') ||
-        Boolean((a as any).videoUrl) ||
-        Boolean((a as any).youtubeId) ||
-        a.tagsGu?.some(t => t.includes('વીડિયો')) ||
-        a.tags?.some(t => t.toLowerCase().includes('video'))
-      );
-      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 3 === 0);
-    } else if (activeTab === 'photo') {
-      const matches = result.filter((a) =>
-        a.titleGu?.includes('ફોટો') ||
-        a.title?.toLowerCase().includes('photo') ||
-        a.tagsGu?.some(t => t.includes('ફોટો')) ||
-        a.tags?.some(t => t.toLowerCase().includes('photo'))
-      );
-      result = matches.length > 0 ? matches : result.filter((_, idx) => idx % 4 === 0);
-    }
-
-    // 2. Sort by latest or popular
-    if (sortBy === 'popular') {
+    if (activeTab === 'latest') {
+      // Strictly latest news uploaded sorted by time descending
+      result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
+    } else if (sortBy === 'popular') {
       result.sort((a, b) => (b.views || 0) - (a.views || 0));
     } else {
-      // Default: latest first by updatedAt / publishedAt desc
+      // Default: latest first
       result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
     }
 
     return result;
-  }, [displayArticles, activeTab, sortBy]);
+  }, [articles, activeTab, sortBy]);
 
-  const tagsToDisplay = trendingTags && trendingTags.length > 0 ? trendingTags : (GUJARAT_MOCK_TAGS[language] || GUJARAT_MOCK_TAGS.en);
-
-  // #1 Latest News Article for Hero Card
+  // #1 Hero Item
   const heroArticle = filteredArticles[0];
 
   // #2 Small Article below Hero Card on the left side
@@ -219,16 +187,37 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     return filteredArticles.filter((art) => !topStoriesIds.has(art.id));
   }, [filteredArticles, topStoriesIds]);
 
-  /* Filter tabs */
+  /* Mixed Feed for Video Tab (Video + Image Articles interleave) */
+  const videoTabFeaturedVideo = useMemo(() => {
+    if (videos.length > 0) return videos[0];
+    return null;
+  }, [videos]);
+
+  const mixedVideoFeed = useMemo(() => {
+    const result: any[] = [];
+    const remainingVideos = videos.slice(1);
+    const remainingArticles = articles || [];
+
+    const maxLen = Math.max(remainingVideos.length, remainingArticles.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (remainingVideos[i]) {
+        result.push({ ...remainingVideos[i], isVideoItem: true });
+      }
+      if (remainingArticles[i]) {
+        result.push({ ...remainingArticles[i], isVideoItem: false });
+      }
+    }
+    return result;
+  }, [videos, articles]);
+
+  /* 3 Filter tabs */
   const tabs: { id: FilterTab; gu: string; hi: string; en: string }[] = [
     { id: 'all', gu: 'બધું', hi: 'सभी', en: 'All' },
     { id: 'latest', gu: 'તાજા સમાચાર', hi: 'ताज़ा समाचार', en: 'Latest' },
-    { id: 'analysis', gu: 'વિશ્લેષણ', hi: 'विश्लेषण', en: 'Analysis' },
     { id: 'video', gu: 'વીડિયો', hi: 'वीडियो', en: 'Video' },
-    { id: 'photo', gu: 'ફોટો', hi: 'फोटो', en: 'Photo' },
   ];
 
-  if (!heroArticle) {
+  if (!heroArticle && videos.length === 0) {
     return (
       <div className="mx-auto max-w-screen-xl px-4 py-16 text-center text-muted-foreground">
         {getLocalized(language, { en: 'No stories found.', gu: 'કોઈ સમાચાર મળ્યા નહીં.', hi: 'कोई खबर नहीं मिली.' })}
@@ -240,44 +229,23 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     <div className="bg-background min-h-screen">
       <div className="mx-auto max-w-screen-xl px-4 py-6">
 
-        {/* ── TOP ROW: Category name (with Red Vertical Bar) + Sort buttons ──────────────── */}
+        {/* ── TOP ROW: Category name ─────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-border pb-3 mb-5">
           <div className="flex items-center gap-3">
-            {/* Red vertical bar */}
             <span className="w-1.5 h-7 bg-accent rounded-sm inline-block" />
             <h1 className="text-2xl font-black text-foreground">{categoryName}</h1>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSortBy('latest')}
-              className={`rounded-full px-4 py-1.5 text-xs font-black transition cursor-pointer ${sortBy === 'latest'
-                ? 'bg-foreground text-background'
-                : 'border border-border text-muted-foreground hover:border-accent hover:text-accent bg-card'
-                }`}
-            >
-              {getLocalized(language, { gu: 'તાજા', hi: 'ताजा', en: 'Latest' })}
-            </button>
-            <button
-              onClick={() => setSortBy('popular')}
-              className={`rounded-full px-4 py-1.5 text-xs font-black transition cursor-pointer ${sortBy === 'popular'
-                ? 'bg-foreground text-background'
-                : 'border border-border text-muted-foreground hover:border-accent hover:text-accent bg-card'
-                }`}
-            >
-              {getLocalized(language, { gu: 'લોકપ્રિય', hi: 'लोकप्रिय', en: 'Popular' })}
-            </button>
-          </div>
         </div>
 
-        {/* ── FILTER TABS ────────────────────────────────────────── */}
+        {/* ── FILTER TABS (3 Options: Badhu, Taja Samachar, Video) ────── */}
         <div className="flex gap-2 flex-wrap mb-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`rounded-full px-4 py-1.5 text-xs font-black transition cursor-pointer ${activeTab === tab.id
-                ? 'bg-accent text-white font-black'
-                : 'border border-border bg-card text-foreground hover:border-accent hover:text-accent font-semibold'
+              className={`rounded-full px-5 py-2 text-xs sm:text-sm font-black transition cursor-pointer ${activeTab === tab.id
+                  ? 'bg-accent text-white font-black shadow-sm'
+                  : 'border border-border bg-card text-foreground hover:border-accent hover:text-accent font-semibold'
                 }`}
             >
               {getLocalized(language, { en: tab.en, gu: tab.gu, hi: tab.hi })}
@@ -382,7 +350,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
             </div>
           </div>
 
-          {/* ── RIGHT: Most Read & Trending Tags ─────────────────── */}
+          {/* RIGHT COLUMN: Most Read */}
           <div className="hidden lg:block">
             <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-border">
               <span className="w-2 h-2 bg-accent rotate-45 shrink-0 inline-block" />
@@ -393,12 +361,14 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
             <div className="flex flex-col divide-y divide-border">
               {mostReadToDisplay.map((art: any, i: number) => (
                 <Link key={art.id} href={`/news/${art.slug}`} className="group flex items-start gap-3 py-3 first:pt-1.5 last:pb-1.5">
-                  <span className="text-[28px] font-extrabold leading-none select-none w-8 shrink-0 text-center"
+                  <span
+                    className="text-[28px] font-extrabold leading-none select-none w-8 shrink-0 text-center"
                     style={{
                       fontVariantNumeric: 'tabular-nums',
                       color: 'transparent',
-                      WebkitTextStroke: '1.5px var(--ink-3)'
-                    }}>
+                      WebkitTextStroke: '1.5px var(--ink-3)',
+                    }}
+                  >
                     {language === 'gu' ? toGu(i + 1) : i + 1}
                   </span>
                   <p className="text-[13px] md:text-[13.5px] font-bold leading-snug text-foreground/90 group-hover:text-accent transition-colors line-clamp-3">
@@ -407,31 +377,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                 </Link>
               ))}
             </div>
-
-            {/* Trending Tags */}
-            {/* <div className="mt-6">
-              <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-border">
-                <span className="w-2 h-2 bg-accent rotate-45 shrink-0 inline-block" />
-                <span className="text-sm font-black text-foreground">
-                  {getLocalized(language, { en: 'Trending Topics', gu: 'ટ્રેન્ડિંગ વિષયો', hi: 'ट्रेंडिंग विषय' })}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {tagsToDisplay.map((tag) => (
-                  <Link
-                    key={tag}
-                    href={`/search?q=${encodeURIComponent(tag)}`}
-                    className="rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:border-accent hover:text-accent hover:bg-muted transition"
-                  >
-                    #{tag}
-                  </Link>
-                ))}
-              </div>
-            </div> */}
           </div>
         </div>
 
-        {/* ── POPULAR ARTICLES GRID ─────────────────────────────── */}
+        {/* POPULAR ARTICLES GRID */}
         <div className="mt-10">
           <div className="flex items-center gap-2.5 mb-5 pb-3 border-b border-border">
             <span className="w-2 h-2 bg-accent rotate-45 shrink-0 inline-block" />
@@ -458,7 +407,9 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
             </div>
           )}
         </div>
-      </div>
+      </>
+        )}
     </div>
+    </div >
   );
 }
