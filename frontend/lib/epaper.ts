@@ -110,11 +110,12 @@ export async function createEPaperEdition(data: Partial<EPaperEdition>): Promise
     if (json?.data?.edition) {
       return { edition: json.data.edition };
     }
-    if (json?.error) {
-      return { error: json.error };
+    if (json?.error || json?.message) {
+      return { error: json.error || json.message };
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to create epaper edition via API', err);
+    return { error: err?.message || 'Server error creating epaper edition' };
   }
   return null;
 }

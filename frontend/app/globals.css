@@ -2603,6 +2603,29 @@ html[lang="gu"] .leading-tight {
 }
 
 /* ── Premium PDF Download Card ─────────────────────────────────────── */
+div[class*="border-red-200"]:has(.gp-pdf-card),
+div[class*="from-red-50"]:has(.gp-pdf-card),
+div[class*="border-red-200"]:has(.gp-pdf-card-v2),
+div[class*="from-red-50"]:has(.gp-pdf-card-v2) {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.dark .gp-pdf-card-v2 {
+  background: #18181b !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+.dark .gp-pdf-card-v2 .gp-pdf-v2-title {
+  color: #f8fafc !important;
+}
+.dark .gp-pdf-card-v2 .gp-pdf-v2-sub {
+  color: #94a3b8 !important;
+}
+
 .gp-pdf-card {
   display: flex;
   align-items: center;

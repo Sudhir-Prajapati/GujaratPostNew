@@ -491,16 +491,18 @@ interface ExtraDescriptionSlot {
     if (youtubeUrl && youtubeUrl.trim()) {
       const embed = getYouTubeEmbedUrl(youtubeUrl);
       if (embed) {
-        parts.push(`<div class="my-4 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-md"><iframe src="${embed}" class="h-full w-full" allowfullscreen frameborder="0"></iframe></div>`);
+        parts.push(`<div class="my-6 aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-md"><iframe src="${embed}" class="h-full w-full" allowfullscreen frameborder="0"></iframe></div>`);
       }
     }
 
     if (twitterUrl && twitterUrl.trim()) {
-      parts.push(`<div class="my-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-gradient-to-r from-zinc-50 via-white to-zinc-100/80 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans transition-all"><div class="flex items-center gap-3.5 min-w-0"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black text-white text-base font-black shadow-sm">𝕏</span><div class="min-w-0"><span class="block text-sm sm:text-base font-extrabold text-zinc-900 dark:text-white leading-tight truncate">View Post on X (Twitter)</span><span class="block text-xs text-zinc-500 dark:text-zinc-400 font-medium mt-0.5">Click to view official post</span></div></div><a href="${twitterUrl.trim()}" target="_blank" rel="noopener noreferrer" class="rounded-xl bg-black hover:bg-zinc-800 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-sm shrink-0 flex items-center justify-center gap-2 no-underline cursor-pointer" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">Open Tweet</span> <span style="color: #ffffff !important;">↗</span></a></div>`);
+      const guLabel = 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો';
+      const guBtn = 'ટ્વીટ જુઓ ↗';
+      parts.push(`<div class="gp-x-card"><div style="display:flex;align-items:center;gap:14px;min-width:0;position:relative;z-index:1"><span class="gp-x-icon">𝕏</span><div style="min-width:0"><span class="gp-x-title">View Official Post on X (Twitter)</span><span class="gp-x-sub">${guLabel}</span></div></div><a href="${twitterUrl.trim()}" target="_blank" rel="noopener noreferrer" class="gp-x-btn" style="position:relative;z-index:1"><span>${guBtn}</span></a></div>`);
     }
 
     if (pdfUrl && pdfUrl.trim()) {
-      parts.push(`<div class="my-6 rounded-2xl border border-red-200 dark:border-red-900/60 bg-gradient-to-r from-red-50 via-rose-50/40 to-red-50/80 dark:from-red-950/40 dark:via-red-950/20 dark:to-rose-950/30 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans transition-all"><div class="flex items-center gap-3.5 min-w-0"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white text-base shadow-sm">📄</span><div class="min-w-0"><span class="block text-sm sm:text-base font-extrabold text-red-950 dark:text-red-200 leading-tight truncate">Attached Official Document (PDF)</span><span class="block text-xs text-red-700/80 dark:text-red-300/80 font-medium mt-0.5">Verified Official Document</span></div></div><a href="${pdfUrl.trim()}" target="_blank" download class="rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-md shadow-red-600/25 shrink-0 flex items-center justify-center gap-2 no-underline cursor-pointer" style="color: #ffffff !important; text-decoration: none !important;"><span style="color: #ffffff !important;">Download PDF</span> <span style="color: #ffffff !important;">⬇</span></a></div>`);
+      parts.push(`<div class="gp-pdf-card"><div class="gp-pdf-inner"><div class="gp-pdf-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="gp-pdf-text"><span class="gp-pdf-title">Attached Official Document (PDF)</span><span class="gp-pdf-sub">Verified Official Document</span></div></div><a href="${pdfUrl.trim()}" target="_blank" rel="noopener noreferrer" download class="gp-pdf-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Download PDF</span></a></div>`);
     }
 
     return parts.join('\n\n');
@@ -587,9 +589,22 @@ interface ExtraDescriptionSlot {
     let qT = '';
     let qC = '';
     let d2Str = '';
+    let extractedYt = '';
+    let extractedTw = '';
+    let extractedPdfUrl = '';
     const extractedImgs: string[] = [];
 
-    if (!raw) return { hl, d1Str, qT, qC, d2Str, extractedImgs };
+    if (!raw) return { hl, d1Str, qT, qC, d2Str, extractedImgs, extractedYt, extractedTw, extractedPdfUrl };
+
+    // Extract embed URLs before parsing paragraphs
+    const ytMatch = raw.match(/iframe[^>]+src=["'](https?:\/\/[^"']*(?:youtube|youtu\.be)[^"']*)["']/i) || raw.match(/(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s"<]+)/i);
+    if (ytMatch && ytMatch[1]) extractedYt = ytMatch[1];
+
+    const twMatch = raw.match(/href=["'](https?:\/\/(?:twitter\.com|x\.com)\/[^"']+)["']/i);
+    if (twMatch && twMatch[1]) extractedTw = twMatch[1];
+
+    const pdfMatch = raw.match(/href=["']([^"']+\.pdf(?:\?[^"']*)?|\/uploads\/[^"']+\.pdf(?:\?[^"']*)?)["']/i) || raw.match(/href=["']([^"']+)["'][^>]*download/i);
+    if (pdfMatch && pdfMatch[1]) extractedPdfUrl = pdfMatch[1];
 
     const galleryMatches = [...raw.matchAll(/!\[Gallery Image \d+\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi)];
     for (const match of galleryMatches) {
@@ -643,10 +658,21 @@ interface ExtraDescriptionSlot {
         }
         pastQuote = true;
       } else if (!trimmed.startsWith('---') && !trimmed.startsWith('***')) {
-        if (!pastQuote) {
-          d1Paras.push(trimmed);
-        } else {
-          d2Paras.push(trimmed);
+        const isEmbedBlock =
+          trimmed.includes('<iframe') ||
+          trimmed.includes('gp-pdf-card') ||
+          trimmed.includes('gp-x-card') ||
+          trimmed.includes('Attached Official Document') ||
+          trimmed.includes('View Post on X') ||
+          trimmed.includes('youtube.com/embed') ||
+          trimmed.includes('Download PDF');
+
+        if (!isEmbedBlock) {
+          if (!pastQuote) {
+            d1Paras.push(trimmed);
+          } else {
+            d2Paras.push(trimmed);
+          }
         }
       }
     }
@@ -657,7 +683,7 @@ interface ExtraDescriptionSlot {
       d1Str = raw.trim();
     }
 
-    return { hl, d1Str, qT, qC, extractedDescs: d2Paras, extractedImgs };
+    return { hl, d1Str, qT, qC, extractedDescs: d2Paras, extractedImgs, extractedYt, extractedTw, extractedPdfUrl };
   };
 
   // Load article values if in edit mode
@@ -783,9 +809,9 @@ interface ExtraDescriptionSlot {
         } else {
           setImageMode('upload');
         }
-        setYoutubeUrl(art.youtubeUrl || art.youtube || '');
-        setTwitterUrl(art.twitterUrl || art.twitter || '');
-        setPdfUrl(art.pdfUrl || art.pdf || '');
+        setYoutubeUrl(art.youtubeUrl || art.youtube || parsedEn.extractedYt || parsedGu.extractedYt || parsedHi.extractedYt || '');
+        setTwitterUrl(art.twitterUrl || art.twitter || parsedEn.extractedTw || parsedGu.extractedTw || parsedHi.extractedTw || '');
+        setPdfUrl(art.pdfUrl || art.pdf || parsedEn.extractedPdfUrl || parsedGu.extractedPdfUrl || parsedHi.extractedPdfUrl || '');
         setCategoryId(art.categoryId || art.category?.id || '');
         setLocation(art.location || '');
         setAuthorId(art.authorId || art.author?.id || '');
@@ -2377,17 +2403,19 @@ interface ExtraDescriptionSlot {
 
               {/* PDF Document Attachment Preview */}
               {pdfUrl && pdfUrl.trim() && (
-                <div className="my-4 rounded-2xl border border-red-200 dark:border-red-900/60 bg-gradient-to-r from-red-50 via-rose-50/40 to-red-50/80 dark:from-red-950/40 dark:via-red-950/20 dark:to-rose-950/30 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-sans">
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-600 text-white text-base shadow-sm">📄</span>
-                    <div className="min-w-0">
-                      <span className="block text-sm sm:text-base font-extrabold text-red-950 dark:text-red-200 leading-tight truncate">Attached Official Document (PDF)</span>
-                      <span className="block text-xs text-red-700/80 dark:text-red-300/80 font-medium mt-0.5">Verified Official Document</span>
+                <div className="gp-pdf-card my-4">
+                  <div className="gp-pdf-inner">
+                    <div className="gp-pdf-icon-wrap">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
+                    </div>
+                    <div className="gp-pdf-text">
+                      <span className="gp-pdf-title">Attached Official Document (PDF)</span>
+                      <span className="gp-pdf-sub">Verified Official Document</span>
                     </div>
                   </div>
-                  <a href={pdfUrl} target="_blank" download className="rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold px-5 py-2.5 text-xs transition-all shadow-md shadow-red-600/25 shrink-0 flex items-center justify-center gap-2 cursor-pointer" style={{ color: '#ffffff' }}>
+                  <a href={pdfUrl} target="_blank" rel="noopener noreferrer" download className="gp-pdf-btn">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                     <span>Download PDF</span>
-                    <span>⬇</span>
                   </a>
                 </div>
               )}

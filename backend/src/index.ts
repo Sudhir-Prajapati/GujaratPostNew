@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { connectRedis, redisClient } from './config/redis.js';
 import { prisma } from './config/prisma.js';
 import masterRouter from './routes/index.js';
@@ -42,14 +43,71 @@ const express_static = express.static(path.join(process.cwd(), 'uploads'), {
     }
     if (filePath.endsWith('.pdf')) {
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
     }
   },
 });
 
-app.use('/uploads', (req, res, next) => {
+const pdfCloudinaryCache = new Map<string, string>();
+
+app.use('/uploads', async (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
+  if (req.path.toLowerCase().endsWith('.pdf')) {
+    const filename = path.basename(req.path);
+    try {
+      if (pdfCloudinaryCache.has(filename)) {
+        return res.redirect(302, pdfCloudinaryCache.get(filename)!);
+      }
+
+      // Query database for Cloudinary CDN URL matching this PDF filename
+      const posts: any[] = (await prisma.$queryRawUnsafe(
+        `SELECT content, contentGu, contentHi FROM posts WHERE content LIKE ? OR contentGu LIKE ? OR contentHi LIKE ? LIMIT 5`,
+        `%${filename.slice(0, 20)}%`, `%${filename.slice(0, 20)}%`, `%${filename.slice(0, 20)}%`
+      ).catch(() => [])) as any[];
+
+      for (const p of posts) {
+        const text = `${p.content || ''} ${p.contentGu || ''} ${p.contentHi || ''}`;
+        const matches = text.match(/https:\/\/res\.cloudinary\.com\/[^\s"'<>]+\.pdf/gi);
+        if (matches && matches.length > 0) {
+          const matchedCdnUrl = matches.find((m) => m.toLowerCase().includes(filename.slice(0, 15).toLowerCase())) || matches[0];
+          pdfCloudinaryCache.set(filename, matchedCdnUrl);
+          return res.redirect(302, matchedCdnUrl);
+        }
+      }
+
+      // Fallback: If local file still exists, upload it now to Cloudinary
+      const localFilePath = path.join(process.cwd(), 'uploads', req.path);
+      if (fs.existsSync(localFilePath)) {
+        const { v2: cloudinary } = await import('cloudinary');
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dvcffkyjz',
+          api_key: process.env.CLOUDINARY_API_KEY || '495845865934762',
+          api_secret: process.env.CLOUDINARY_API_SECRET || 'ea99jiIs2CS9jRYnPpTmF9PjNIM',
+        });
+
+        console.log(`☁️ Auto-migrating local PDF to Cloudinary CDN: ${req.path}`);
+        const result = await cloudinary.uploader.upload(localFilePath, {
+          folder: 'gujarat-post',
+          resource_type: 'raw',
+          use_filename: true,
+          unique_filename: true,
+        });
+
+        let cdnUrl = result.secure_url || result.url;
+        if (cdnUrl.includes('res.cloudinary.com')) {
+          cdnUrl = cdnUrl.replace('/image/upload/', '/raw/upload/').replace('/fl_attachment/', '/');
+        }
+
+        pdfCloudinaryCache.set(filename, cdnUrl);
+        return res.redirect(302, cdnUrl);
+      }
+    } catch (err) {
+      console.warn('⚠️ Cloudinary auto-migration notice:', err);
+    }
+  }
+
   next();
 }, express_static);
 
@@ -137,3 +195,4 @@ const gracefulShutdown = async (signal: string) => {
 
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+// Server reloaded at 2026-08-13T12:58:35Z

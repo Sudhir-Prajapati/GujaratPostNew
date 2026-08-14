@@ -117,20 +117,38 @@ const handleUpload = (req: any, res: any) => {
     const totalPages = isPdf && filePath ? getPdfPageCount(filePath) : undefined;
 
     try {
-      // Determine resource_type for Cloudinary ('image', 'video', or 'auto')
+      // Determine resource_type for Cloudinary ('image', 'video', or 'raw')
       let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
-      if (uploadedFile.mimetype?.startsWith('image/')) resourceType = 'image';
+      if (isPdf) resourceType = 'raw';
+      else if (uploadedFile.mimetype?.startsWith('image/')) resourceType = 'image';
       else if (uploadedFile.mimetype?.startsWith('video/')) resourceType = 'video';
-      else if (isPdf) resourceType = 'auto';
 
       console.log(`📤 Uploading to Cloudinary [${uploadedFile.originalname}] resourceType=${resourceType}...`);
 
-      const result = await cloudinary.uploader.upload(filePath, {
-        folder: 'gujarat-post',
-        resource_type: resourceType,
-      });
+      let result: any;
+      try {
+        result = await cloudinary.uploader.upload(filePath, {
+          folder: 'gujarat-post',
+          resource_type: resourceType,
+          use_filename: true,
+          unique_filename: true,
+        });
+      } catch (uploadErr) {
+        if (isPdf) {
+          console.warn('⚠️ Cloudinary raw upload retry for PDF:', uploadErr);
+          result = await cloudinary.uploader.upload(filePath, {
+            folder: 'gujarat-post',
+            resource_type: 'raw',
+          });
+        } else {
+          throw uploadErr;
+        }
+      }
 
-      const fileUrl = result.secure_url || result.url;
+      let fileUrl = result.secure_url || result.url;
+      if (isPdf && fileUrl.includes('res.cloudinary.com')) {
+        fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/').replace('/fl_attachment/', '/');
+      }
       console.log(`✅ Cloudinary Upload Success: ${fileUrl}`);
 
       // Clean up temporary local file if uploaded to Cloudinary
@@ -174,5 +192,73 @@ const handleUpload = (req: any, res: any) => {
 router.post('/', handleUpload);
 router.post('/image', handleUpload);
 router.post('/video', handleUpload);
+
+router.get('/download-pdf', async (req: any, res: any) => {
+  try {
+    const rawUrl = req.query.url as string;
+    if (!rawUrl || !rawUrl.trim()) {
+      return res.status(400).json({ error: 'URL parameter required' });
+    }
+
+    // Clean duplicate fl_attachment
+    let cleanUrl = rawUrl.trim().replace(/\/fl_attachment\/+/g, '/');
+
+    // If local upload file
+    if (cleanUrl.startsWith('/uploads/')) {
+      const localPath = path.join(process.cwd(), cleanUrl);
+      if (fs.existsSync(localPath)) {
+        return res.download(localPath, path.basename(localPath));
+      }
+    }
+
+    // If HTTP / HTTPS URL
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      let fetchUrl = cleanUrl;
+      if (fetchUrl.includes('res.cloudinary.com') && fetchUrl.includes('/upload/') && !fetchUrl.includes('/fl_attachment/')) {
+        fetchUrl = fetchUrl.replace('/upload/', '/upload/fl_attachment/');
+      }
+
+      try {
+        const response = await fetch(fetchUrl);
+        if (response.ok) {
+          const arrayBuf = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+          let filename = path.basename(cleanUrl.split('?')[0]) || 'Official_Document.pdf';
+          if (!filename.toLowerCase().endsWith('.pdf')) filename += '.pdf';
+
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return res.send(buffer);
+        }
+      } catch (e) {
+        console.warn('Fetch error in proxy, trying raw URL:', e);
+      }
+
+      // Try raw Cloudinary URL fallback
+      let rawCloudUrl = cleanUrl.replace('/image/upload/', '/raw/upload/');
+      try {
+        const rawRes = await fetch(rawCloudUrl);
+        if (rawRes.ok) {
+          const arrayBuf = await rawRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuf);
+          let filename = path.basename(cleanUrl.split('?')[0]) || 'Official_Document.pdf';
+          if (!filename.toLowerCase().endsWith('.pdf')) filename += '.pdf';
+
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+          return res.send(buffer);
+        }
+      } catch (e) {}
+
+      // Final fallback: Redirect to clean URL with fl_attachment
+      return res.redirect(fetchUrl);
+    }
+
+    return res.status(404).json({ error: 'File not found' });
+  } catch (err: any) {
+    console.error('PDF proxy download error:', err);
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
 
 export default router;
