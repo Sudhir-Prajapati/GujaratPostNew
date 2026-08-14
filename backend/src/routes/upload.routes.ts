@@ -148,6 +148,8 @@ const handleUpload = (req: any, res: any) => {
       let fileUrl = result.secure_url || result.url;
       if (isPdf && fileUrl.includes('res.cloudinary.com')) {
         fileUrl = fileUrl.replace('/image/upload/', '/raw/upload/').replace('/fl_attachment/', '/');
+      } else if (!isPdf && fileUrl.includes('res.cloudinary.com')) {
+        fileUrl = fileUrl.replace('/raw/upload/', '/image/upload/');
       }
       console.log(`✅ Cloudinary Upload Success: ${fileUrl}`);
 

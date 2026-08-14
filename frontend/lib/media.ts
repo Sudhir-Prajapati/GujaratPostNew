@@ -36,3 +36,17 @@ export function getVideoPosterUrl(url?: string | null): string {
 
   return clean;
 }
+
+export function sanitizeImageUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  if (
+    clean.includes('res.cloudinary.com') &&
+    clean.includes('/raw/upload/') &&
+    !clean.toLowerCase().endsWith('.pdf') &&
+    !clean.toLowerCase().includes('.pdf?')
+  ) {
+    clean = clean.replace('/raw/upload/', '/image/upload/');
+  }
+  return clean;
+}

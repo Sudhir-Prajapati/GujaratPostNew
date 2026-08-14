@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, UploadCloud, Link as LinkIcon, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
+import { sanitizeImageUrl } from '@/lib/media';
 import CustomSelect from '@/components/ui/CustomSelect';
 import RichTextArea from '@/components/ui/RichTextArea';
 
@@ -253,6 +254,9 @@ interface ExtraImageSlot {
   };
 
   const updateExtraImage = (index: number, updates: Partial<ExtraImageSlot>) => {
+    if (updates.url) {
+      updates.url = sanitizeImageUrl(updates.url);
+    }
     setExtraImages((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], ...updates };
@@ -788,7 +792,7 @@ interface ExtraDescriptionSlot {
 
         const loadedExtra: ExtraImageSlot[] = uniqueExtraUrls.slice(0, 9).map((url, idx) => ({
           id: `loaded-${idx}`,
-          url,
+          url: sanitizeImageUrl(url),
           mode: url.startsWith('http://') || url.startsWith('https://') ? 'url' : 'upload',
           uploading: false,
         }));
@@ -803,7 +807,7 @@ interface ExtraDescriptionSlot {
         }
         setExtraImages(loadedExtra);
 
-        setFeaturedImage(art.featuredImage || '');
+        setFeaturedImage(sanitizeImageUrl(art.featuredImage || ''));
         if (art.featuredImage && (art.featuredImage.startsWith('http://') || art.featuredImage.startsWith('https://'))) {
           setImageMode('url');
         } else {
@@ -1682,7 +1686,7 @@ interface ExtraDescriptionSlot {
                 {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || featuredImage.includes('/video/upload/') ? (
                   <video src={featuredImage} controls autoPlay muted loop className="h-full w-full object-contain" />
                 ) : (
-                  <img src={featuredImage} alt="Featured preview" className="h-full w-full object-cover" />
+                  <img src={sanitizeImageUrl(featuredImage)} alt="Featured preview" className="h-full w-full object-cover" />
                 )}
               </div>
               <p className="text-[11px] font-mono text-zinc-400 truncate max-w-lg">
@@ -1857,7 +1861,7 @@ interface ExtraDescriptionSlot {
                           {slot.url.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) || slot.url.includes('/video/upload/') ? (
                             <video src={slot.url} controls className="h-full w-full object-cover" />
                           ) : (
-                            <img src={slot.url} alt={`Media ${photoNum} preview`} className="h-full w-full object-cover" />
+                            <img src={sanitizeImageUrl(slot.url)} alt={`Media ${photoNum} preview`} className="h-full w-full object-cover" />
                           )}
                         </div>
                         <span className="text-[11px] font-mono text-zinc-400 truncate max-w-xs">{slot.url}</span>
@@ -2303,7 +2307,7 @@ interface ExtraDescriptionSlot {
                   {featuredImage.match(/\.(mp4|webm|mov|m4v|avi)(\?.*)?$/i) ? (
                     <video src={featuredImage} controls className="h-full w-full object-cover" />
                   ) : (
-                    <img src={featuredImage} alt="Featured Media" className="h-full w-full object-cover" />
+                    <img src={sanitizeImageUrl(featuredImage)} alt="Featured Media" className="h-full w-full object-cover" />
                   )}
                 </div>
               )}
@@ -2349,7 +2353,7 @@ interface ExtraDescriptionSlot {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {extraImages.filter((s) => s.url.trim()).map((slot, idx) => (
                       <div key={idx} className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-200 bg-black dark:border-zinc-800 shadow-xs">
-                        <img src={slot.url} alt={`Gallery photo ${idx + 2}`} className="h-full w-full object-cover" />
+                        <img src={sanitizeImageUrl(slot.url)} alt={`Gallery photo ${idx + 2}`} className="h-full w-full object-cover" />
                       </div>
                     ))}
                   </div>
