@@ -29,6 +29,7 @@ import {
   getDateOffsetStr,
   clearLegacyLocalStorage,
 } from '@/lib/epaper';
+import { formatEpaperPdfUrl, formatEpaperDownloadUrl } from '@/lib/media';
 
 function isPdfUrl(url?: string): boolean {
   if (!url || url.startsWith('blob:')) return false;
@@ -506,7 +507,7 @@ export default function EpaperPageClient() {
                                 <img src={edition.fileUrl.replace(/\.pdf$/i, '.jpg')} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
                               ) : edition.fileUrl && (isPdfUrl(edition.fileUrl) || edition.fileUrl.includes('/uploads/')) ? (
                                 <div className="h-full w-full overflow-hidden pointer-events-none">
-                                  <iframe src={`${edition.fileUrl}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`} className="w-full h-full border-0 pointer-events-none" title={displayTitle} />
+                                  <iframe src={formatEpaperPdfUrl(edition.fileUrl, 1)} className="w-full h-full border-0 pointer-events-none" title={displayTitle} />
                                 </div>
                               ) : (
                                 <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-50 to-slate-200 dark:from-zinc-900 dark:to-zinc-950 p-4">
@@ -588,7 +589,7 @@ export default function EpaperPageClient() {
             <div className="flex items-center gap-2 shrink-0">
               {activeReaderEdition.fileUrl && (
                 <a
-                  href={activeReaderEdition.fileUrl}
+                  href={formatEpaperDownloadUrl(activeReaderEdition.fileUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-black text-white hover:bg-red-700 transition"
@@ -628,14 +629,10 @@ export default function EpaperPageClient() {
               className="min-h-full flex items-start justify-center py-4"
               style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
             >
-              {isPdfUrl(activeReaderEdition.fileUrl) ? (
+              {isPdfUrl(activeReaderEdition.fileUrl) || activeReaderEdition.fileUrl?.includes('/uploads/') ? (
                 <iframe
                   key={`${activeReaderEdition.id}-p${currentPage}`}
-                  src={
-                    activeReaderEdition.fileUrl?.includes('res.cloudinary.com')
-                      ? `https://docs.google.com/viewer?url=${encodeURIComponent(activeReaderEdition.fileUrl)}&embedded=true`
-                      : `${activeReaderEdition.fileUrl}#page=${currentPage}&view=Fit&toolbar=0&navpanes=0&scrollbar=0`
-                  }
+                  src={formatEpaperPdfUrl(activeReaderEdition.fileUrl, currentPage)}
                   className="w-[calc(100vw-2rem)] max-w-[900px] bg-white border-0 shadow-2xl"
                   style={{ height: 'calc((100vw - 2rem) * 1.414)', maxHeight: '90vh' }}
                   title={`Gujarat Post E-Paper Page ${currentPage}`}
