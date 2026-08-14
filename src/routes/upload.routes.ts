@@ -145,13 +145,16 @@ const handleUpload = (req: any, res: any) => {
         }
       }
 
-      let fileUrl = result.secure_url || result.url;
-      if (!isPdf && fileUrl.includes('res.cloudinary.com')) {
+      let fileUrl = result?.secure_url || result?.url;
+      if (isPdf) {
+        const localFilename = path.basename(filePath);
+        fileUrl = `/uploads/${localFilename}`;
+      } else if (fileUrl && fileUrl.includes('res.cloudinary.com')) {
         fileUrl = fileUrl.replace('/raw/upload/', '/image/upload/');
       }
-      console.log(`✅ Cloudinary Upload Success: ${fileUrl}`);
+      console.log(`✅ Upload Success: ${fileUrl}`);
 
-      // Clean up temporary local file for non-PDFs (preserve local PDF file for 100% reliable fallback)
+      // Clean up temporary local file for non-PDFs (preserve local PDF file for native 100% reliable PDF download)
       if (!isPdf && fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
