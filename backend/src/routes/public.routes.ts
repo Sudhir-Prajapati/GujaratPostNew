@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
+import zlib from 'zlib';
+import { v2 as cloudinary } from 'cloudinary';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
 import { withDbRetry } from '../utils/db.js';
@@ -12,6 +14,12 @@ import { EPaperController } from '../controllers/epaper.controller.js';
 import { GalleryController } from '../controllers/gallery.controller.js';
 import { autoPublishDueArticles } from '../controllers/article.controller.js';
 import { getDailyAstrologySigns, fetchLiveDailyAstrologySigns } from '../services/astrology.service.js';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dvcffkyjz',
+  api_key: process.env.CLOUDINARY_API_KEY || '495845865934762',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'ea99jiIs2CS9jRYnPpTmF9PjNIM',
+});
 
 const router = Router();
 
@@ -808,6 +816,65 @@ router.get('/web-stories', WebStoryController.getAll);
  * GET /api/public/download-pdf
  * 100% Reliable public PDF attachment download proxy
  */
+async function extractCloudinaryPdfBuffer(cloudinaryUrl: string): Promise<Buffer | null> {
+  try {
+    let resourceType: 'image' | 'raw' = 'raw';
+    if (cloudinaryUrl.includes('/image/upload/')) resourceType = 'image';
+    if (cloudinaryUrl.includes('/raw/upload/')) resourceType = 'raw';
+
+    const uploadIdx = cloudinaryUrl.indexOf('/upload/');
+    if (uploadIdx === -1) return null;
+    let pathAfterUpload = cloudinaryUrl.substring(uploadIdx + 8);
+    pathAfterUpload = pathAfterUpload.replace(/^fl_attachment\//, '').replace(/^v\d+\//, '');
+    let publicId = pathAfterUpload.split('?')[0];
+
+    if (resourceType === 'image' && publicId.toLowerCase().endsWith('.pdf')) {
+      publicId = publicId.substring(0, publicId.length - 4);
+    }
+
+    const archiveUrl = cloudinary.utils.download_archive_url({
+      public_ids: [publicId],
+      resource_type: resourceType,
+      mode: 'download'
+    });
+
+    const res = await fetch(archiveUrl);
+    if (!res.ok) return null;
+
+    const arrayBuf = await res.arrayBuffer();
+    const zipBuf = Buffer.from(arrayBuf);
+
+    const eocdSig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+    const eocdIdx = zipBuf.lastIndexOf(eocdSig);
+    if (eocdIdx === -1) return null;
+
+    const cdOffset = zipBuf.readUInt32LE(eocdIdx + 16);
+    const compMethod = zipBuf.readUInt16LE(cdOffset + 10);
+    const compSize = zipBuf.readUInt32LE(cdOffset + 20);
+    const localHeaderOffset = zipBuf.readUInt32LE(cdOffset + 42);
+
+    const localFnLen = zipBuf.readUInt16LE(localHeaderOffset + 26);
+    const localExtraLen = zipBuf.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + localFnLen + localExtraLen;
+
+    const compressedData = zipBuf.subarray(dataStart, dataStart + compSize);
+
+    let pdfBuf: Buffer;
+    if (compMethod === 0) pdfBuf = compressedData;
+    else if (compMethod === 8) pdfBuf = zlib.inflateRawSync(compressedData);
+    else return null;
+
+    return pdfBuf;
+  } catch (err) {
+    console.warn('extractCloudinaryPdfBuffer warning:', err);
+    return null;
+  }
+}
+
+/**
+ * GET /api/public/download-pdf
+ * 100% Reliable public PDF attachment download proxy
+ */
 router.get('/download-pdf', async (req: any, res: any) => {
   try {
     const rawUrl = (req.query.url as string) || '';
@@ -843,12 +910,25 @@ router.get('/download-pdf', async (req: any, res: any) => {
             const arrayBuf = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuf);
 
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
-            return res.send(buffer);
+            if (buffer.length > 100) {
+              res.setHeader('Content-Type', 'application/pdf');
+              res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+              return res.send(buffer);
+            }
           }
         } catch (fetchErr) {
           console.warn(`Proxy fetch attempt failed for ${targetUrl}:`, fetchErr);
+        }
+      }
+
+      // 3. Fallback: Authenticated extraction of native PDF binary buffer directly via Cloudinary API
+      if (cleanUrl.includes('res.cloudinary.com')) {
+        const extractedPdfBuf = await extractCloudinaryPdfBuffer(cleanUrl);
+        if (extractedPdfBuf && extractedPdfBuf.length > 0) {
+          console.log(`✅ Successfully extracted native Cloudinary PDF buffer: ${extractedPdfBuf.length} bytes`);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+          return res.send(extractedPdfBuf);
         }
       }
 
