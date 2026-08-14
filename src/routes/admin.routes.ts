@@ -166,30 +166,13 @@ router.post('/epaper/cities', requireAuth, EPaperController.createCity);
 router.delete('/epaper/cities/:id', requireAuth, EPaperController.deleteCity);
 
 // ==========================================
-// 12. Section Advertisements
+// 14. Section Advertisements
 // ==========================================
 router.get('/ads', requireAuth, AdController.getAllAds);
 router.post('/ads', requireAuth, AdController.createOrUpdateAd);
+router.put('/ads/:id', requireAuth, AdController.createOrUpdateAd);
 router.put('/ads/:id/toggle', requireAuth, AdController.toggleActive);
 router.put('/ads/:id/toggle-random', requireAuth, AdController.toggleIncludeInRandom);
 router.delete('/ads/:id', requireAuth, AdController.deleteAd);
-
-// ==========================================
-// 12. Advertisements (SUPER_ADMIN, ADVERTISEMENT)
-// ==========================================
-const adRoles = [Role.SUPER_ADMIN, Role.ADVERTISEMENT];
-router.get('/ads', requireAuth, requireRole(adRoles), AdController.getAllAds);
-router.post('/ads', requireAuth, requireRole(adRoles), AdController.createOrUpdateAd);
-router.put('/ads/:id', requireAuth, requireRole(adRoles), AdController.createOrUpdateAd);
-router.delete('/ads/:id', requireAuth, requireRole(adRoles), AdController.deleteAd);
-
-// ==========================================
-// 13. E-Paper Editions (SUPER_ADMIN, EDITOR)
-// ==========================================
-const epaperRoles = [Role.SUPER_ADMIN, Role.EDITOR];
-router.get('/epaper', requireAuth, requireRole(epaperRoles), EPaperController.getAdminEditions);
-router.post('/epaper', requireAuth, requireRole(epaperRoles), EPaperController.createEdition);
-router.put('/epaper/:id', requireAuth, requireRole(epaperRoles), EPaperController.updateEdition);
-router.delete('/epaper/:id', requireAuth, requireRole(epaperRoles), EPaperController.deleteEdition);
 
 export default router;

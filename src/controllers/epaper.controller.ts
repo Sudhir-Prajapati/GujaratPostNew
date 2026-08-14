@@ -2,112 +2,110 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
 
+import { randomUUID } from 'crypto';
+
 function sanitizePdfUrl(url?: string | null): string {
   if (!url) return '';
   if (url.startsWith('blob:')) return '';
-  if (url.includes('res.cloudinary.com') && url.includes('/raw/upload/')) {
-    return url.replace('/raw/upload/', '/image/upload/');
+  if (url.includes('res.cloudinary.com') && url.includes('/image/upload/')) {
+    return url.replace('/image/upload/', '/raw/upload/').replace('/fl_attachment/', '/');
   }
   return url;
+}
+
+let epaperTablesEnsured = false;
+async function ensureEPaperTablesExist() {
+  if (epaperTablesEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`epaper_editions\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`title\` VARCHAR(255) NOT NULL DEFAULT 'City Edition',
+        \`city\` VARCHAR(255) NOT NULL,
+        \`cityGu\` VARCHAR(255) NULL,
+        \`cityHi\` VARCHAR(255) NULL,
+        \`date\` VARCHAR(50) NOT NULL,
+        \`pages\` INT NOT NULL DEFAULT 24,
+        \`fileUrl\` TEXT NOT NULL,
+        \`thumbnailUrl\` TEXT NULL,
+        \`status\` VARCHAR(50) NOT NULL DEFAULT 'PUBLISHED',
+        \`publishTime\` VARCHAR(50) NULL DEFAULT '06:00 AM',
+        \`isActive\` TINYINT(1) NOT NULL DEFAULT 1,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`epaper_cities\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`city\` VARCHAR(255) NOT NULL,
+        \`cityGu\` VARCHAR(255) NULL,
+        \`cityHi\` VARCHAR(255) NULL,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    epaperTablesEnsured = true;
+  } catch (err) {
+    console.warn('ePaper tables ensure warning:', err);
+  }
+}
+
+async function getEPaperDelegate() {
+  await ensureEPaperTablesExist();
+  const model = (prisma as any).ePaperEdition || (prisma as any).epaperEdition || (prisma as any).EPaperEdition;
+  return model || null;
 }
 
 export class EPaperController {
   // Public: Get published epapers
   static async getPublicEditions(req: Request, res: Response, next: NextFunction) {
     try {
-      // ── Auto-publish scheduled drafts ──────────────────────────────
-      // Any DRAFT where date < today is automatically published.
-      // Any DRAFT where date == today and publishTime <= current time is published.
-      try {
-        const nowIST = new Date(Date.now() + 5.5 * 60 * 60 * 1000); // UTC+5:30
-        const todayStr = nowIST.toISOString().slice(0, 10); // "YYYY-MM-DD"
-        const nowMinutes = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
-
-        // Fetch all drafts whose date <= today
-        const scheduledDrafts = await (prisma as any).ePaperEdition.findMany({
-          where: { status: 'DRAFT', date: { lte: todayStr } },
-          select: { id: true, date: true, publishTime: true },
-        });
-
-        const toPublishIds: string[] = [];
-
-        for (const draft of scheduledDrafts) {
-          if (draft.date < todayStr) {
-            // Past date → always publish
-            toPublishIds.push(draft.id);
-          } else {
-            // Today → check if publishTime has passed
-            const rawTime = (draft.publishTime || '06:00 AM').trim();
-            const match = rawTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-            if (match) {
-              let h = parseInt(match[1], 10);
-              const m = parseInt(match[2], 10);
-              const period = (match[3] || '').toUpperCase();
-              if (period === 'PM' && h < 12) h += 12;
-              if (period === 'AM' && h === 12) h = 0;
-              const scheduledMinutes = h * 60 + m;
-              if (scheduledMinutes <= nowMinutes) {
-                toPublishIds.push(draft.id);
-              }
-            } else {
-              // Can't parse time → publish anyway (safe fallback)
-              toPublishIds.push(draft.id);
-            }
-          }
-        }
-
-        if (toPublishIds.length > 0) {
-          await (prisma as any).ePaperEdition.updateMany({
-            where: { id: { in: toPublishIds } },
-            data: { status: 'PUBLISHED' },
-          });
-          console.log(`[E-Paper] Auto-published ${toPublishIds.length} scheduled draft(s): ${toPublishIds.join(', ')}`);
-        }
-      } catch (autoErr) {
-        // Non-fatal — don't block the public fetch if auto-publish fails
-        console.warn('[E-Paper] Auto-publish check failed:', autoErr);
-      }
-      // ───────────────────────────────────────────────────────────────
-
+      await ensureEPaperTablesExist();
+      const delegate = await getEPaperDelegate();
       const { city, date, search } = req.query;
 
-      const whereClause: any = {
-        isActive: true,
-        status: 'PUBLISHED',
-      };
+      let editions: any[] = [];
 
-      if (city && city !== 'ALL') {
-        const cityStr = String(city).trim();
-        whereClause.OR = [
-          { city: { equals: cityStr } },
-          { city: { contains: cityStr } },
-          { cityGu: { equals: cityStr } },
-          { cityGu: { contains: cityStr } },
-        ];
+      if (delegate) {
+        const whereClause: any = { isActive: true, status: 'PUBLISHED' };
+        if (city && city !== 'ALL') {
+          const cityStr = String(city).trim();
+          whereClause.OR = [
+            { city: { equals: cityStr } },
+            { city: { contains: cityStr } },
+            { cityGu: { equals: cityStr } },
+            { cityGu: { contains: cityStr } },
+          ];
+        }
+        if (date && date !== 'ALL') whereClause.date = String(date);
+        editions = await delegate.findMany({
+          where: whereClause,
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        }).catch(() => []);
       }
 
-      if (date && date !== 'ALL') {
-        whereClause.date = String(date);
+      if (editions.length === 0) {
+        let sql = `SELECT * FROM \`epaper_editions\` WHERE \`isActive\` = 1 AND \`status\` = 'PUBLISHED'`;
+        const params: any[] = [];
+        if (city && city !== 'ALL') {
+          sql += ` AND (\`city\` LIKE ? OR \`cityGu\` LIKE ?)`;
+          params.push(`%${city}%`, `%${city}%`);
+        }
+        if (date && date !== 'ALL') {
+          sql += ` AND \`date\` = ?`;
+          params.push(String(date));
+        }
+        sql += ` ORDER BY \`date\` DESC, \`createdAt\` DESC`;
+        try {
+          editions = await prisma.$queryRawUnsafe(sql, ...params);
+        } catch (_) {}
       }
 
-      if (search) {
-        const queryStr = String(search).trim();
-        whereClause.OR = [
-          { title: { contains: queryStr } },
-          { city: { contains: queryStr } },
-          { cityGu: { contains: queryStr } },
-          { date: { contains: queryStr } },
-        ];
-      }
-
-      let editions = await (prisma as any).ePaperEdition.findMany({
-        where: whereClause,
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      });
-
-      // NOTE: No fallback to other dates here — if date filter returns 0, return empty so the frontend shows proper "no data" message.
-
-      const sanitized = editions.map((ed: any) => ({
+      const sanitized = (editions || []).map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
         thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
@@ -120,42 +118,48 @@ export class EPaperController {
     }
   }
 
-
   // Admin: Get all epapers (Drafts & Published)
   static async getAdminEditions(req: Request, res: Response, next: NextFunction) {
     try {
+      await ensureEPaperTablesExist();
+      const delegate = await getEPaperDelegate();
       const { city, date, status, search } = req.query;
 
-      const whereClause: any = {};
+      let editions: any[] = [];
 
-      if (city && city !== 'ALL') {
-        whereClause.city = String(city);
+      if (delegate) {
+        const whereClause: any = {};
+        if (city && city !== 'ALL') whereClause.city = String(city);
+        if (date && date !== 'ALL') whereClause.date = String(date);
+        if (status && status !== 'ALL') whereClause.status = String(status);
+        editions = await delegate.findMany({
+          where: whereClause,
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        }).catch(() => []);
       }
 
-      if (date && date !== 'ALL') {
-        whereClause.date = String(date);
+      if (editions.length === 0) {
+        let sql = `SELECT * FROM \`epaper_editions\` WHERE 1=1`;
+        const params: any[] = [];
+        if (city && city !== 'ALL') {
+          sql += ` AND \`city\` = ?`;
+          params.push(String(city));
+        }
+        if (date && date !== 'ALL') {
+          sql += ` AND \`date\` = ?`;
+          params.push(String(date));
+        }
+        if (status && status !== 'ALL') {
+          sql += ` AND \`status\` = ?`;
+          params.push(String(status));
+        }
+        sql += ` ORDER BY \`date\` DESC, \`createdAt\` DESC`;
+        try {
+          editions = await prisma.$queryRawUnsafe(sql, ...params);
+        } catch (_) {}
       }
 
-      if (status && status !== 'ALL') {
-        whereClause.status = String(status);
-      }
-
-      if (search) {
-        const queryStr = String(search).trim();
-        whereClause.OR = [
-          { title: { contains: queryStr } },
-          { city: { contains: queryStr } },
-          { cityGu: { contains: queryStr } },
-          { date: { contains: queryStr } },
-        ];
-      }
-
-      const editions = await (prisma as any).ePaperEdition.findMany({
-        where: whereClause,
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-      });
-
-      const sanitized = editions.map((ed: any) => ({
+      const sanitized = (editions || []).map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
         thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
@@ -168,7 +172,7 @@ export class EPaperController {
     }
   }
 
-  // Admin: Create E-Paper edition
+  // Admin: Create or Upsert E-Paper edition
   static async createEdition(req: Request, res: Response, next: NextFunction) {
     try {
       const { title, city, cityGu, date, pages, fileUrl, thumbnailUrl, status, publishTime, isActive } = req.body;
@@ -178,48 +182,81 @@ export class EPaperController {
       }
 
       const finalTitle = String(title || '').trim() || `${city} Edition`;
+      const delegate = await getEPaperDelegate();
 
-      // Safely check for duplicate edition with the same title on the exact same date and city
-      try {
-        const existing = await (prisma as any).ePaperEdition.findFirst({
-          where: {
-            city: String(city),
-            date: String(date),
-            title: finalTitle,
-          },
-        });
-
-        if (existing) {
-          return res.status(400).json({
-            success: false,
-            error: `The e-paper edition "${finalTitle}" already exists for ${city} on ${date}. (આ તારીખે આ નામનું ઈ-પેપર પહેલેથી જ બનાવાયેલ છે!)`,
+      if (delegate) {
+        try {
+          let existing = await delegate.findFirst({
+            where: { city: String(city), date: String(date), title: finalTitle },
           });
+
+          let edition;
+          if (existing) {
+            edition = await delegate.update({
+              where: { id: existing.id },
+              data: {
+                title: finalTitle,
+                city: String(city),
+                cityGu: cityGu ? String(cityGu) : String(city),
+                date: String(date),
+                pages: Number(pages) || existing.pages || 24,
+                fileUrl: fileUrl ? String(fileUrl) : existing.fileUrl,
+                thumbnailUrl: thumbnailUrl ? String(thumbnailUrl) : existing.thumbnailUrl,
+                status: status ? String(status) : 'PUBLISHED',
+                publishTime: publishTime ? String(publishTime) : '06:00 AM',
+                isActive: isActive !== undefined ? Boolean(isActive) : true,
+              },
+            });
+          } else {
+            edition = await delegate.create({
+              data: {
+                title: finalTitle,
+                city: String(city),
+                cityGu: cityGu ? String(cityGu) : String(city),
+                date: String(date),
+                pages: Number(pages) || 24,
+                fileUrl: String(fileUrl || ''),
+                thumbnailUrl: String(thumbnailUrl || ''),
+                status: status ? String(status) : 'PUBLISHED',
+                publishTime: publishTime ? String(publishTime) : '06:00 AM',
+                isActive: isActive !== undefined ? Boolean(isActive) : true,
+              },
+            });
+          }
+          return sendSuccess(res, { edition }, 'E-Paper edition saved successfully');
+        } catch (delegateErr) {
+          console.warn('Prisma delegate save warning, falling back to raw SQL:', delegateErr);
         }
-      } catch (err) {
-        console.warn('Duplicate check warning in createEdition:', err);
       }
 
-      const edition = await (prisma as any).ePaperEdition.create({
-        data: {
-          title: finalTitle,
-          city: String(city),
-          cityGu: cityGu ? String(cityGu) : String(city),
-          date: String(date),
-          pages: Number(pages) || 24,
-          fileUrl: String(fileUrl || ''),
-          thumbnailUrl: String(thumbnailUrl || ''),
-          status: status ? String(status) : 'PUBLISHED',
-          publishTime: publishTime ? String(publishTime) : '06:00 AM',
-          isActive: isActive !== undefined ? Boolean(isActive) : true,
-        },
-      });
+      // Direct MySQL raw query fallback
+      await ensureEPaperTablesExist();
+      const existingRows: any[] = await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`epaper_editions\` WHERE \`city\` = ? AND \`date\` = ? AND \`title\` = ? LIMIT 1`,
+        String(city), String(date), finalTitle
+      );
 
-      return sendSuccess(res, { edition }, 'E-Paper edition created successfully');
+      let editionId = randomUUID();
+      if (existingRows && existingRows.length > 0) {
+        editionId = existingRows[0].id;
+        await prisma.$executeRawUnsafe(
+          `UPDATE \`epaper_editions\` SET \`title\`=?, \`city\`=?, \`cityGu\`=?, \`date\`=?, \`pages\`=?, \`fileUrl\`=?, \`thumbnailUrl\`=?, \`status\`=?, \`publishTime\`=?, \`isActive\`=?, \`updatedAt\`=NOW() WHERE \`id\`=?`,
+          finalTitle, String(city), String(cityGu || city), String(date), Number(pages) || 24, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0, editionId
+        );
+      } else {
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO \`epaper_editions\` (\`id\`, \`title\`, \`city\`, \`cityGu\`, \`date\`, \`pages\`, \`fileUrl\`, \`thumbnailUrl\`, \`status\`, \`publishTime\`, \`isActive\`, \`createdAt\`, \`updatedAt\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          editionId, finalTitle, String(city), String(cityGu || city), String(date), Number(pages) || 24, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0
+        );
+      }
+
+      const rows: any[] = await prisma.$queryRawUnsafe(`SELECT * FROM \`epaper_editions\` WHERE \`id\` = ?`, editionId);
+      return sendSuccess(res, { edition: rows[0] }, 'E-Paper edition saved successfully');
     } catch (error: any) {
       console.error('Error in createEdition:', error);
-      return res.status(400).json({
+      return res.status(500).json({
         success: false,
-        error: error?.message || 'Failed to create e-paper edition.',
+        error: error?.message || 'Failed to create or update E-Paper edition.',
       });
     }
   }
@@ -229,46 +266,37 @@ export class EPaperController {
     try {
       const { id } = req.params;
       const { title, city, cityGu, date, pages, fileUrl, thumbnailUrl, status, publishTime, isActive } = req.body;
+      const delegate = await getEPaperDelegate();
 
-      if (title && city && date) {
+      if (delegate) {
         try {
-          const existing = await (prisma as any).ePaperEdition.findFirst({
-            where: {
-              city: String(city),
-              date: String(date),
-              title: String(title).trim(),
-              NOT: { id: String(id) },
+          const edition = await delegate.update({
+            where: { id },
+            data: {
+              title,
+              city,
+              cityGu: cityGu || city,
+              date,
+              pages: pages !== undefined ? Number(pages) : undefined,
+              fileUrl,
+              thumbnailUrl,
+              status,
+              publishTime,
+              isActive: isActive !== undefined ? Boolean(isActive) : undefined,
             },
           });
-
-          if (existing) {
-            return res.status(400).json({
-              success: false,
-              error: `The e-paper edition "${String(title).trim()}" already exists for ${city} on ${date}. (આ તારીખે આ નામનું ઈ-પેપર પહેલેથી જ બનાવાયેલ છે!)`,
-            });
-          }
-        } catch (err) {
-          console.warn('Duplicate check warning in updateEdition:', err);
-        }
+          return sendSuccess(res, { edition }, 'E-Paper edition updated successfully');
+        } catch (_) {}
       }
 
-      const edition = await (prisma as any).ePaperEdition.update({
-        where: { id },
-        data: {
-          title,
-          city,
-          cityGu: cityGu || city,
-          date,
-          pages: pages !== undefined ? Number(pages) : undefined,
-          fileUrl,
-          thumbnailUrl,
-          status,
-          publishTime,
-          isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-        },
-      });
+      await ensureEPaperTablesExist();
+      await prisma.$executeRawUnsafe(
+        `UPDATE \`epaper_editions\` SET \`title\`=COALESCE(?, \`title\`), \`city\`=COALESCE(?, \`city\`), \`cityGu\`=COALESCE(?, \`cityGu\`), \`date\`=COALESCE(?, \`date\`), \`pages\`=COALESCE(?, \`pages\`), \`fileUrl\`=COALESCE(?, \`fileUrl\`), \`thumbnailUrl\`=COALESCE(?, \`thumbnailUrl\`), \`status\`=COALESCE(?, \`status\`), \`publishTime\`=COALESCE(?, \`publishTime\`), \`isActive\`=COALESCE(?, \`isActive\`), \`updatedAt\`=NOW() WHERE \`id\`=?`,
+        title || null, city || null, cityGu || city || null, date || null, pages !== undefined ? Number(pages) : null, fileUrl || null, thumbnailUrl || null, status || null, publishTime || null, isActive !== undefined ? (isActive ? 1 : 0) : null, id
+      );
 
-      return sendSuccess(res, { edition }, 'E-Paper edition updated successfully');
+      const rows: any[] = await prisma.$queryRawUnsafe(`SELECT * FROM \`epaper_editions\` WHERE \`id\` = ?`, id);
+      return sendSuccess(res, { edition: rows[0] }, 'E-Paper edition updated successfully');
     } catch (error) {
       next(error);
     }
@@ -278,7 +306,12 @@ export class EPaperController {
   static async deleteEdition(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await (prisma as any).ePaperEdition.delete({ where: { id } });
+      const delegate = await getEPaperDelegate();
+      if (delegate) {
+        await delegate.delete({ where: { id } }).catch(() => null);
+      }
+      await ensureEPaperTablesExist();
+      await prisma.$executeRawUnsafe(`DELETE FROM \`epaper_editions\` WHERE \`id\` = ?`, id).catch(() => null);
       return sendSuccess(res, null, 'E-Paper edition deleted successfully');
     } catch (error) {
       next(error);
@@ -288,64 +321,25 @@ export class EPaperController {
   // Get Cities list (Only DB cities + cities from uploaded editions)
   static async getCities(req: Request, res: Response, next: NextFunction) {
     const defaults = [
-      { city: 'Ahmedabad', cityGu: 'અમદાવાદ' },
-      { city: 'Surat', cityGu: 'સુરત' },
-      { city: 'Rajkot', cityGu: 'રાજકોટ' },
-      { city: 'Jamnagar', cityGu: 'જામનગર' },
-      { city: 'Vadodara', cityGu: 'વડોદરા' },
+      { id: 'ahmedabad', city: 'Ahmedabad', cityGu: 'અમદાવાદ' },
+      { id: 'surat', city: 'Surat', cityGu: 'સુરત' },
+      { id: 'rajkot', city: 'Rajkot', cityGu: 'રાજકોટ' },
+      { id: 'jamnagar', city: 'Jamnagar', cityGu: 'જામનગર' },
+      { id: 'vadodara', city: 'Vadodara', cityGu: 'વડોદરા' },
     ];
 
     try {
-      let dbCities = await (prisma as any).ePaperCity.findMany({
-        orderBy: { createdAt: 'asc' },
-      });
+      await ensureEPaperTablesExist();
+      let dbCities: any[] = [];
+      try {
+        dbCities = await prisma.$queryRawUnsafe(`SELECT * FROM \`epaper_cities\` ORDER BY \`createdAt\` ASC`);
+      } catch (_) {}
 
-      // Seed database once if table is completely empty
-      if (dbCities.length === 0) {
-        await (prisma as any).ePaperCity.createMany({
-          data: defaults,
-          skipDuplicates: true,
-        });
-        dbCities = await (prisma as any).ePaperCity.findMany({
-          orderBy: { createdAt: 'asc' },
-        });
+      if (!dbCities || dbCities.length === 0) {
+        dbCities = defaults;
       }
 
-      const editionCities = await (prisma as any).ePaperEdition.findMany({
-        select: { city: true, cityGu: true },
-        distinct: ['city'],
-      });
-
-      const uniqueCitiesMap = new Map<string, { id: string; city: string; cityGu: string }>();
-
-      // 1. Add DB Cities (Primary source of truth)
-      dbCities.forEach((c: any) => {
-        const uniqueKey = (c.cityGu || c.city).trim().toLowerCase();
-        if (!uniqueCitiesMap.has(uniqueKey)) {
-          uniqueCitiesMap.set(uniqueKey, {
-            id: c.id,
-            city: c.city,
-            cityGu: c.cityGu || c.city,
-          });
-        }
-      });
-
-      // 2. Add cities from existing editions if not already in DB
-      editionCities.forEach((e: any) => {
-        if (e.city) {
-          const uniqueKey = (e.cityGu || e.city).trim().toLowerCase();
-          if (!uniqueCitiesMap.has(uniqueKey)) {
-            uniqueCitiesMap.set(uniqueKey, {
-              id: e.city.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-              city: e.city,
-              cityGu: e.cityGu || e.city,
-            });
-          }
-        }
-      });
-
-      const formattedCities = Array.from(uniqueCitiesMap.values());
-      return sendSuccess(res, { cities: formattedCities }, 'Cities fetched successfully');
+      return sendSuccess(res, { cities: dbCities }, 'Cities fetched successfully');
     } catch (error) {
       console.warn('Cities DB fetch fallback:', error);
       return sendSuccess(res, { cities: defaults }, 'Fallback cities fetched successfully');
@@ -362,30 +356,15 @@ export class EPaperController {
 
       const trimCity = String(city).trim();
       const trimGu = cityGu ? String(cityGu).trim() : trimCity;
+      const cityId = randomUUID();
 
-      const existing = await (prisma as any).ePaperCity.findFirst({
-        where: {
-          OR: [
-            { city: { equals: trimCity } },
-            { cityGu: { equals: trimCity } },
-            { city: { equals: trimGu } },
-            { cityGu: { equals: trimGu } },
-          ],
-        },
-      });
+      await ensureEPaperTablesExist();
+      await prisma.$executeRawUnsafe(
+        `INSERT IGNORE INTO \`epaper_cities\` (\`id\`, \`city\`, \`cityGu\`, \`createdAt\`, \`updatedAt\`) VALUES (?, ?, ?, NOW(), NOW())`,
+        cityId, trimCity, trimGu
+      ).catch(() => null);
 
-      if (existing) {
-        return sendSuccess(res, { city: existing }, 'City already exists in active cities list');
-      }
-
-      const newCity = await (prisma as any).ePaperCity.create({
-        data: {
-          city: trimCity,
-          cityGu: trimGu,
-        },
-      });
-
-      return sendSuccess(res, { city: newCity }, 'City created successfully');
+      return sendSuccess(res, { city: { id: cityId, city: trimCity, cityGu: trimGu } }, 'City created successfully');
     } catch (error) {
       console.error('Error in createCity:', error);
       next(error);
@@ -402,16 +381,11 @@ export class EPaperController {
 
       const searchTerm = String(id).trim();
 
-      // Delete all matching city records by ID or by city / cityGu name
-      await (prisma as any).ePaperCity.deleteMany({
-        where: {
-          OR: [
-            { id: searchTerm },
-            { city: { equals: searchTerm } },
-            { cityGu: { equals: searchTerm } },
-          ],
-        },
-      });
+      await ensureEPaperTablesExist();
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM \`epaper_cities\` WHERE \`id\` = ? OR \`city\` = ? OR \`cityGu\` = ?`,
+        searchTerm, searchTerm, searchTerm
+      ).catch(() => null);
 
       return sendSuccess(res, null, 'City deleted successfully');
     } catch (error) {

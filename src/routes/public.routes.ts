@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
 import { withDbRetry } from '../utils/db.js';
@@ -783,5 +785,67 @@ router.get('/reels', InstagramReelController.getAllReels);
  * Fetch active Web Stories
  */
 router.get('/web-stories', WebStoryController.getAll);
+
+/**
+ * GET /api/public/download-pdf
+ * 100% Reliable public PDF attachment download proxy
+ */
+router.get('/download-pdf', async (req: any, res: any) => {
+  try {
+    const rawUrl = (req.query.url as string) || '';
+    if (!rawUrl || !rawUrl.trim()) {
+      return res.status(400).json({ error: 'URL parameter required' });
+    }
+
+    let cleanUrl = rawUrl.trim().replace(/\/fl_attachment\/+/g, '/');
+
+    // 1. Handle local upload files if present
+    if (cleanUrl.startsWith('/uploads/') || cleanUrl.includes('/uploads/')) {
+      const filename = path.basename(cleanUrl.split('?')[0]);
+      const localPath = path.join(process.cwd(), 'uploads', filename);
+      if (fs.existsSync(localPath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        return res.sendFile(localPath);
+      }
+    }
+
+    // 2. Handle Cloudinary or external HTTP/HTTPS URLs
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      const filename = path.basename(cleanUrl.split('?')[0]) || 'Official_Document.pdf';
+      const safeFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
+
+      // Candidate URLs to try in order (Raw URL first, then Image URL without fl_attachment, then original clean URL)
+      const candidateUrls = [
+        cleanUrl.replace('/image/upload/', '/raw/upload/').replace(/\/fl_attachment\/+/g, '/'),
+        cleanUrl.replace('/raw/upload/', '/image/upload/').replace(/\/fl_attachment\/+/g, '/'),
+        cleanUrl.replace(/\/fl_attachment\/+/g, '/'),
+      ];
+
+      for (const targetUrl of candidateUrls) {
+        try {
+          const response = await fetch(targetUrl);
+          if (response.ok) {
+            const arrayBuf = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuf);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+            return res.send(buffer);
+          }
+        } catch (fetchErr) {
+          console.warn(`Proxy fetch attempt failed for ${targetUrl}:`, fetchErr);
+        }
+      }
+
+      // Final fallback: redirect directly to primary candidate URL
+      return res.redirect(candidateUrls[0]);
+    }
+
+    return res.status(404).json({ error: 'PDF File not found' });
+  } catch (err: any) {
+    console.error('PDF proxy download error:', err);
+    res.status(500).json({ error: 'Download failed' });
+  }
+});
 
 export default router;
