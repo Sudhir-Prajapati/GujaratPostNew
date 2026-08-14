@@ -28,6 +28,7 @@ import {
   FileCode,
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { formatEpaperPdfUrl, formatEpaperDownloadUrl } from '@/lib/media';
 import {
   EPaperEdition,
   CityItem,
@@ -797,7 +798,7 @@ export default function AdminEPaperPage() {
                   />
                 ) : edition.fileUrl && (isPdfUrl(edition.fileUrl) || edition.fileUrl.includes('/uploads/')) ? (
                   <iframe
-                    src={`${edition.fileUrl}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
+                    src={formatEpaperPdfUrl(edition.fileUrl, 1)}
                     className="h-full w-full object-cover pointer-events-none"
                     title={edition.title || edition.city}
                   />
@@ -1469,7 +1470,7 @@ export default function AdminEPaperPage() {
 
                 {activeReaderEdition.fileUrl && !activeReaderEdition.fileUrl.startsWith('blob:') && (
                   <a
-                    href={activeReaderEdition.fileUrl}
+                    href={formatEpaperDownloadUrl(activeReaderEdition.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-red-700 transition"
@@ -1512,14 +1513,10 @@ export default function AdminEPaperPage() {
                 className="transition-all duration-200 max-w-full"
                 style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
               >
-                {isPdfUrl(activeReaderEdition.fileUrl) ? (
+                {isPdfUrl(activeReaderEdition.fileUrl) || activeReaderEdition.fileUrl?.includes('/uploads/') ? (
                   <iframe
                     key={`${activeReaderEdition.id}-p${currentPage}`}
-                    src={
-                      activeReaderEdition.fileUrl?.includes('res.cloudinary.com')
-                        ? `https://docs.google.com/viewer?url=${encodeURIComponent(activeReaderEdition.fileUrl)}&embedded=true`
-                        : `${activeReaderEdition.fileUrl}#page=${currentPage}&view=FitH&toolbar=0`
-                    }
+                    src={formatEpaperPdfUrl(activeReaderEdition.fileUrl, currentPage)}
                     className="w-[820px] max-w-full h-[880px] rounded-xl border border-slate-700 bg-white shadow-2xl"
                     title={`Gujarat Post E-Paper Page ${currentPage}`}
                   />
