@@ -55,7 +55,7 @@ const DetailSlideVideo = memo(function DetailSlideVideo({
     if (isActive && vidRef.current) {
       vidRef.current.currentTime = 0;
       vidRef.current.defaultMuted = true;
-      vidRef.current.play().catch(() => {});
+      vidRef.current.play().catch(() => { });
     } else if (!isActive && vidRef.current) {
       vidRef.current.pause();
     }
@@ -201,10 +201,109 @@ function getCardThumbnail(art: any, index: number = 0): string {
   return DEMO_THUMBNAILS[Math.abs(hash) % DEMO_THUMBNAILS.length];
 }
 
-function parseArticleBodyBlocks(rawBody: string): string[] {
+function formatPdfDownloadUrl(url: string): string {
+  if (!url || url === '#' || !url.trim()) return '';
+  const cleanUrl = url.trim();
+
+  // If already routed through download-pdf proxy
+  if (cleanUrl.includes('/api/public/download-pdf')) {
+    return cleanUrl;
+  }
+
+  return getBackendApiUrl(`/api/public/download-pdf?url=${encodeURIComponent(cleanUrl)}`);
+}
+
+function buildPdfCardHtml(url: string, titleText: string, descText: string, btnText: string): string {
+  const downloadUrl = formatPdfDownloadUrl(url);
+  if (!downloadUrl) return '';
+  const fileName = downloadUrl.split('/').pop()?.split('?')[0] || 'Official_Document.pdf';
+  return `<div class="gp-pdf-card-v2" style="display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px 22px;border-radius:16px;background:#ffffff;border:1px solid rgba(0,0,0,0.08);margin:24px 0;box-shadow:0 4px 18px rgba(0,0,0,0.03);">
+    <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;">
+      <div class="gp-pdf-v2-title" style="color:#0f172a;font-weight:800;font-size:16px;line-height:1.3;letter-spacing:-0.01em;">${titleText}</div>
+      <div class="gp-pdf-v2-sub" style="color:#64748b;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;"></span>
+        <span>${descText}</span>
+      </div>
+    </div>
+    <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" download="${fileName}" data-pdfv2="1" style="display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border-radius:12px;background:linear-gradient(135deg, #B3121B 0%, #8E0E15 100%);color:#ffffff !important;font-weight:700;font-size:14.5px;text-decoration:none !important;white-space:nowrap;box-shadow:0 4px 14px rgba(179,18,27,0.35);transition:transform 0.2s;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span style="color:#ffffff !important;">${btnText}</span>
+    </a>
+  </div>`;
+}
+
+function upgradeEmbedCards(rawHtml: string, language?: string, articlePdfUrl?: string): string {
+  if (!rawHtml && !articlePdfUrl) return '';
+
+  let cleaned = rawHtml || '';
+
+  // Clean duplicate fl_attachment if any in legacy content
+  cleaned = cleaned.replace(/\/fl_attachment\/fl_attachment\//gi, '/fl_attachment/');
+
+  // Upgrade Twitter / X cards
+  cleaned = cleaned.replace(
+    /<(div|p)[^>]*class=["'][^"']*(?:border|rounded|bg-|p-|my-|gp-x)[^"']*["'][^>]*>[\s\S]*?(?:View Tweet|View Official Post|Post on X|Twitter|સત્તાવાર ટ્વીટ)[\s\S]*?<\/(?:div|p)>/gi,
+    (match) => {
+      if (match.startsWith('<div class="gp-x-card"') || (match.includes('gp-x-card') && !match.includes('border-red'))) {
+        return match;
+      }
+      const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+      const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : '#';
+      const guLabel = language === 'gu' ? 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો' : language === 'hi' ? 'આधिकारिक ट्वीट देखने के लिए यहां क्लिक करें' : 'Click to view the official post on X';
+      const guBtn = language === 'gu' ? 'ટ્વીટ જુઓ ↗' : language === 'hi' ? 'ટ્વીટ دیکھیں ↗' : 'View Post ↗';
+      return `<div class="gp-x-card"><div style="display:flex;align-items:center;gap:14px;min-width:0;position:relative;z-index:1"><span class="gp-x-icon">𝕏</span><div style="min-width:0"><span class="gp-x-title">View Official Post on X (Twitter)</span><span class="gp-x-sub">${guLabel}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" class="gp-x-btn" style="position:relative;z-index:1"><span>${guBtn}</span></a></div>`;
+    }
+  );
+
+  // Upgrade ALL PDF Attachment card blocks (old gp-pdf-card or legacy red border boxes) to premium red v2 card
+  cleaned = cleaned.replace(
+    /<div[^>]*class=["'][^"']*(?:gp-pdf-card|gp-pdf-card-v2|border-red-200|border-red-900|from-red-50|via-rose-50)[^"']*["'][\s\S]*?<\/div>(?:\s*<\/div>)?/gi,
+    (match) => {
+      let extractUrl = '';
+      const proxyParam = match.match(/download-pdf\?url=([^"'\s&]+)/i);
+      if (proxyParam && proxyParam[1]) {
+        extractUrl = decodeURIComponent(proxyParam[1]);
+      } else {
+        const hrefMatch = match.match(/href=["']([^"']+)["']/i);
+        if (hrefMatch && hrefMatch[1] && hrefMatch[1] !== '#') extractUrl = hrefMatch[1];
+      }
+
+      const finalPdfUrl = extractUrl || articlePdfUrl || '';
+      if (!finalPdfUrl || finalPdfUrl === '#' || !finalPdfUrl.trim()) return '';
+
+      const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
+      const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'સત્યાપિત અધિકારિક પીડીએફ દસ્તાવેજ' : 'Verified Official PDF Document';
+      const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'ડાઉનલોડ પીડીએફ' : 'Download PDF';
+      return buildPdfCardHtml(finalPdfUrl, titleText, descText, btnText);
+    }
+  );
+
+  // Strip orphan standalone buttons
+  cleaned = cleaned.replace(/<a[^>]*>[\s\S]*?(?:Download\s*PDF|Attached Official Document|Official Document \(PDF\)|Attached PDF|ડાઉનલોડ\s*PDF|ડાઉનલોડ\s*પીડીએફ|ડાઉનલોડ|Download|ટ્વીટ\s*જુઓ|View\s*Post|Open\s*Tweet)[\s\S]*?<\/a>/gi, (match) => {
+    if (match.includes('gp-pdf-btn') || match.includes('gp-x-btn') || match.includes('gp-pdf-card') || match.includes('gp-x-card') || match.includes('data-pdfv2')) return match;
+    return '';
+  });
+
+  // Remove any leftover empty red border container divs
+  cleaned = cleaned.replace(/<div[^>]*class=["'][^"']*(?:border-red-200|border-red-900|from-red-50|via-rose-50|gp-pdf-card)[^"']*["']>\s*<\/div>/gi, '');
+
+  return cleaned;
+  // Strip orphan standalone buttons
+  cleaned = cleaned.replace(/<a[^>]*>[\s\S]*?(?:Download\s*PDF|Attached Official Document|Official Document \(PDF\)|Attached PDF|ડાઉનલોડ\s*PDF|ડાઉનલોડ\s*પીડીએફ|ડાઉનલોડ|Download|ટ્વીટ\s*જુઓ|View\s*Post|Open\s*Tweet)[\s\S]*?<\/a>/gi, (match) => {
+    if (match.includes('gp-pdf-btn') || match.includes('gp-x-btn') || match.includes('gp-pdf-card') || match.includes('gp-x-card') || match.includes('data-pdfv2')) return match;
+    return '';
+  });
+
+  // Remove any leftover empty red border container divs
+  cleaned = cleaned.replace(/<div[^>]*class=["'][^"']*(?:border-red-200|border-red-900|from-red-50|via-rose-50|gp-pdf-card)[^"']*["']>\s*<\/div>/gi, '');
+
+  return cleaned;
+}
+
+function parseArticleBodyBlocks(rawBody: string, language?: string, articlePdfUrl?: string): string[] {
   if (!rawBody) return [];
 
-  let cleaned = rawBody
+  let cleaned = upgradeEmbedCards(rawBody, language, articlePdfUrl)
     .replace(/^##\s*📌?\s*(એક નજરમાં|KEY HIGHLIGHTS|एक नजर में|AT A GLANCE).*?$/gmi, '')
     .replace(/----------------+/g, '')
     .replace(/\s*data-start="[^"]*"/gi, '')
@@ -217,7 +316,7 @@ function parseArticleBodyBlocks(rawBody: string): string[] {
     .replace(/<span[^>]*class="[^"]*contents[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
     .replace(/<span[^>]*><\/span>/gi, '');
 
-  const htmlTagRegex = /<(p|blockquote|h1|h2|h3|figure)[^>]*>[\s\S]*?<\/\1>/gi;
+  const htmlTagRegex = /<(p|blockquote|h1|h2|h3|figure|div)[^>]*>[\s\S]*?<\/\1>/gi;
   const htmlMatches = cleaned.match(htmlTagRegex);
 
   let rawBlocks: string[] = [];
@@ -336,6 +435,7 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
   cleaned = cleaned.replace(
     /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:View Tweet|View Official Post|Post on X|Twitter)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
     (match) => {
+      if (match.includes('gp-x-card')) return match;
       const hrefMatch = match.match(/href=["']([^"']+)["']/i);
       const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : '#';
       const guLabel = language === 'gu' ? 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો' : language === 'hi' ? 'आधिकारिक ट्वीट देखने के लिए यहां क्लिक करें' : 'Click to view the official post on X';
@@ -344,25 +444,44 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
     }
   );
 
-  // Upgrade PDF Attachment card blocks to premium design
+  // Upgrade PDF Attachment card blocks to premium design (matches entire legacy container box)
   cleaned = cleaned.replace(
-    /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:Attached PDF|Download PDF|Official Document \(PDF\)|Attached Official Document)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
+    /<(div|p)[^>]*class=["'][^"']*(?:border-red|from-red|via-rose|rounded-2xl|my-6|my-4|gp-pdf)[^"']*["'][^>]*>[\s\S]*?(?:Attached Official Document|Official Document \(PDF\)|Attached PDF|Download PDF|ડાઉનલોડ\s*PDF)[\s\S]*?<\/(?:div|p)>(?:\s*<\/div>)?/gi,
     (match) => {
+      // If it's already a clean single gp-pdf-card without legacy outer wrappers, keep it
+      if (match.startsWith('<div class="gp-pdf-card"') || (match.includes('gp-pdf-card') && !match.includes('border-red') && !match.includes('from-red'))) {
+        return match;
+      }
       const hrefMatch = match.match(/href=["']([^"']+)["']/i);
       const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : '#';
       const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
-      const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
-      const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
-      return `<div class="gp-pdf-card"><div class="gp-pdf-inner"><div class="gp-pdf-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="gp-pdf-text"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" download class="gp-pdf-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>${btnText}</span></a></div>`;
+      const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'સત્યાપિત અધિકારિક પીડીએફ દસ્તાવેજ' : 'Verified Official PDF Document';
+      const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'ડાઉનલોડ પીડીએફ' : 'Download PDF';
+      return buildPdfCardHtml(url, titleText, descText, btnText);
     }
   );
 
-  // Strip orphan plain Download PDF buttons
-  cleaned = cleaned.replace(/<a[^>]+download[^>]*>\s*Download PDF\s*<\/a>/gi, '');
+  // Strip ALL orphan/standalone Download PDF & Twitter buttons (catches plain text, spans, icons, arrows)
+  cleaned = cleaned.replace(/<a[^>]*>[\s\S]*?(?:Download\s*PDF|Attached Official Document|Official Document \(PDF\)|Attached PDF|ડાઉનલોડ\s*PDF|ડાઉનલોડ\s*પીડીએફ|ડાઉનલોડ|Download|ટ્વીટ\s*જુઓ|View\s*Post|Open\s*Tweet)[\s\S]*?<\/a>/gi, (match) => {
+    // Only keep if it contains the full container card or button class
+    if (match.includes('gp-pdf-btn') || match.includes('gp-x-btn') || match.includes('gp-pdf-card') || match.includes('gp-x-card') || match.includes('data-pdfv2')) return match;
+    return '';
+  });
+  cleaned = cleaned.replace(/<button[^>]*>[\s\S]*?(?:Download\s*PDF|Attached Official Document|Official Document \(PDF\)|Attached PDF|ડાઉનલોડ\s*PDF|ડાઉનલોડ\s*પીડીએફ|ડાઉનલોડ|Download|ટ્વીટ\s*જુઓ|View\s*Post|Open\s*Tweet)[\s\S]*?<\/button>/gi, (match) => {
+    if (match.includes('gp-pdf-btn') || match.includes('gp-x-btn') || match.includes('gp-pdf-card') || match.includes('gp-x-card') || match.includes('data-pdfv2')) return match;
+    return '';
+  });
+
+  // Remove leftover legacy PDF card fragments (old class names, no longer used by the new design)
+  cleaned = cleaned.replace(/<div[^>]*class="gp-pdf-inner"[\s\S]*?<\/div>\s*<\/div>/gi, '');
+  cleaned = cleaned.replace(/<div[^>]*class="gp-pdf-icon-wrap"[^>]*>[\s\S]*?<\/div>/gi, '');
+  cleaned = cleaned.replace(/<div[^>]*class="gp-pdf-text"[^>]*>[\s\S]*?<\/div>/gi, '');
+  cleaned = cleaned.replace(/<span[^>]*class="gp-pdf-title"[^>]*>[\s\S]*?<\/span>/gi, '');
+  cleaned = cleaned.replace(/<span[^>]*class="gp-pdf-sub"[^>]*>[\s\S]*?<\/span>/gi, '');
+  cleaned = cleaned.replace(/<a[^>]*class="gp-pdf-btn"[^>]*>[\s\S]*?<\/a>/gi, '');
 
   return cleaned.trim();
 }
-
 function TranslatedParagraph({ rawHtml, language }: { rawHtml: string; language: any }) {
   const translatedContent = useAutoTranslate(rawHtml, language);
 
@@ -430,6 +549,39 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       fetch(endpoint, { method: 'POST' }).catch(() => { });
     }
   }, [article?.id]);
+
+  // 100% Reliable PDF Download & Open in New Tab Interceptor
+  useEffect(() => {
+    const handlePdfClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const pdfAnchor = target.closest('a[download], a[data-pdfv2="1"], a.gp-pdf-btn, a[href*=".pdf"]') as HTMLAnchorElement | null;
+      if (!pdfAnchor) return;
+
+      const rawHref = pdfAnchor.getAttribute('href');
+      if (!rawHref || rawHref === '#') return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      let targetUrl = rawHref.trim();
+      if (targetUrl.includes('download-pdf?url=')) {
+        const paramMatch = targetUrl.match(/download-pdf\?url=([^"'\s&]+)/i);
+        if (paramMatch && paramMatch[1]) {
+          targetUrl = decodeURIComponent(paramMatch[1]);
+        }
+      }
+
+      targetUrl = formatPdfDownloadUrl(targetUrl);
+      
+      // Immediately open PDF in a new window/tab page
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    };
+
+    document.addEventListener('click', handlePdfClick, true);
+    return () => {
+      document.removeEventListener('click', handlePdfClick, true);
+    };
+  }, []);
 
   const slideImages = useMemo(() => {
     const images: string[] = [];
@@ -559,13 +711,13 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
 
   const displayParagraphs = useMemo(() => {
-    return parseArticleBodyBlocks(body);
-  }, [body]);
+    return parseArticleBodyBlocks(body, language, (article as any)?.pdfUrl || (article as any)?.pdf);
+  }, [body, language, article]);
 
   const formattedArticleBodyHtml = useMemo(() => {
     if (!body) return '';
 
-    let cleaned = body
+    let cleaned = upgradeEmbedCards(body, language, (article as any)?.pdfUrl || (article as any)?.pdf)
       .replace(/^##\s*📌?\s*(એક નજરમાં|KEY HIGHLIGHTS|एक नजर में|AT A GLANCE).*?$/gmi, '')
       .replace(/----------------+/g, '')
       .replace(/\s*data-start="[^"]*"/gi, '')
@@ -603,10 +755,11 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || title}" class="w-full h-full object-cover" /></div>${alt && !/Gallery Image/i.test(alt) ? `<figcaption class="text-xs text-center text-neutral-500 font-medium">${alt}</figcaption>` : ''}</figure>`;
     });
 
-    // Upgrade X / Twitter cards styling in body HTML (matches only card divs/p-tags with border/rounded/bg/p/my classes)
+    // Upgrade X / Twitter cards styling in body HTML
     cleaned = cleaned.replace(
       /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:View Tweet|View Official Post|Post on X|Twitter)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
       (match) => {
+        if (match.includes('gp-x-card')) return match;
         const hrefMatch = match.match(/href=["']([^"']+)["']/i);
         const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : (article as any).twitterUrl || (article as any).tweetUrl || '#';
         const guLabel = language === 'gu' ? 'સત્તાવાર ટ્વીટ જોવા માટે અહી ક્લિક કરો' : language === 'hi' ? 'आधिकारिक ट्वीट देखने के लिए यहां क्लिक करें' : 'Click to view the official post on X';
@@ -626,22 +779,6 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       }
     );
 
-    // Upgrade PDF Attachment cards styling in body HTML (matches only card divs/p-tags with border/rounded/bg/p/my classes)
-    cleaned = cleaned.replace(
-      /<(div|p)[^>]+(?:class|style)=["'][^"']*(?:border|rounded|bg-|p-|my-)[^"']*["'][^>]*>(?:(?!<\/(?:div|p)>)[\s\S])*?(?:Attached PDF|Download PDF|Official Document \(PDF\)|Attached Official Document)(?:(?!<\/(?:div|p)>)[\s\S])*?<\/(?:div|p)>/gi,
-      (match) => {
-        const hrefMatch = match.match(/href=["']([^"']+)["']/i);
-        const url = (hrefMatch && hrefMatch[1]) ? hrefMatch[1] : (article as any).pdfUrl || '#';
-        const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
-        const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'सत्यापित आधिकारिक पीडीएफ दस्तावेज' : 'Verified Official PDF Document';
-        const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'डाउनलोड पीडीएफ' : 'Download PDF';
-        return `<div class="gp-pdf-card"><div class="gp-pdf-inner"><div class="gp-pdf-icon-wrap"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div><div class="gp-pdf-text"><span class="gp-pdf-title">${titleText}</span><span class="gp-pdf-sub">${descText}</span></div></div><a href="${url}" target="_blank" rel="noopener noreferrer" download class="gp-pdf-btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>${btnText}</span></a></div>`;
-      }
-    );
-
-    // Remove any leftover standalone plain Download PDF buttons (legacy HTML not caught by regex)
-    cleaned = cleaned.replace(/<a[^>]+download[^>]*>\s*Download PDF\s*<\/a>/gi, '');
-
     // Collapse multiple nested blockquotes
     cleaned = cleaned
       .replace(/(<blockquote[^>]*>\s*)+/gi, '<blockquote class="my-6 border-l-[3px] border-[#B3121B] pl-4 py-1 font-sans font-bold text-neutral-900 dark:text-white">')
@@ -653,15 +790,28 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     });
 
     // If cleaned does not contain HTML block tags, wrap paragraphs in <p> tags
-    if (!/<(p|div|blockquote|figure|ul|ol|table|h1|h2|h3|h4)[^>]*>/i.test(cleaned)) {
-      cleaned = cleaned
-        .split(/\n\s*\n+/)
-        .map((p) => `<p>${p.trim().replace(/\n/g, '<br />')}</p>`)
-        .join('');
+    // Append YouTube embed if set on article object and not already present in body HTML
+    const ytUrl = (article as any).youtubeUrl || (article as any).youtube;
+    if (ytUrl && ytUrl.trim() && !cleaned.includes('iframe') && !cleaned.includes('youtube.com/embed')) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = ytUrl.match(regExp);
+      const embedUrl = match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : null;
+      if (embedUrl) {
+        cleaned += `<div class="my-6 aspect-video w-full overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-md"><iframe src="${embedUrl}" class="h-full w-full" allowfullscreen frameborder="0"></iframe></div>`;
+      }
+    }
+
+    // Append PDF card if set on article object and not already present in body HTML
+    const pdfDocumentUrl = (article as any).pdfUrl || (article as any).pdf;
+    if (pdfDocumentUrl && pdfDocumentUrl.trim() && !cleaned.includes('gp-pdf-card')) {
+      const titleText = language === 'gu' ? 'સંદર્ભિત સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'संलग्न आधिकारिक पीडीएफ दस्तावेज' : 'Attached Official Document (PDF)';
+      const descText = language === 'gu' ? 'ચકાસાયેલ સત્તાવાર PDF દસ્તાવેજ' : language === 'hi' ? 'સત્યાપિત અધિકારિક પીડીએફ દસ્તાવેજ' : 'Verified Official PDF Document';
+      const btnText = language === 'gu' ? 'ડાઉનલોડ PDF' : language === 'hi' ? 'ડાઉનલોડ પીડીએફ' : 'Download PDF';
+      cleaned += buildPdfCardHtml(pdfDocumentUrl.trim(), titleText, descText, btnText);
     }
 
     return cleaned;
-  }, [body, title, language]);
+  }, [body, title, language, article]);
 
 
 
@@ -975,11 +1125,11 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   </div>
                   <div className="text-[12px] text-[var(--ink-3)] mt-[2px]" suppressHydrationWarning>
                     {language === 'gu' ? (
-                      <span>પ્રકાશિત: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">અપડેટ: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'gu')}</span></span>
+                      <span suppressHydrationWarning>પ્રકાશિત: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold" suppressHydrationWarning>અપડેટ: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'gu')}</span></span>
                     ) : language === 'hi' ? (
-                      <span>प्रकाशित: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">अपडेट: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'hi')}</span></span>
+                      <span suppressHydrationWarning>प्रकाशित: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold" suppressHydrationWarning>अपडेट: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'hi')}</span></span>
                     ) : (
-                      <span>Published: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold">Updated: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'en')}</span></span>
+                      <span suppressHydrationWarning>Published: {formatDate(article.publishedAt)}, {formatTime(article.publishedAt)} · <span className="text-[var(--red)] font-bold" suppressHydrationWarning>Updated: {getRelativeTime((article as any).updatedAt || article.publishedAt, 'en')}</span></span>
                     )}
                   </div>
                 </div>

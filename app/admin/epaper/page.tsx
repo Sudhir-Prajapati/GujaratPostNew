@@ -486,8 +486,8 @@ export default function AdminEPaperPage() {
 
     const currentTitle = title.trim() || `${city.toUpperCase()} EDITION`;
 
-    // Prevent duplicate title for the exact same city and date
-    const isDuplicate = editions.some(
+    // Check if an edition for this city, date & title already exists
+    const existingEdition = editions.find(
       (ed) =>
         ed.id !== editingEdition?.id &&
         ed.date === date &&
@@ -495,15 +495,12 @@ export default function AdminEPaperPage() {
         (ed.title || '').trim().toLowerCase() === currentTitle.toLowerCase()
     );
 
-    if (isDuplicate) {
-      showToast('error', `The e-paper edition "${currentTitle}" already exists for ${city} on ${date}. (આ તારીખે આ નામનું ઈ-પેપર પહેલેથી જ બનાવાયેલ છે!)`);
-      return;
-    }
+    const targetEditionId = editingEdition?.id || existingEdition?.id;
 
     setSaving(true);
 
     const payload = {
-      title: title.trim() || `${city.toUpperCase()} EDITION`,
+      title: currentTitle,
       city: city.trim(),
       cityGu: cityGu.trim() || city.trim(),
       date,
@@ -515,8 +512,8 @@ export default function AdminEPaperPage() {
       isActive,
     };
 
-    if (editingEdition) {
-      const result = await updateEPaperEdition(editingEdition.id, payload);
+    if (targetEditionId) {
+      const result = await updateEPaperEdition(targetEditionId, payload);
       if (result?.edition) {
         showToast('success', `"${payload.title}" (${date}) edition updated successfully.`);
         loadData();
@@ -530,7 +527,7 @@ export default function AdminEPaperPage() {
     } else {
       const result = await createEPaperEdition(payload);
       if (result?.edition) {
-        showToast('success', `"${payload.title}" edition created successfully.`);
+        showToast('success', `"${payload.title}" edition published successfully.`);
         loadData();
         setSaving(false);
         setModalOpen(false);
