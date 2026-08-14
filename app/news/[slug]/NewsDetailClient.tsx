@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { isMediaVideo } from '@/lib/media';
+import { isMediaVideo, sanitizeImageUrl } from '@/lib/media';
 
 const ReadingProgressBar = memo(function ReadingProgressBar() {
   const [progress, setProgress] = useState(0);
@@ -421,7 +421,7 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
     .replace(/<span[^>]*class="[^"]*contents[^"]*"[^>]*>([\s\S]*?)<\/span>/gi, '$1')
     .replace(/<span[^>]*><\/span>/gi, '')
     .replace(/!\[(.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi, (match, alt, url) => {
-      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || 'Gujarat Post Image'}" class="w-full h-full object-cover" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${alt || 'Gujarat Post'}</span><span>તસવીર: ગુજરાત પોસ્ટ</span></figcaption></figure>`;
+      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${sanitizeImageUrl(url)}" alt="${alt || 'Gujarat Post Image'}" class="w-full h-full object-cover" /></div><figcaption class="flex items-center justify-between text-xs text-neutral-500 font-medium"><span>${alt || 'Gujarat Post'}</span><span>તસવીર: ગુજરાત પોસ્ટ</span></figcaption></figure>`;
     });
 
   // Convert plain URLs to styled clickable links if not inside HTML attributes
@@ -752,7 +752,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
           return '';
         }
       }
-      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${url}" alt="${alt || title}" class="w-full h-full object-cover" /></div>${alt && !/Gallery Image/i.test(alt) ? `<figcaption class="text-xs text-center text-neutral-500 font-medium">${alt}</figcaption>` : ''}</figure>`;
+      return `<figure class="my-6 space-y-2"><div class="relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-black/5 dark:bg-black/40 shadow-sm"><img src="${sanitizeImageUrl(url)}" alt="${alt || title}" class="w-full h-full object-cover" /></div>${alt && !/Gallery Image/i.test(alt) ? `<figcaption class="text-xs text-center text-neutral-500 font-medium">${alt}</figcaption>` : ''}</figure>`;
     });
 
     // Upgrade X / Twitter cards styling in body HTML
