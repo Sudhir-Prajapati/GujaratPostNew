@@ -585,29 +585,39 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
   const slideImages = useMemo(() => {
     const images: string[] = [];
-    if (article.image) images.push(article.image);
-    if ((article as any).featuredImage && !images.includes((article as any).featuredImage)) {
-      images.push((article as any).featuredImage);
+    if (article.image) images.push(sanitizeImageUrl(article.image));
+    if ((article as any).featuredImage) {
+      const feat = sanitizeImageUrl((article as any).featuredImage);
+      if (!images.includes(feat)) images.push(feat);
     }
 
     // Extract secondary images from direct properties if present
-    if ((article as any).image2) images.push((article as any).image2);
-    if ((article as any).image3) images.push((article as any).image3);
-    if ((article as any).image4) images.push((article as any).image4);
-    if ((article as any).image5) images.push((article as any).image5);
-    if ((article as any).galleryImage2) images.push((article as any).galleryImage2);
-    if ((article as any).secondaryImage) images.push((article as any).secondaryImage);
+    ['image2', 'image3', 'image4', 'image5', 'image6', 'image7', 'image8', 'image9', 'image10', 'galleryImage2', 'secondaryImage'].forEach((prop) => {
+      const val = (article as any)[prop];
+      if (val && typeof val === 'string' && val.trim()) {
+        const clean = sanitizeImageUrl(val);
+        if (!images.includes(clean)) images.push(clean);
+      }
+    });
 
     // Extract markdown image URLs ![...](url) from all article content strings
     const rawContent = `${article.content || ''}\n${(article as any).contentGu || ''}\n${(article as any).contentHi || ''}`;
-    const matches = rawContent.matchAll(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+)\)/gi);
+    const matches = rawContent.matchAll(/!\[(?:Gallery Image \d+|.*?)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi);
     for (const match of matches) {
-      if (match[1]) images.push(match[1]);
+      if (match[1]) {
+        const clean = sanitizeImageUrl(match[1]);
+        if (!images.includes(clean)) images.push(clean);
+      }
     }
 
-    const extraImages = (article as any).images || (article as any).gallery || [];
+    const extraImages = (article as any).images || (article as any).gallery || (article as any).galleryImages || [];
     if (Array.isArray(extraImages)) {
-      images.push(...extraImages);
+      extraImages.forEach((img) => {
+        if (img && typeof img === 'string' && img.trim()) {
+          const clean = sanitizeImageUrl(img);
+          if (!images.includes(clean)) images.push(clean);
+        }
+      });
     }
 
     const validImages = images.filter((img) => img && typeof img === 'string' && img.trim() !== '');
@@ -1230,14 +1240,19 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         />
                       ) : (
                         <Image
-                          src={src || '/assets/placeholder.jpg'}
+                          src={sanitizeImageUrl(src) || '/assets/placeholder.jpg'}
                           alt={`${article.title} slide ${index + 1}`}
                           fill
-                          unoptimized={src?.includes('localhost')}
+                          unoptimized={true}
                           sizes="(max-width: 1024px) 100vw, 66vw"
                           className="object-cover"
                           loading={index === 0 ? 'eager' : 'lazy'}
-                          onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post'; }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target.src && !target.src.includes('placehold.co')) {
+                              target.src = 'https://placehold.co/800x500/e2e8f0/94a3b8?text=Gujarat+Post';
+                            }
+                          }}
                         />
                       )}
                     </div>
