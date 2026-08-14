@@ -15,6 +15,22 @@ import { getDailyAstrologySigns, fetchLiveDailyAstrologySigns } from '../service
 
 const router = Router();
 
+function sanitizeUrlInContent(text?: string | null): string {
+  if (!text) return '';
+  return text.replace(/(https:\/\/res\.cloudinary\.com\/[^\s"'<>]+?\.(?:jpg|jpeg|png|webp|gif|svg))/gi, (imgUrl) => {
+    return imgUrl.replace('/raw/upload/', '/image/upload/');
+  });
+}
+
+function sanitizeSingleUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  if (clean.includes('res.cloudinary.com') && clean.includes('/raw/upload/') && !clean.toLowerCase().endsWith('.pdf') && !clean.toLowerCase().includes('.pdf?')) {
+    clean = clean.replace('/raw/upload/', '/image/upload/');
+  }
+  return clean;
+}
+
 // Public E-Paper routes
 router.get('/epaper', EPaperController.getPublicEditions);
 router.get('/epaper/cities', EPaperController.getCities);
@@ -205,10 +221,11 @@ router.get('/articles', async (req, res, next) => {
       excerpt: p.excerpt || '',
       excerptGu: p.excerptGu || '',
       excerptHi: p.excerptHi || '',
-      content: p.content,
-      contentGu: p.contentGu,
-      contentHi: p.contentHi,
-      image: p.featuredImage,
+      content: sanitizeUrlInContent(p.content),
+      contentGu: sanitizeUrlInContent(p.contentGu),
+      contentHi: sanitizeUrlInContent(p.contentHi),
+      image: sanitizeSingleUrl(p.featuredImage),
+      featuredImage: sanitizeSingleUrl(p.featuredImage),
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
@@ -296,10 +313,11 @@ router.get('/articles/:slug', async (req, res, next) => {
       excerpt: p.excerpt || '',
       excerptGu: p.excerptGu || '',
       excerptHi: p.excerptHi || '',
-      content: p.content,
-      contentGu: p.contentGu,
-      contentHi: p.contentHi,
-      image: p.featuredImage,
+      content: sanitizeUrlInContent(p.content),
+      contentGu: sanitizeUrlInContent(p.contentGu),
+      contentHi: sanitizeUrlInContent(p.contentHi),
+      image: sanitizeSingleUrl(p.featuredImage),
+      featuredImage: sanitizeSingleUrl(p.featuredImage),
       category: p.category.name,
       categoryGu: p.category.nameGu,
       categoryHi: p.category.nameHi,
