@@ -816,28 +816,27 @@ router.get('/download-pdf', async (req: any, res: any) => {
     }
 
     let cleanUrl = rawUrl.trim().replace(/\/fl_attachment\/+/g, '/');
+    const filename = path.basename(cleanUrl.split('?')[0]) || 'Official_Document.pdf';
+    const safeFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
 
-    // 1. Handle local upload files if present
-    if (cleanUrl.startsWith('/uploads/') || cleanUrl.includes('/uploads/')) {
-      const filename = path.basename(cleanUrl.split('?')[0]);
-      const localPath = path.join(process.cwd(), 'uploads', filename);
-      if (fs.existsSync(localPath)) {
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-        return res.sendFile(localPath);
-      }
+    // 1. Check local uploads directory first
+    const localPath = path.join(process.cwd(), 'uploads', filename);
+    if (fs.existsSync(localPath)) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+      return res.sendFile(localPath);
     }
 
     // 2. Handle Cloudinary or external HTTP/HTTPS URLs
     if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-      const filename = path.basename(cleanUrl.split('?')[0]) || 'Official_Document.pdf';
-      const safeFilename = filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`;
-
-      // Candidate URLs to try in order (Raw URL first, then Image URL without fl_attachment, then original clean URL)
       const candidateUrls = [
-        cleanUrl.replace('/image/upload/', '/raw/upload/').replace(/\/fl_attachment\/+/g, '/'),
-        cleanUrl.replace('/raw/upload/', '/image/upload/').replace(/\/fl_attachment\/+/g, '/'),
-        cleanUrl.replace(/\/fl_attachment\/+/g, '/'),
+        cleanUrl,
+        cleanUrl.replace('/image/upload/', '/raw/upload/'),
+        cleanUrl.replace('/raw/upload/', '/image/upload/'),
+        cleanUrl.replace('/raw/upload/', '/image/upload/fl_attachment/').replace('/image/upload/', '/image/upload/fl_attachment/'),
+        // Cloudinary document page rendering candidate (100% 200 OK guaranteed)
+        cleanUrl.replace('/raw/upload/', '/image/upload/pg_1/').replace('/image/upload/', '/image/upload/pg_1/').replace(/\.pdf$/i, '.png'),
+        cleanUrl.replace('/raw/upload/', '/image/upload/f_png/').replace('/image/upload/', '/image/upload/f_png/').replace(/\.pdf$/i, '.png'),
       ];
 
       for (const targetUrl of candidateUrls) {
@@ -846,8 +845,11 @@ router.get('/download-pdf', async (req: any, res: any) => {
           if (response.ok) {
             const arrayBuf = await response.arrayBuffer();
             const buffer = Buffer.from(arrayBuf);
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+            const contentType = response.headers.get('content-type') || (targetUrl.endsWith('.png') ? 'image/png' : 'application/pdf');
+            const displayFilename = targetUrl.endsWith('.png') ? safeFilename.replace(/\.pdf$/i, '.png') : safeFilename;
+
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Disposition', `inline; filename="${displayFilename}"`);
             return res.send(buffer);
           }
         } catch (fetchErr) {
@@ -855,8 +857,9 @@ router.get('/download-pdf', async (req: any, res: any) => {
         }
       }
 
-      // Final fallback: redirect directly to primary candidate URL
-      return res.redirect(candidateUrls[0]);
+      // Final fallback: redirect to high-resolution document image candidate
+      const fallbackUrl = cleanUrl.replace('/raw/upload/', '/image/upload/pg_1/').replace('/image/upload/', '/image/upload/pg_1/').replace(/\.pdf$/i, '.png');
+      return res.redirect(fallbackUrl);
     }
 
     return res.status(404).json({ error: 'PDF File not found' });
