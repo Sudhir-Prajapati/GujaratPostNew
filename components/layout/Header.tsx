@@ -22,6 +22,7 @@ import Advertisement from '@/components/ads/Advertisement';
 import DistrictBar from './DistrictBar';
 import gpLogo from '../../public/Gujarat Post Logo.gif';
 import { getPublicCategories } from '@/lib/api';
+import UserAuthModal from '@/components/ui/UserAuthModal';
 
 const languageLabels = {
   gu: 'ગુજરાતી',
@@ -121,6 +122,7 @@ export default function Header() {
   const triggerRef = useRef<HTMLLIElement>(null);
   const [dropdownLeft, setDropdownLeft] = useState<number | null>(null);
   const [hideStickyNav, setHideStickyNav] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -236,31 +238,43 @@ export default function Header() {
   }, []);
 
   const { navLinks, otherLinks } = useMemo(() => {
-    // Fixed standard main navigation links matching exact screenshot design
-    const mainNav = NAV_LINKS;
+    if (!dbCategories || dbCategories.length === 0) {
+      return { navLinks: NAV_LINKS, otherLinks: OTHER_LINKS };
+    }
 
-    // Collect all hrefs already present in mainNav
-    const existingHrefs = new Set(mainNav.map((link) => link.href.toLowerCase()));
-
-    // Extra dynamic categories from DB that are not in mainNav
-    const extraDbLinks = (dbCategories || [])
+    // Dynamic categories from DB sorted by displayOrder (highest displayOrder first)
+    const dbLinks = dbCategories
       .filter((c) => c.showInHeader !== false)
-      .map((c) => ({
-        label: c.name,
-        labelGu: c.nameGu || c.name,
-        labelHi: c.nameHi || c.name,
-        href: `/category/${c.slug}`,
-      }))
-      .filter((link) => !existingHrefs.has(link.href.toLowerCase()));
+      .map((c) => {
+        let href = `/category/${c.slug}`;
+        if (c.slug === 'home' || c.slug === 'main') href = '/';
+        else if (c.slug === 'videos') href = '/videos';
+        else if (c.slug === 'photos') href = '/photos';
+        else if (c.slug === 'podcasts') href = '/videos?tab=podcast';
 
-    // Combine default OTHER_LINKS and extra DB categories without duplicates
-    const otherHrefs = new Set<string>();
-    const combinedOtherLinks: Array<{ label: string; labelGu: string; labelHi: string; href: string }> = [];
+        return {
+          label: c.name,
+          labelGu: c.nameGu || c.name,
+          labelHi: c.nameHi || c.name,
+          href,
+        };
+      });
 
-    [...OTHER_LINKS, ...extraDbLinks].forEach((link) => {
-      const lowerHref = link.href.toLowerCase();
-      if (!existingHrefs.has(lowerHref) && !otherHrefs.has(lowerHref)) {
-        otherHrefs.add(lowerHref);
+    // Ensure Home link is at index 0
+    const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
+    const nonHomeDbLinks = dbLinks.filter((l) => l.href !== '/');
+
+    // Display first 15 items in main bar, overflow into Other dropdown
+    const mainNav = [homeLink, ...nonHomeDbLinks.slice(0, 15)];
+    const dropdownLinks = nonHomeDbLinks.slice(15);
+
+    const otherHrefs = new Set(dropdownLinks.map((l) => l.href.toLowerCase()));
+    const combinedOtherLinks = [...dropdownLinks];
+
+    OTHER_LINKS.forEach((link) => {
+      const lower = link.href.toLowerCase();
+      if (!otherHrefs.has(lower) && !mainNav.some((m) => m.href.toLowerCase() === lower)) {
+        otherHrefs.add(lower);
         combinedOtherLinks.push(link);
       }
     });
@@ -363,8 +377,8 @@ export default function Header() {
             <Advertisement position="header" className="w-full h-full" />
           </div>
 
-          {/* Right-side compact Search + News Brief Container (desktop only) */}
-          <div className="ml-auto mr-3 hidden md:flex items-center gap-6 select-none shrink-0">
+          {/* Right-side compact News Brief + Weather/AQI + Search Container (desktop only) */}
+          <div className="ml-auto mr-3 hidden md:flex items-center gap-4 lg:gap-5 select-none shrink-0">
             {/* NEWS BRIEF Button */}
             <Link
               href="/news-brief"
@@ -380,6 +394,33 @@ export default function Header() {
               />
               <span className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
                 NEWS BRIEF
+              </span>
+            </Link>
+
+            {/* AQI Button */}
+            <Link
+              href="/aqi"
+              title={language === 'gu' ? 'હવામાન અને AQI' : language === 'hi' ? 'मौसम और AQI' : 'Weather & AQI'}
+              className="group flex items-center gap-1 hover:opacity-90 transition-all select-none active:scale-[0.98] cursor-pointer"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="w-4 h-4 text-amber-500 shrink-0 transition-transform duration-200 group-hover:scale-110"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2v2" />
+                <path d="m4.93 4.93 1.41 1.41" />
+                <path d="M20 12h2" />
+                <path d="m19.07 4.93-1.41 1.41" />
+                <path d="M15.9 16A5 5 0 1 0 9 10.45" />
+                <path d="M17 20h-9a4 4 0 0 1 0-8h.4" />
+              </svg>
+              <span className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
+                AQI
               </span>
             </Link>
 
@@ -549,15 +590,23 @@ export default function Header() {
             </button>
 
             {/* User / Login */}
-            <a
-              href={isAuthenticated ? '/admin' : '/login'}
+            <button
+              type="button"
+              onClick={() => {
+                const hasToken = typeof document !== 'undefined' && document.cookie.includes('access_token');
+                if (hasToken) {
+                  router.push('/admin');
+                } else {
+                  setAuthModalOpen(true);
+                }
+              }}
               className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground transition hover:bg-secondary ${searchOpen ? 'max-sm:hidden' : ''
                 }`}
-              aria-label={isAuthenticated ? 'Go to Admin Dashboard' : 'Go to Login Page'}
-              title={isAuthenticated ? 'Admin Dashboard' : 'Sign In'}
+              aria-label="Sign In"
+              title="Sign In"
             >
               <User className="h-4 w-4" />
-            </a>
+            </button>
 
             {/* Mobile hamburger */}
             <button
@@ -796,6 +845,13 @@ export default function Header() {
           </div>
         </div>
       )}
+
+      {/* User Auth Modal */}
+      <UserAuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        language={language}
+      />
     </>
   );
 }

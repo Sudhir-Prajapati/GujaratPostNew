@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, Upload, UploadCloud, Link as LinkIcon, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Globe, Settings2, BarChart2, AlertCircle, CheckCircle2, Upload, UploadCloud, Link as LinkIcon, Sparkles, Quote, List, Heading, Type, Copy, Plus, Trash2, Image as ImageIcon, Video, Eye, X, ExternalLink } from 'lucide-react';
 import { getBackendApiUrl, authFetch, getPublicArticles, clearApiCache } from '@/lib/api';
 import { sanitizeImageUrl } from '@/lib/media';
 import CustomSelect from '@/components/ui/CustomSelect';
@@ -87,6 +87,31 @@ const LOCATION_OPTIONS = [
   { value: 'UAE', label: 'UAE / Dubai', sublabel: 'દુબઈ' },
   { value: 'China', label: 'China', sublabel: 'ચીન' },
 ];
+
+// Helper to filter out display-only sections (Instagram, YouTube Shorts, Web Stories, Podcasts) from article category choices
+export const isDisplayOnlySectionCategory = (cat: any): boolean => {
+  if (!cat) return false;
+  const slug = (cat.slug || '').toLowerCase().trim();
+  const name = (cat.name || '').toLowerCase().trim();
+  const nameGu = (cat.nameGu || '').toLowerCase().trim();
+  const nameHi = (cat.nameHi || '').toLowerCase().trim();
+
+  const excludedTerms = [
+    'instagram', 'insta', 'reel', 'reels', 'insta-reels', 'instagram-stories',
+    'shorts', 'short', 'short-video', 'short-videos', 'youtube-shorts', 'youtube-short-video', 'videos', 'video', 'youtube',
+    'webstory', 'webstories', 'web-story', 'web-stories',
+    'podcast', 'podcasts'
+  ];
+
+  return excludedTerms.some(term => 
+    slug === term || 
+    slug.includes(term) || 
+    name === term || 
+    name.includes(term) || 
+    nameGu.includes(term) || 
+    nameHi.includes(term)
+  );
+};
 
 // Map categories to location group
 const NATIONAL_CATEGORY_NAMES = ['national', 'india', 'politics', 'crime', 'education', 'health', 'sports', 'fact check', 'lifestyle', 'technology', 'weather', 'business', 'entertainment', 'defense', 'railway', 'election'];
@@ -564,7 +589,7 @@ interface ExtraDescriptionSlot {
 
         if (catRes.ok) {
           const rawCats: any[] = catJson.data?.categories || catJson.data || [];
-          setCategories(rawCats.filter((c) => !['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'].includes(c.slug?.toLowerCase())));
+          setCategories(rawCats.filter((c) => !isDisplayOnlySectionCategory(c)));
         }
         if (autRes.ok) setAuthors(autJson.data?.authors || autJson.data || []);
 
@@ -601,13 +626,21 @@ interface ExtraDescriptionSlot {
     if (!raw) return { hl, d1Str, qT, qC, d2Str, extractedImgs, extractedYt, extractedTw, extractedPdfUrl };
 
     // Extract embed URLs before parsing paragraphs
-    const ytMatch = raw.match(/iframe[^>]+src=["'](https?:\/\/[^"']*(?:youtube|youtu\.be)[^"']*)["']/i) || raw.match(/(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s"<]+)/i);
+    const ytMatch =
+      raw.match(/iframe[^>]+src=["'](https?:\/\/[^"']*(?:youtube|youtu\.be)[^"']*)["']/i) ||
+      raw.match(/(https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s"<]+)/i);
     if (ytMatch && ytMatch[1]) extractedYt = ytMatch[1];
 
-    const twMatch = raw.match(/href=["'](https?:\/\/(?:twitter\.com|x\.com)\/[^"']+)["']/i);
+    const twMatch =
+      raw.match(/gp-x-card[\s\S]*?href=["'](https?:\/\/(?:twitter\.com|x\.com)\/[^"']+)["']/i) ||
+      raw.match(/href=["'](https?:\/\/(?:twitter\.com|x\.com)\/[^"']+)["']/i) ||
+      raw.match(/(https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[^\s"<]+)/i);
     if (twMatch && twMatch[1]) extractedTw = twMatch[1];
 
-    const pdfMatch = raw.match(/href=["']([^"']+\.pdf(?:\?[^"']*)?|\/uploads\/[^"']+\.pdf(?:\?[^"']*)?)["']/i) || raw.match(/href=["']([^"']+)["'][^>]*download/i);
+    const pdfMatch =
+      raw.match(/gp-pdf-card[\s\S]*?href=["']([^"']+)["']/i) ||
+      raw.match(/href=["']([^"']+\.pdf(?:\?[^"']*)?|\/uploads\/[^"']+\.pdf(?:\?[^"']*)?)["']/i) ||
+      raw.match(/href=["']([^"']+)["'][^>]*download/i);
     if (pdfMatch && pdfMatch[1]) extractedPdfUrl = pdfMatch[1];
 
     const galleryMatches = [...raw.matchAll(/!\[Gallery Image \d+\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|\/assets\/[^\s)]+)\)/gi)];
@@ -1149,6 +1182,7 @@ interface ExtraDescriptionSlot {
     };
 
     return [...categories]
+      .filter((c) => !isDisplayOnlySectionCategory(c))
       .sort((a, b) => {
         const pA = getPriority(a.name);
         const pB = getPriority(b.name);
@@ -1368,7 +1402,7 @@ interface ExtraDescriptionSlot {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 pt-1">
-            {categories.map((cat) => {
+            {categories.filter((c) => !isDisplayOnlySectionCategory(c)).map((cat) => {
               const isPrimary = cat.id === categoryId;
               const isChecked = isPrimary || additionalCategoryIds.includes(cat.id);
 
@@ -2005,31 +2039,68 @@ interface ExtraDescriptionSlot {
             </div>
 
             {/* PDF File / Attachment */}
-            <div>
+            <div className="md:col-span-3 lg:col-span-1">
               <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5 flex items-center gap-1.5">
                 <span className="text-red-500">📄</span> PDF Document File / URL
               </label>
-              <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-extrabold text-zinc-700 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 cursor-pointer shadow-2xs shrink-0">
-                  {uploadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  <span>{uploadingPdf ? 'Uploading...' : 'Choose PDF'}</span>
-                  <input
-                    type="file"
-                    accept=".pdf,application/pdf"
-                    onChange={handlePdfUpload}
-                    className="hidden"
-                    disabled={uploadingPdf}
-                  />
-                </label>
-                <input
-                  type="text"
-                  value={pdfUrl}
-                  onChange={(e) => setPdfUrl(e.target.value)}
-                  placeholder="https://.../document.pdf"
-                  className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs font-medium focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
-                />
-              </div>
-              <p className="text-[10px] text-zinc-400 mt-1">Upload PDF file from computer or enter URL.</p>
+
+              {pdfUrl && pdfUrl.trim() ? (
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>PDF Document Attached & Ready!</span>
+                  </div>
+
+                  <div className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400 truncate bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5 rounded-lg">
+                    {pdfUrl}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <label className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 px-3 py-1.5 text-[11px] font-black hover:bg-zinc-800 transition cursor-pointer shadow-xs">
+                      {uploadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      <span>{uploadingPdf ? 'Uploading...' : 'Re-upload PDF'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                        disabled={uploadingPdf}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setPdfUrl('')}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 text-[11px] font-black transition cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-300 bg-zinc-100 px-3 py-2 text-xs font-extrabold text-zinc-700 hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 cursor-pointer shadow-2xs shrink-0">
+                      {uploadingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      <span>{uploadingPdf ? 'Uploading...' : 'Choose PDF'}</span>
+                      <input
+                        type="file"
+                        accept=".pdf,application/pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                        disabled={uploadingPdf}
+                      />
+                    </label>
+                    <input
+                      type="text"
+                      value={pdfUrl}
+                      onChange={(e) => setPdfUrl(e.target.value)}
+                      placeholder="https://.../document.pdf or /uploads/..."
+                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 px-3 py-2 text-xs font-medium focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20"
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-1">Upload PDF file from computer or enter URL.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
 import { useApp } from '@/components/AppProvider';
@@ -104,7 +104,7 @@ const FALLBACK_RANDOM_ADS: RandomAdItem[] = [
     descriptionHi: 'स्मार्ट स्वास्थ्य ट्रैकिंग और आधुनिक डिजाइन के साथ फिट रहें।',
     sourceGu: 'સ્માર્ટ ટેક | પ્રાયોજિત',
     sourceEn: 'Smart Tech | Sponsored',
-    sourceHi: 'स्मार्ट टेक | प्रायोजित',
+    sourceHi: 'સ્માર્ટ ટેક | प्रायोजित',
     buttonGu: 'હવે ઓર્ડર કરો',
     buttonEn: 'Order Now',
     buttonHi: 'अभी ऑर्डर करें',
@@ -125,54 +125,57 @@ const FALLBACK_RANDOM_ADS: RandomAdItem[] = [
 export default function RandomAdsSection() {
   const { language } = useApp();
   const [adItems, setAdItems] = useState<RandomAdItem[]>(FALLBACK_RANDOM_ADS);
+  const [visibleSectionsCount, setVisibleSectionsCount] = useState<number>(1);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getPublicAds().then((adsRes) => {
-      if (!adsRes || !Array.isArray(adsRes) || adsRes.length === 0) return;
+    getPublicAds()
+      .then((adsRes) => {
+        if (!adsRes || !Array.isArray(adsRes) || adsRes.length === 0) return;
 
-      const collected: RandomAdItem[] = [];
+        const collected: RandomAdItem[] = [];
 
-      adsRes.forEach((ad: any) => {
-        if (!ad.isActive) return;
-        const isRandom = Boolean(ad.includeInRandom) || ad.section?.toUpperCase().includes('RANDOM') || ad.section?.toUpperCase().includes('BOTTOM');
-        if (!isRandom) return;
+        // Parse ALL active ads configured from the Admin panel
+        adsRes.forEach((ad: any) => {
+          if (!ad || ad.isActive === false) return;
 
-        ['1', '2', '3'].forEach((num) => {
-          const img = ad[`image${num}`];
-          const link = ad[`link${num}`];
-          if (img && typeof img === 'string' && img.trim() !== '') {
-            collected.push({
-              id: `${ad.id}-${num}`,
-              image: img.trim(),
-              link: link && typeof link === 'string' ? link.trim() : '#',
-              titleGu: ad.title || 'સ્પેશિયલ સ્પોન્સર ઓફર',
-              titleEn: ad.title || 'Special Sponsored Offer',
-              titleHi: ad.title || 'विशेष प्रायोजित ऑफर',
-              sourceGu: 'પ્રાયોજિત',
-              sourceEn: 'Sponsored',
-              sourceHi: 'प्रायोजित',
-              buttonGu: 'હવે જુઓ',
-              buttonEn: 'View Now',
-              buttonHi: 'अभी देखें',
-            });
-          }
-        });
-      });
-
-      if (collected.length > 0) {
-        // If collected items are less than 7, pad with fallbacks to complete the 7-card layout
-        const finalPool = [...collected];
-        let fallbackIdx = 0;
-        while (finalPool.length < 7) {
-          finalPool.push({
-            ...FALLBACK_RANDOM_ADS[fallbackIdx % FALLBACK_RANDOM_ADS.length],
-            id: `pad-${finalPool.length}`,
+          ['1', '2', '3'].forEach((num) => {
+            const img = ad[`image${num}`];
+            const link = ad[`link${num}`];
+            if (img && typeof img === 'string' && img.trim() !== '') {
+              const adTitle = ad.title || 'સ્પેશિયલ સ્પોન્સર ઓફર';
+              collected.push({
+                id: `${ad.id}-${num}`,
+                image: img.trim(),
+                link: link && typeof link === 'string' && link.trim() !== '' ? link.trim() : '#',
+                titleGu: adTitle,
+                titleEn: adTitle,
+                titleHi: adTitle,
+                sourceGu: ad.section ? `${ad.section} | પ્રાયોજિત` : 'પ્રાયોજિત',
+                sourceEn: ad.section ? `${ad.section} | Sponsored` : 'Sponsored',
+                sourceHi: ad.section ? `${ad.section} | प्रायोजित` : 'प्रायोजित',
+                buttonGu: 'હવે જુઓ',
+                buttonEn: 'View Now',
+                buttonHi: 'अभी देखें',
+              });
+            }
           });
-          fallbackIdx++;
+        });
+
+        if (collected.length > 0) {
+          const finalPool = [...collected];
+          let fillIdx = 0;
+          while (finalPool.length % 7 !== 0) {
+            finalPool.push({
+              ...collected[fillIdx % collected.length],
+              id: `dyn-repeat-${finalPool.length}`,
+            });
+            fillIdx++;
+          }
+          setAdItems(finalPool);
         }
-        setAdItems(finalPool);
-      }
-    }).catch(() => {});
+      })
+      .catch(() => {});
   }, []);
 
   // Chunk items into 7 ads per section
@@ -181,12 +184,36 @@ export default function RandomAdsSection() {
 
   for (let i = 0; i < sectionsCount; i++) {
     const chunk = adItems.slice(i * 7, (i + 1) * 7);
-    // If last chunk has less than 7 items, pad it with fallbacks to keep the exact UI layout
     while (chunk.length < 7) {
       chunk.push(FALLBACK_RANDOM_ADS[chunk.length % FALLBACK_RANDOM_ADS.length]);
     }
     sections.push(chunk);
   }
+
+  const totalSections = Math.max(1, Math.ceil(adItems.length / 7));
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
+
+  // Trigger loading Section 2 when user reaches the bottom/end of Section 1 on scroll
+  useEffect(() => {
+    const el = triggerRef.current;
+    if (!el || visibleSectionsCount >= totalSections) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoadingNext) {
+          setIsLoadingNext(true);
+          setTimeout(() => {
+            setVisibleSectionsCount((prev) => Math.min(prev + 1, totalSections));
+            setIsLoadingNext(false);
+          }, 350);
+        }
+      },
+      { rootMargin: '120px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visibleSectionsCount, totalSections, isLoadingNext]);
 
   const getTitle = (item: RandomAdItem) => {
     if (language === 'hi') return item.titleHi || item.titleGu || item.titleEn;
@@ -214,7 +241,7 @@ export default function RandomAdsSection() {
 
   return (
     <section id="infinite-ads-section" className="mx-auto max-w-screen-xl px-2 sm:px-4 py-8 select-none">
-      {sections.map((secItems, secIdx) => {
+      {sections.slice(0, visibleSectionsCount).map((secItems, secIdx) => {
         const item1 = secItems[0];
         const item2 = secItems[1];
         const item3 = secItems[2];
@@ -490,19 +517,28 @@ export default function RandomAdsSection() {
             </div>
 
             {/* Bottom Separator / More Sponsored Links Divider */}
-            {secIdx < sections.length - 1 && (
+            {secIdx < visibleSectionsCount - 1 && (
               <div className="relative flex items-center justify-center pt-6 pb-2">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-border/80" />
                 </div>
-                <span className="relative bg-background px-4 text-[12px] md:text-[13px] font-extrabold text-muted-foreground hover:text-[#B3121B] transition-colors select-none cursor-pointer border border-border/80 rounded-full py-1">
-                  {language === 'gu' ? 'વધુ પ્રાયોજિત લિંક્સ' : language === 'hi' ? 'अधिक प्रायोजित लिंक्स' : 'More Sponsored Links'}
+                <span className="relative bg-background px-4 text-[12px] md:text-[13px] font-extrabold text-muted-foreground select-none border border-border/80 rounded-full py-1">
+                  {language === 'gu' ? 'પ્રાયોજિત લિંક્સ' : language === 'hi' ? 'प्रायोजित लिंक्स' : 'Sponsored Links'}
                 </span>
               </div>
             )}
           </div>
         );
       })}
+
+      {/* Sensor Target & Loading Text matching live site screenshot */}
+      {visibleSectionsCount < sections.length && (
+        <div ref={triggerRef} className="py-6 text-center select-none">
+          <p className="text-slate-400 dark:text-slate-500 text-[13.5px] md:text-[14.5px] font-bold tracking-wide">
+            {language === 'gu' ? 'વધુ લોડ થઈ રહ્યું છે...' : language === 'hi' ? 'और लोड हो रहा है...' : 'Loading more...'}
+          </p>
+        </div>
+      )}
     </section>
   );
 }

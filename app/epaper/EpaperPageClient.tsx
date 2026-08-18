@@ -499,10 +499,10 @@ export default function EpaperPageClient() {
                           >
                             {/* Newspaper front page — portrait aspect */}
                             <div className="relative w-full overflow-hidden bg-slate-100 dark:bg-zinc-950" style={{ aspectRatio: '3/4' }}>
-                              {isImageUrl(edition.fileUrl) ? (
-                                <img src={edition.fileUrl} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
-                              ) : isImageUrl(edition.thumbnailUrl) ? (
+                              {isImageUrl(edition.thumbnailUrl) ? (
                                 <img src={edition.thumbnailUrl} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
+                              ) : isImageUrl(edition.fileUrl) ? (
+                                <img src={edition.fileUrl} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
                               ) : edition.fileUrl && edition.fileUrl.includes('res.cloudinary.com') ? (
                                 <img src={edition.fileUrl.replace(/\.pdf$/i, '.jpg')} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
                               ) : edition.fileUrl && (isPdfUrl(edition.fileUrl) || edition.fileUrl.includes('/uploads/')) ? (
@@ -557,32 +557,6 @@ export default function EpaperPageClient() {
                   {formatDateDisplay(activeReaderEdition.date)} • {activeReaderEdition.pages || 24} {getLocalized(language, { en: 'Pages', gu: 'પેજ', hi: 'पेज' })}
                 </p>
               </div>
-            </div>
-
-            {/* Center: Zoom */}
-            <div className="hidden sm:flex items-center gap-1 bg-slate-800 rounded-lg p-1 border border-slate-700">
-              <button
-                onClick={() => setZoomLevel((z) => Math.max(50, z - 25))}
-                className="p-1.5 hover:bg-slate-700 rounded-md text-slate-300 transition"
-                title="Zoom Out"
-              >
-                <ZoomOut className="h-4 w-4" />
-              </button>
-              <span className="text-xs font-mono font-bold px-2 text-slate-200 min-w-[3rem] text-center">{zoomLevel}%</span>
-              <button
-                onClick={() => setZoomLevel((z) => Math.min(200, z + 25))}
-                className="p-1.5 hover:bg-slate-700 rounded-md text-slate-300 transition"
-                title="Zoom In"
-              >
-                <ZoomIn className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(100)}
-                className="px-2 py-1 text-[10px] font-bold text-slate-400 hover:text-white transition"
-                title="Reset Zoom"
-              >
-                Reset
-              </button>
             </div>
 
             {/* Right: Download + Close */}

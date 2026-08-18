@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+html.modal-open, body.modal-open {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+/* Remove default browser window scrollbars completely */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
 @custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *, [data-theme="dark"] *));
 
 :root {

@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Mail, Lock, Eye, EyeOff, Loader2, Newspaper, ArrowRight, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Mail, Lock, Eye, EyeOff, Loader2, Newspaper, ArrowRight, AlertCircle, ArrowLeft } from 'lucide-react';
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +20,14 @@ function LoginForm() {
 
   // Read "from" url parameter to know where to redirect after successful login
   const redirectPath = searchParams.get('from') || '/admin';
+
+  // Read "email" query parameter to prefill email if redirected from user modal
+  useEffect(() => {
+    const emailParam = searchParams.get('email');
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +85,7 @@ function LoginForm() {
       
       {/* Brand Header */}
       <div className="mb-8 text-center">
-        <div className="relative mx-auto mb-4 h-16 w-44">
+        <div className="relative mx-auto mb-3 h-10 w-32">
           <Image
             src="/assets/gujarat-post-logo-chip.png"
             alt="Gujarat Post"
@@ -173,7 +182,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
+          className="relative flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 py-3 text-sm font-semibold text-white transition-all hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-900/30 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 cursor-pointer"
         >
           {loading ? (
             <>
@@ -187,6 +196,17 @@ function LoginForm() {
             </>
           )}
         </button>
+
+        {/* Back to Website Link */}
+        <div className="mt-6 pt-4 border-t border-zinc-200/80 dark:border-zinc-800 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition group"
+          >
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1 text-red-600" />
+            <span>Back to Website</span>
+          </Link>
+        </div>
       </form>
     </div>
   );
@@ -196,6 +216,15 @@ export default function LoginPage() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-50 via-zinc-100 to-zinc-200 px-4 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-850">
       
+      {/* Top Left Floating Back to Website Button */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 z-20 inline-flex items-center gap-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 px-4 py-2 text-xs font-bold text-zinc-800 dark:text-zinc-200 shadow-md backdrop-blur-md hover:bg-white dark:hover:bg-zinc-800 hover:text-red-600 dark:hover:text-red-400 transition active:scale-95"
+      >
+        <ArrowLeft className="h-4 w-4 text-red-600" />
+        <span>Back to Website</span>
+      </Link>
+
       {/* Background ambient lighting effects */}
       <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-red-500/10 blur-[120px] dark:bg-red-500/5" />
       <div className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-amber-500/10 blur-[120px] dark:bg-amber-500/5" />

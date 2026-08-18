@@ -5,6 +5,7 @@ import Header from './Header';
 import BreakingTicker from './BreakingTicker';
 import Footer from './Footer';
 import SplashLoader from '@/components/ui/SplashLoader';
+import TajSamacharDrawer from '@/components/ui/TajSamacharDrawer';
 
 interface Props {
   children: React.ReactNode;
@@ -30,6 +31,7 @@ export default function MainLayoutWrapper({ children }: Props) {
       <BreakingTicker />
       <main>{children}</main>
       <Footer />
+      <TajSamacharDrawer />
     </>
   );
 }

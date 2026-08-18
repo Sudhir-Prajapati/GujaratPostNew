@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -362,32 +362,54 @@ export default function HeroSection({
     return pool;
   };
 
+  // Helper to ensure an article is published before featuring in public feeds
+  const isPublicArticle = (a: any): boolean => {
+    if (!a) return false;
+    if (a.status === 'DRAFT' || a.status === 'ARCHIVED' || a.status === 'IN_REVIEW') return false;
+    if (a.isPublished === false) return false;
+    return true;
+  };
+
+  const publishedInitialArticles = (initialArticles || []).filter(isPublicArticle);
+
+  // Helper to compute heroPool identically for both initial SSR state and client useEffect
+  const computeHeroPoolList = (arts: Article[], heroSettingsData: any) => {
+    const pubArts = (arts || []).filter(isPublicArticle);
+    const slots: Article[] = (heroSettingsData?.slots || []).filter(isPublicArticle);
+    const slotIds = new Set(slots.map((a: Article) => a.id));
+
+    const customGridArts: Article[] = (heroSettingsData?.heroGridArticles || []).filter(isPublicArticle);
+    const featuredArts = pubArts.filter((a: Article) => a.isFeatured);
+
+    const autoPool = pubArts
+      .filter((a: Article) => !slotIds.has(a.id))
+      .sort((a: Article, b: Article) => {
+        const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+        const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+        const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
+        const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
+        if (bScore !== aScore) return bScore - aScore;
+        return bTime - aTime;
+      });
+
+    const uniqueList = [...featuredArts, ...customGridArts].filter(
+      (art, idx, arr) => art && arr.findIndex((x) => x?.id === art.id) === idx
+    );
+
+    return fillPool(uniqueList, autoPool, 16);
+  };
+
   // Pre-calculate initial hero slots & grid from initialHeroSettings
-  const initialSlots: Article[] = (initialHeroSettings?.slots || []).filter(Boolean);
-  const initialFeaturedIds = new Set(initialSlots.map((a: Article) => a.id));
+  const initialSlots: Article[] = (initialHeroSettings?.slots || []).filter(isPublicArticle);
+  const initFeatured = publishedInitialArticles.filter((a) => a.isFeatured);
+  const initTrending = publishedInitialArticles.filter((a) => a.isTrending);
 
-  const initFeatured = initialArticles.filter((a) => a.isFeatured);
-  const initTrending = initialArticles.filter((a) => a.isTrending);
+  const initialHeroPool = computeHeroPoolList(initialArticles, initialHeroSettings);
 
-  const initialCustomGridArts: Article[] = (initialHeroSettings?.heroGridArticles || []).filter(Boolean);
-  const initialAutoHeroPool = initialArticles
-    .filter((a: Article) => !initialFeaturedIds.has(a.id))
-    .sort((a: Article, b: Article) => {
-      const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
-      const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
-      const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
-      const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
-      if (bScore !== aScore) return bScore - aScore;
-      return bTime - aTime;
-    });
-
-  const initialUniqueHeroList = [...initFeatured, ...initialCustomGridArts].filter((art, idx, arr) => art && arr.findIndex((x) => x.id === art.id) === idx);
-  const initialHeroPool = fillPool(initialUniqueHeroList, initialAutoHeroPool, 16);
-
-  const initialCustomPopularArts: Article[] = (initialHeroSettings?.popularNewsArticles || []).filter(Boolean);
-  const initialCustomMostReadArts: Article[] = (initialHeroSettings?.mostReadArticles || []).filter(Boolean);
-  const initialPopularPool = fillPool([...initTrending, ...initialCustomPopularArts], initialArticles, 10);
-  const initialMostReadPool = initialCustomMostReadArts.length > 0 ? initialCustomMostReadArts : initialArticles.slice(0, 5);
+  const initialCustomPopularArts: Article[] = (initialHeroSettings?.popularNewsArticles || []).filter(isPublicArticle);
+  const initialCustomMostReadArts: Article[] = (initialHeroSettings?.mostReadArticles || []).filter(isPublicArticle);
+  const initialPopularPool = fillPool([...initTrending, ...initialCustomPopularArts], publishedInitialArticles, 10);
+  const initialMostReadPool = initialCustomMostReadArts.length > 0 ? initialCustomMostReadArts : publishedInitialArticles.slice(0, 5);
 
   const initialCategoriesDB = Array.isArray(initialCategories)
     ? initialCategories.filter((c) => c.showInHome !== false && c.isActive !== false).sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
@@ -395,17 +417,17 @@ export default function HeroSection({
   const initialCategorySlugs = initialCategoriesDB.map((c) => c.slug?.toLowerCase()).filter(Boolean);
 
   // DB-backed article state
-  const [topNews, setTopNews] = useState<Article[]>(initialArticles.slice(0, 6));
+  const [topNews, setTopNews] = useState<Article[]>(publishedInitialArticles.slice(0, 6));
   const [topStories, setTopStories] = useState<Article[]>(initialHeroPool);
   const [bottomFeatured, setBottomFeatured] = useState<Article[]>(initialSlots.length > 0 ? initialSlots : initFeatured.slice(0, 3));
   const [trendingArtDB, setTrendingArtDB] = useState<Article[]>(initialPopularPool);
   const [mostReadArtDB, setMostReadArtDB] = useState<Article[]>(initialMostReadPool);
-  const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
-  const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
-  const [nationalArtDB, setNationalArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
-  const [worldArtDB, setWorldArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
-  const [businessArtDB, setBusinessArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
-  const [sportsArtDB, setSportsArtDB] = useState<Article[]>(initialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
+  const [gujaratArtDB, setGujaratArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'gujarat' || a.category?.toLowerCase() === 'state').slice(0, 16));
+  const [crimeArtDB, setCrimeArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'crime').slice(0, 4));
+  const [nationalArtDB, setNationalArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'national' || a.category?.toLowerCase() === 'india').slice(0, 4));
+  const [worldArtDB, setWorldArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'world').slice(0, 4));
+  const [businessArtDB, setBusinessArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'business').slice(0, 4));
+  const [sportsArtDB, setSportsArtDB] = useState<Article[]>(publishedInitialArticles.filter((a) => a.category?.toLowerCase() === 'sports').slice(0, 7));
   const [dynamicTrendingTopics, setDynamicTrendingTopics] = useState<string[]>(initialHeroSettings?.trendingTopics || initialHeroSettings?.setting?.trendingTopics || []);
   const [marketRates, setMarketRates] = useState<any>({
     gold: { price: '₹74,850', change: '▲ ₹450', purity: '24 Karat', unit: '10 Grams' },
@@ -460,30 +482,14 @@ export default function HeroSection({
       if (slotsArticles.length > 0) {
         setBottomFeatured(slotsArticles);
       }
-      const featuredIds = new Set(slotsArticles.map((a: Article) => a.id));
 
       // Main pool — powers main hero, right 2, text articles
-      // Exclude the bottom-featured articles so they don't also appear in main hero/right side
       if (mainRes && mainRes.articles && mainRes.articles.length > 0) {
         const arts: Article[] = mainRes.articles;
         setArticlesList(arts);
         setTopNews(arts.filter((a) => a.isBreaking || a.isFeatured).concat(arts).filter((a, idx, arr) => arr.findIndex((x) => x.id === a.id) === idx).slice(0, 6));
-        // Filter out the 3 admin-selected bottom-row articles from the main hero pool
-        // Prioritize FEATURED COVERAGE (isFeatured) articles for main hero spotlight
-        const customGridArts: Article[] = (heroRes?.heroGridArticles || []).filter(Boolean);
-        const featuredArts = arts.filter((a: Article) => a.isFeatured);
-        const autoHeroPool = arts
-          .filter((a: Article) => !featuredIds.has(a.id))
-          .sort((a: Article, b: Article) => {
-            const aTime = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
-            const bTime = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
-            const aScore = (a.isFeatured ? 10 : 0) + (a.isBreaking ? 5 : 0) + (a.isTrending ? 5 : 0);
-            const bScore = (b.isFeatured ? 10 : 0) + (b.isBreaking ? 5 : 0) + (b.isTrending ? 5 : 0);
-            if (bScore !== aScore) return bScore - aScore;
-            return bTime - aTime;
-          });
-        const uniqueHeroList = [...featuredArts, ...customGridArts].filter((art, idx, arr) => art && arr.findIndex((x) => x?.id === art.id) === idx);
-        const heroPool = fillPool(uniqueHeroList, autoHeroPool, 16);
+
+        const heroPool = computeHeroPoolList(arts, heroRes);
         setTopStories(heroPool);
         const customPopularArts: Article[] = (heroRes?.popularNewsArticles || []).filter(Boolean);
         const customMostReadArts: Article[] = (heroRes?.mostReadArticles || []).filter(Boolean);
@@ -504,14 +510,14 @@ export default function HeroSection({
         setVideosList(videoRes);
       }
     })
-    .catch(() => {})
-    .finally(() => {
-      if (typeof window !== 'undefined') {
-        (window as any).__gpDataReady = true;
-        window.dispatchEvent(new CustomEvent('gp-data-ready'));
-      }
-      setIsInitialLoading(false);
-    });
+      .catch(() => { })
+      .finally(() => {
+        if (typeof window !== 'undefined') {
+          (window as any).__gpDataReady = true;
+          window.dispatchEvent(new CustomEvent('gp-data-ready'));
+        }
+        setIsInitialLoading(false);
+      });
 
     const safetyTimer = setTimeout(() => {
       if (typeof window !== 'undefined') {
@@ -538,6 +544,145 @@ export default function HeroSection({
     }, 4000); // 2 seconds rotation
     return () => clearInterval(interval);
   }, [sidebarVideos.length]);
+
+  const isCategoryVisible = (slug: string) => {
+    if (!allCategoriesDB || !Array.isArray(allCategoriesDB) || allCategoriesDB.length === 0) {
+      return true;
+    }
+    const cat = allCategoriesDB.find((c) => (c.slug || '').toLowerCase() === slug.toLowerCase());
+    if (!cat) return true;
+    return cat.isActive !== false && cat.showInHome !== false;
+  };
+
+  const activeOrderedCategories = useMemo(() => {
+    if (!allCategoriesDB || !Array.isArray(allCategoriesDB) || allCategoriesDB.length === 0) {
+      return ['gujarat', 'national', 'trending', 'latest-news', 'instagram', 'world', 'politics', 'webstory', 'crime', 'entertainment', 'fact-check', 'photos', 'weather', 'shorts', 'live-center'];
+    }
+
+    const homeCats = [...allCategoriesDB].filter(c => c.isActive !== false && c.showInHome !== false);
+    homeCats.sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
+
+    return homeCats;
+  }, [allCategoriesDB]);
+
+  const sectionMap: Record<string, React.ReactNode> = {
+    gujarat: <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />,
+    national: <NationalSection key="national" language={language} />,
+    trending: (
+      <Fragment key="trending-frag">
+        <TrendingSection key="trending" />
+        <AdSectionBanner section="AFTER_TRENDING" />
+      </Fragment>
+    ),
+    'latest-news': (
+      <LatestUpdatesSection
+        key="latest-news"
+        view="all"
+        initialArticles={articlesList}
+        initialPopularNews={initialHeroSettings?.popularNewsArticles || (initialHeroSettings as any)?.setting?.popularNewsArticles}
+      />
+    ),
+    instagram: <InstagramStories key="instagram" />,
+    world: <WorldSection key="world" language={language} />,
+    politics: <PoliticsSection key="politics" language={language} />,
+    webstory: (
+      <Fragment key="webstory-frag">
+        <WebStoriesSection key="webstory" />
+        <AdSectionBanner section="AFTER_WEBSTORIES" />
+      </Fragment>
+    ),
+    crime: (
+      <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
+          <div className="flex flex-col gap-10 min-w-0">
+            <CrimeSection language={language} view="content" />
+          </div>
+          <div className="flex flex-col gap-6 sticky top-20 select-none">
+            <div>
+              <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
+                <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
+                <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
+                  {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
+                </h3>
+              </div>
+
+              <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
+                      🏅
+                    </div>
+                    <div>
+                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                        {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
+                      </h4>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                        {language === 'gu' ? '24 Karat' : '24 Karat'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                      {marketRates?.gold?.price || '₹74,850'}
+                    </p>
+                    <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
+                      {marketRates?.gold?.change || '▲ ₹450'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40" />
+
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
+                      🥈
+                    </div>
+                    <div>
+                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
+                        {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
+                      </h4>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
+                        {language === 'gu' ? 'Per Kg' : 'Per Kg'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
+                      {marketRates?.silver?.price || '₹84,200'}
+                    </p>
+                    <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
+                      {marketRates?.silver?.change || '— Stable'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <CrimeSection language={language} view="sidebar" />
+          </div>
+        </div>
+      </section>
+    ),
+    entertainment: <EntertainTechLifeSection key="entertainment" language={language} />,
+    technology: null,
+    health: null,
+    'fact-check': <FactCheckSection key="fact-check" language={language} />,
+    photos: (
+      <Fragment key="photos-frag">
+        <PhotoGallerySection language={language} />
+        <AdSectionBanner section="AFTER_GALLERY" />
+      </Fragment>
+    ),
+    weather: <WeatherDashboardSection key="weather" language={language} />,
+    shorts: (
+      <Fragment key="shorts-frag">
+        <VideoDesk videos={(videosList.length > 0 ? videosList : initialVideos || []).slice(0, 7)} language={language} onlyShorts={true} />
+        <AdSectionBanner section="AFTER_VIDEOS" />
+      </Fragment>
+    ),
+    'live-center': <LiveCenterSection key="live-center" language={language} />,
+  };
 
   const currentSidebarVideo = sidebarVideos[activeSidebarVideoIndex] || {
     youtubeId: 'A_5vL-ngK4M',
@@ -661,7 +806,7 @@ export default function HeroSection({
                     </span>
                   </div>
                   {/* Headline */}
-                  <h1 className="text-foreground font-extrabold text-[22px] md:text-[24px] leading-[1.22] tracking-tight mt-1.5 group-hover:text-accent transition-colors line-clamp-4">
+                  <h1 className="text-foreground font-extrabold text-[22px] md:text-[24px] leading-[1.22] tracking-tight mt-1.5 group-hover:text-accent transition-colors line-clamp-2">
                     {getArticleTitle(uniqueTopStories[0], language)}
                   </h1>
                   {/* Excerpt */}
@@ -759,54 +904,65 @@ export default function HeroSection({
             </div>
           </div> {/* Close Top Row grid */}
 
-          {/* Bottom Row: Three admin-selected featured image articles */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/80 pt-4">
-            {[0, 1, 2].map((idx) => {
-              const art = bottomFeatured[idx];
-              if (!art) return null;
-              return (
-                <Link
-                  key={art.id || idx}
-                  href={`/news/${art.slug}`}
-                  className="group flex flex-col min-w-0"
-                >
-                  <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                    <ArticleMedia
-                      src={art.image || (art as any).featuredImage || getArticleImage(art)}
-                      alt={art.title || ''}
-                      className="transition-transform duration-300 group-hover:scale-105"
-                    />
-                  </div>
-                  <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
-                    {getCategoryLabel(art, language)}
-                  </span>
-                  <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
-                    {getArticleTitle(art, language)}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
-                    <span>
-                      {language === 'gu'
-                        ? (art.relativeTimeGu || formatDate(art.publishedAt, 'gu'))
-                        : language === 'hi'
-                          ? (art.relativeTimeHi || formatDate(art.publishedAt, 'hi'))
-                          : (art.relativeTime || formatDate(art.publishedAt, 'en'))}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                      <span>
-                        {language === 'gu'
-                          ? (art.readingTime ? `${art.readingTime} મિનિટ વાંચન` : '૪ મિનિટ વાંચન')
-                          : language === 'hi'
-                            ? (art.readingTime ? `${art.readingTime} मिनट पठन` : '4 मिनट पठन')
-                            : (art.readingTime ? `${art.readingTime} min read` : '4 min read')}
+          {/* Bottom Row: Three image cards (#14, #15, #16 articles in sequence right after the top 13, or Admin custom picks) */}
+          {(() => {
+            const card14 = bottomFeatured[0] || uniqueTopStories[13] || articlesList[13];
+            const card15 = bottomFeatured[1] || uniqueTopStories[14] || articlesList[14];
+            const card16 = bottomFeatured[2] || uniqueTopStories[15] || articlesList[15];
+
+            const cards = [card14, card15, card16].filter(Boolean);
+
+            if (cards.length === 0) return null;
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t border-border/80 pt-4">
+                {cards.slice(0, 3).map((art, idx) => {
+                  if (!art) return null;
+                  return (
+                    <Link
+                      key={art.id || idx}
+                      href={`/news/${art.slug}`}
+                      className="group flex flex-col min-w-0"
+                    >
+                      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
+                        <ArticleMedia
+                          src={art.image || (art as any).featuredImage || getArticleImage(art)}
+                          alt={art.title || ''}
+                          className="transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1 select-none uppercase tracking-wide">
+                        {getCategoryLabel(art, language)}
                       </span>
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                      <h3 className="text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
+                        {getArticleTitle(art, language)}
+                      </h3>
+                      <div className="flex items-center gap-1.5 mt-2.5 text-[10.5px] text-muted-foreground font-semibold">
+                        <span>
+                          {language === 'gu'
+                            ? (art.relativeTimeGu || formatDate(art.publishedAt, 'gu'))
+                            : language === 'hi'
+                              ? (art.relativeTimeHi || formatDate(art.publishedAt, 'hi'))
+                              : (art.relativeTime || formatDate(art.publishedAt, 'en'))}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                          <span>
+                            {language === 'gu'
+                              ? (art.readingTime ? `${art.readingTime} મિનિટ વાંચન` : '૪ મિનિટ વાંચન')
+                              : language === 'hi'
+                                ? (art.readingTime ? `${art.readingTime} मिनट पठन` : '4 मिनट पठन')
+                                : (art.readingTime ? `${art.readingTime} min read` : '4 min read')}
+                          </span>
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
         </div> {/* Close Left Content Side */}
 
@@ -919,166 +1075,39 @@ export default function HeroSection({
 
       <AdSectionBanner section="AFTER_HERO" />
 
-      {/* 1. GUJARAT Section */}
-      <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />
-
-      {/* 2. DESH (National) Section */}
-      <NationalSection key="national" language={language} />
-
-      {/* 3. TRENDING Section */}
-      <TrendingSection key="trending" />
-      <AdSectionBanner section="AFTER_TRENDING" />
-
-      {/* 4. LATEST SAMACHAR (Latest Updates) Section */}
-      <LatestUpdatesSection view="all" />
-
-      {/* 5. LOKPRIYA (Popular Stories) Section */}
-      <PopularStoriesSection language={language} view="all" />
-
-      {/* 6. INSTA REEL (Instagram Stories) Section */}
-      <InstagramStories />
-
-      {/* 7. VISHW (World) Section */}
-      <WorldSection key="world" language={language} />
-
-      {/* 8. RAJAKARAN (Politics) Section */}
-      <PoliticsSection key="politics" language={language} />
-
-      {/* 9. WEBSTORY (Web Stories) Section */}
-      <WebStoriesSection />
-      <AdSectionBanner section="AFTER_WEBSTORIES" />
-
-      {/* 10. CRIME Section */}
-      <section key="crime" className="mx-auto max-w-screen-xl px-4 mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_336px] gap-8 items-start">
-          {/* Left Column */}
-          <div className="flex flex-col gap-10 min-w-0">
-            <CrimeSection language={language} view="content" />
-          </div>
-
-          {/* Right Column / Sidebar */}
-          <div className="flex flex-col gap-6 sticky top-20 select-none">
-            {/* Gold & Silver Rates Widget */}
-            <div>
-              <div className="flex items-end gap-1.5 h-[46px] border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6">
-                <span className="text-[#B3121B] text-[15px] font-extrabold leading-none pb-0.5">♦</span>
-                <h3 className="text-[15px] font-black text-foreground leading-none pb-0.5">
-                  {language === 'gu' ? 'સોના-ચાંદીના ભાવ' : 'Gold & Silver Rates'}
-                </h3>
-              </div>
-
-              <div className="border border-border/80 rounded-sm bg-card p-3.5 space-y-3.5 shadow-sm">
-                {/* Gold Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 font-extrabold select-none shadow-sm">
-                      🏅
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Gold (10 Grams)' : 'Gold (10 Grams)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? '24 Karat' : '24 Karat'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      {marketRates?.gold?.price || '₹74,850'}
-                    </p>
-                    <p className="text-[11px] font-bold text-emerald-600 flex items-center justify-end gap-0.5 mt-1 select-none">
-                      {marketRates?.gold?.change || '▲ ₹450'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-border/40" />
-
-                {/* Silver Rate Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40 text-slate-600 dark:text-slate-300 font-extrabold select-none shadow-sm">
-                      🥈
-                    </div>
-                    <div>
-                      <h4 className="text-[14px] text-foreground leading-tight" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 700 }}>
-                        {language === 'gu' ? 'Silver (1 Kg)' : 'Silver (1 Kg)'}
-                      </h4>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-0.5">
-                        {language === 'gu' ? 'Per Kg' : 'Per Kg'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[16px] text-foreground leading-none" style={{ fontFamily: "'Hind Vadodara', 'Noto Sans Gujarati', sans-serif", fontWeight: 800 }}>
-                      {marketRates?.silver?.price || '₹84,200'}
-                    </p>
-                    <p className="text-[11px] font-bold text-muted-foreground flex items-center justify-end gap-0.5 mt-1 select-none">
-                      {marketRates?.silver?.change || '— Stable'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Weather, WhatsApp, and Astrology */}
-            <CrimeSection language={language} view="sidebar" />
-          </div>
-        </div>
-      </section>
-
-      {/* 11. FACT CHECK Section */}
-      <FactCheckSection language={language} />
-
-      {/* 12. PHOTO GALLERY Section */}
-      <PhotoGallerySection language={language} />
-      <AdSectionBanner section="AFTER_GALLERY" />
-
-      {/* 13. SHORTS VIDEO Section */}
-      <VideoDesk videos={videos.slice(0, 7)} language={language} onlyShorts={true} />
-      <AdSectionBanner section="AFTER_VIDEOS" />
-
-      {/* 14. HAWAMAN (Weather Dashboard) Section */}
-      <WeatherDashboardSection language={language} />
-
-      {/* 15. Remaining sections kept as current */}
-      {allCategoriesDB
-        .filter((cat) => {
-          const s = (cat.slug || '').toLowerCase();
-          return !['gujarat', 'national', 'india', 'desh', 'world', 'vishw', 'politics', 'rajkaran', 'crime'].includes(s);
-        })
-        .map((cat) => (
-          <DynamicCategorySection key={cat.id || cat.slug} category={cat} language={language} />
-        ))}
-
-      <EntertainTechLifeSection language={language} />
-
-      <LiveCenterSection language={language} />
-
-
-      {/* Banner Ad Section */}
-      <div className="mx-auto max-w-screen-xl px-2 py-2 mt-4 select-none">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 md:p-6 bg-white border border-dashed border-[#c3c8cf] rounded-md shadow-sm">
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-6 text-center sm:text-left">
-            <span className="text-[#e02020] text-xs font-black uppercase tracking-wider whitespace-nowrap">
-              GROW WITH GUJARAT POST
-            </span>
-            <span className="text-[#1a1a1a] text-sm sm:text-base font-extrabold">
-              {language === 'gu' ? 'તમારી બ્રાન્ડ ગુજરાત સુધી પહોંચાડો.' : 'Put your brand in front of Gujarat.'}
-            </span>
-          </div>
-          <Link
-            href="/advertise"
-            className="flex items-center gap-1 bg-[#1a1a1a] hover:bg-[#333] text-white text-xs font-black px-4 py-2.5 rounded-sm transition-all"
-          >
-            {language === 'gu' ? 'જાહેરાત આપો' : 'Advertise now'} ↗
-          </Link>
-        </div>
+      {/* 1. TOP VIDEO SECTION (Screenshot 1: Video Playlist under Hero) */}
+      <div className="mx-auto max-w-screen-xl px-2 my-6">
+        <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
-      {/* Newsletter Section */}
+      {/* Dynamic Render of Homepage Sections ordered by DB displayOrder */}
+      {activeOrderedCategories.map((item, idx) => {
+        const slug = (typeof item === 'string' ? item : item.slug || '').toLowerCase();
+
+        // Skip standalone rendering for health & technology as they are already combined inside 3-column EntertainTechLifeSection (entertainment)
+        if (slug === 'health' || slug === 'technology' || slug === 'manoranjan') {
+          return null;
+        }
+
+        const categoryObj = typeof item === 'string' ? allCategoriesDB?.find(c => (c.slug || '').toLowerCase() === slug) : item;
+        const hasCustomNode = Object.prototype.hasOwnProperty.call(sectionMap, slug);
+        const node = sectionMap[slug];
+
+        return (
+          <Fragment key={slug || idx}>
+            {hasCustomNode ? (
+              node
+            ) : (
+              <DynamicCategorySection
+                category={categoryObj || slug}
+                language={language}
+              />
+            )}
+          </Fragment>
+        );
+      })}
+
+      {/* 17. NEWSLETTER SECTION (Screenshot 5) */}
       <div className="mx-auto max-w-screen-xl px-2 py-2 mb-6 select-none">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-6 p-6 md:p-8 bg-[#140e0c] text-white rounded-xl shadow-md border border-white/5">
           <div className="flex flex-col gap-2 max-w-xl text-center lg:text-left">
@@ -1114,12 +1143,12 @@ export default function HeroSection({
         </div>
       </div>
 
-      {/* YouTube Video Section Before Footer */}
+      {/* 18. LOWER VIDEO SECTION (Screenshot 5) */}
       <div className="mx-auto max-w-screen-xl px-2 my-6">
         <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
-      {/* Native Random Sponsored Ads Section (7-Ad Grid Layout) */}
+      {/* 19. NATIVE SPONSORED ADS SECTION */}
       <RandomAdsSection />
     </div>
   );
@@ -1688,15 +1717,15 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
   const displayVideos = !showShorts
     ? sourcePool.filter(v => v.type === 'video' || !v.type)
     : onlyShorts
-    ? sourcePool.filter(v => v.type === 'short')
-    : sourcePool;
+      ? sourcePool.filter(v => v.type === 'short')
+      : sourcePool;
 
 
   if (!displayVideos.length) return null;
 
   const featuredVideo = displayVideos[featuredIndex % displayVideos.length];
   // Filter out current featured video from sidebar list to avoid duplication
-  const sidebarVideos = displayVideos.filter((_, idx) => idx !== (featuredIndex % displayVideos.length)).slice(0, 8);
+  const sidebarVideos = displayVideos.filter((_, idx) => idx !== (featuredIndex % displayVideos.length)).slice(0, 15);
 
   const handleSidebarClick = (youtubeId: string, id: string) => {
     setPlayId(youtubeId);
@@ -2044,10 +2073,10 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
   return (
     <section className="mt-6">
       {/* ── Red Panel containing Videos ── */}
-      <div className="w-full bg-[#B3121B] text-white rounded-sm px-5 md:px-8 pt-6 pb-8 border border-white/10 relative overflow-hidden shadow-lg">
+      <div className="w-full bg-[#B3121B] text-white rounded-sm px-5 md:px-8 pt-5 pb-5 border border-white/10 relative overflow-hidden shadow-lg">
 
         {/* Header */}
-        <div className="relative z-10 flex items-center justify-between mb-6">
+        <div className="relative z-10 flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <span className="text-white font-black text-[18px] md:text-[20px] select-none tracking-tight">
               {language === 'gu' ? 'વીડિયો' : 'Videos'}
@@ -2062,7 +2091,7 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
         </div>
 
         {/* 2-Column Layout: Featured left, List right */}
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1.7fr_1fr] gap-6 items-start">
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1.7fr_1fr] gap-6 items-stretch">
 
           {/* Left: Featured Video */}
           <div
@@ -2110,13 +2139,13 @@ function VideoDesk({ videos, language, showShorts = true, onlyShorts = false }: 
           </div>
 
           {/* Right: Sidebar container */}
-          <div className="flex flex-col min-w-0">
+          <div className="flex flex-col h-full min-w-0">
             {/* Sidebar video list */}
             <div
               ref={sidebarRef}
               onMouseEnter={() => { sidebarPaused.current = true; }}
               onMouseLeave={() => { sidebarPaused.current = false; }}
-              className="flex flex-col divide-y divide-white/10 max-h-[382px] overflow-y-auto p-3 pr-2 scrollbar-hide bg-black/15 rounded-sm"
+              className="flex flex-col divide-y divide-white/10 h-full max-h-[450px] overflow-y-auto p-3 pr-2 scrollbar-hide bg-black/15 rounded-sm"
             >
               {sidebarVideos.map((v) => (
                 <div
@@ -2905,7 +2934,7 @@ function CityHyperlocalSection({
     }
 
     // Match strictly by Location, Category, Slug, or Title
-    return articles.filter((art) => {
+    const matched = articles.filter((art) => {
       const loc = ((art as any).location || '').toLowerCase();
       const cat = getCategoryStr(art);
       const catGu = ((art as any).categoryGu || '').toLowerCase();
@@ -2922,6 +2951,24 @@ function CityHyperlocalSection({
         title.includes(targetCity) ||
         titleGu.includes(tabGuKey)
       );
+    });
+
+    // Sort so articles with explicit Location or Category match come FIRST, ordered by latest date!
+    return matched.sort((a, b) => {
+      const locA = ((a as any).location || '').toLowerCase();
+      const locB = ((b as any).location || '').toLowerCase();
+      const catA = getCategoryStr(a);
+      const catB = getCategoryStr(b);
+
+      const exactLocA = locA === targetCity || locA.includes(targetCity) || catA.includes(targetCity);
+      const exactLocB = locB === targetCity || locB.includes(targetCity) || catB.includes(targetCity);
+
+      if (exactLocA && !exactLocB) return -1;
+      if (!exactLocA && exactLocB) return 1;
+
+      const timeA = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+      const timeB = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+      return timeB - timeA;
     });
   }, [articles]);
 
@@ -3126,11 +3173,9 @@ function CityHyperlocalSection({
                 {/* Image container */}
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted">
                   <Link href={`/news/${currentSlide.slug}`} className="block relative w-full h-full cursor-pointer">
-                    <Image
+                    <ArticleMedia
                       src={currentSlide.image}
                       alt={currentSlide.titleGu}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 40vw"
                       className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   </Link>
@@ -3219,11 +3264,9 @@ function CityHyperlocalSection({
                 >
                   {/* Small thumbnail on the left */}
                   <div className="relative h-[68px] w-[108px] shrink-0 overflow-hidden rounded-sm bg-muted border border-border/10">
-                    <Image
+                    <ArticleMedia
                       src={item.image}
                       alt={item.titleGu}
-                      fill
-                      sizes="108px"
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
@@ -3849,12 +3892,10 @@ function CrimeSection({
               className="group flex flex-col mb-2.5"
             >
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image
+                <ArticleMedia
                   src={col.featured.image}
                   alt={col.featured.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 25vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <h3 className="text-[13px] md:text-[13.5px] font-black leading-snug text-foreground group-hover:text-[#B3121B] transition-colors line-clamp-2">
@@ -3871,12 +3912,10 @@ function CrimeSection({
                 >
                   {/* Thumbnail photo on left */}
                   <div className="relative h-16 w-20 shrink-0 rounded-lg overflow-hidden border border-border/20 bg-muted">
-                    <Image
-                      src={sub.image || '/assets/demo/5.jpg'}
+                    <ArticleMedia
+                      src={sub.image}
                       alt={sub.title}
-                      fill
-                      sizes="80px"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
 
@@ -3981,11 +4020,10 @@ function CrimeSection({
                 <div
                   key={sign.id}
                   onClick={() => setSelectedZodiac(sign)}
-                  className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg border transition-all duration-200 cursor-pointer select-none text-center overflow-hidden ${
-                    isSelected
+                  className={`relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg border transition-all duration-200 cursor-pointer select-none text-center overflow-hidden ${isSelected
                       ? 'bg-[#FFF8F0] dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/60 shadow-xs'
                       : 'bg-background hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-border/60 hover:border-amber-300/60'
-                  }`}
+                    }`}
                 >
                   {/* SVG Illustration Icon */}
                   <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center mb-1 select-none">
@@ -3993,16 +4031,14 @@ function CrimeSection({
                   </div>
 
                   {/* Gujarati Name */}
-                  <span className={`text-[12px] sm:text-[12.5px] font-black leading-tight select-none ${
-                    isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
-                  }`}>
+                  <span className={`text-[12px] sm:text-[12.5px] font-black leading-tight select-none ${isSelected ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'
+                    }`}>
                     {primaryName}
                   </span>
 
                   {/* Gujarati Initial Letters (અ, લ, ઈ) */}
-                  <span className={`text-[9.5px] sm:text-[10px] font-semibold leading-tight select-none mt-0.5 ${
-                    isSelected ? 'text-amber-600 dark:text-amber-300 font-bold' : 'text-muted-foreground'
-                  }`}>
+                  <span className={`text-[9.5px] sm:text-[10px] font-semibold leading-tight select-none mt-0.5 ${isSelected ? 'text-amber-600 dark:text-amber-300 font-bold' : 'text-muted-foreground'
+                    }`}>
                     {subName}
                   </span>
                 </div>
@@ -5500,12 +5536,10 @@ export function PoliticsSection({ language }: { language: Language }) {
                 className="group flex flex-col mb-2.5"
               >
                 <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                  <Image
-                    src={card.image || ''}
+                  <ArticleMedia
+                    src={card.image}
                     alt={card.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 25vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
                 <span className="text-[#B3121B] font-extrabold text-[12px] md:text-[13px] mb-1.5 select-none uppercase">
@@ -5535,12 +5569,10 @@ export function PoliticsSection({ language }: { language: Language }) {
               className="group flex flex-col"
             >
               <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm border border-border/10 bg-muted mb-2.5">
-                <Image
+                <ArticleMedia
                   src={card.image}
                   alt={card.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 20vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <span className="text-[#B3121B] font-extrabold text-[11px] mb-1.5 select-none uppercase leading-none">
@@ -6602,7 +6634,7 @@ export function LiveCenterSection({ language }: { language: Language }) {
           setUsdRate({ rate: inrVal, change: '-0.12' });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Periodic live simulation timer for market and sports ticks every 15s
     const timer = setInterval(() => {
@@ -6948,7 +6980,7 @@ function WeatherDashboardSection({ language }: { language: Language }) {
                 };
               }
             }
-          } catch {}
+          } catch { }
 
           try {
             const aRes = await fetch(
@@ -6969,7 +7001,7 @@ function WeatherDashboardSection({ language }: { language: Language }) {
                 };
               }
             }
-          } catch {}
+          } catch { }
         })
       );
 
@@ -7188,120 +7220,244 @@ function WeatherDashboardSection({ language }: { language: Language }) {
   );
 }
 
+const CATEGORY_SYNONYMS: Record<string, string[]> = {
+  varsad: ['varsad', 'weather', 'rain', 'વરસાદ', 'હવામાન'],
+  weather: ['weather', 'varsad', 'rain', 'વરસાદ', 'હવામાન'],
+  rajkaran: ['rajkaran', 'politics', 'રાજકારણ'],
+  politics: ['politics', 'rajkaran', 'રાજકારણ'],
+  sports: ['sports', 'ramat-jagat', 'રમત-જગત', 'રમતગમત'],
+  business: ['business', 'vepar', 'વેપાર'],
+  education: ['education', 'shikshan', 'શિક્ષણ'],
+  lifestyle: ['lifestyle', 'લાઇફસ્ટાઇલ'],
+  election: ['election', 'election-2027', 'ચૂંટણી'],
+  'gold-silver': ['gold-silver', 'gold', 'silver', 'સોના-ચાંદી'],
+  health: ['health', 'helth', 'હેલ્થ', 'આરોગ્ય'],
+  entertainment: ['entertainment', 'manoranjan', 'મનોરંજન'],
+  technology: ['technology', 'tech', 'ટેકનોલોજી'],
+};
+
 /* ─── Dynamic Generic Category Section ─────────────────────────────────── */
 export function DynamicCategorySection({ category, language }: { category: any; language: Language }) {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!category?.slug) return;
-    getPublicArticles({ categorySlug: category.slug, limit: 5 })
-      .then((res) => {
-        if (res && res.articles) {
-          setArticles(res.articles);
-        }
-      })
-      .catch((e) => console.warn(`Error loading articles for category ${category.slug}:`, e))
-      .finally(() => setLoading(false));
-  }, [category?.slug]);
+  const catSlug = typeof category === 'string' ? category : (category?.slug || '');
 
-  if (!loading && articles.length === 0) {
-    return null; // Don't render empty category sections
+  useEffect(() => {
+    if (!catSlug) return;
+    setLoading(true);
+
+    const slugLower = catSlug.toLowerCase().trim();
+    const synonyms = CATEGORY_SYNONYMS[slugLower] || [slugLower];
+
+    Promise.all([
+      getPublicArticles({ categorySlug: catSlug, limit: 20 }),
+      synonyms.length > 1 ? getPublicArticles({ limit: 40 }) : Promise.resolve({ articles: [] })
+    ]).then(([res1, res2]) => {
+      const combined = [...(res1?.articles || []), ...(res2?.articles || [])];
+      const uniqueMap = new Map();
+      combined.forEach(a => { if (a && a.id) uniqueMap.set(a.id, a); });
+      const allFetched = Array.from(uniqueMap.values());
+
+      const targetSlug = slugLower;
+      const targetName = (typeof category === 'object' ? (category?.name || '') : catSlug).toLowerCase().trim();
+      const targetGu = (typeof category === 'object' ? (category?.nameGu || '') : catSlug).toLowerCase().trim();
+      const searchTerms = Array.from(new Set([targetSlug, targetName, targetGu, ...synonyms.map(s => s.toLowerCase())])).filter(Boolean);
+
+      const categoryFiltered = allFetched.filter((art: any) => {
+        const artCatSlug = (art.category?.slug || art.categorySlug || '').toLowerCase().trim();
+        const artCatName = (art.category?.name || art.categoryName || '').toLowerCase().trim();
+        const artCatNameGu = (art.category?.nameGu || '').toLowerCase().trim();
+        const artCatId = art.category?.id || art.categoryId;
+
+        const artTitle = (art.title || '').toLowerCase();
+        const artTitleGu = (art.titleGu || '').toLowerCase();
+        const artExcerptGu = (art.excerptGu || art.excerpt || '').toLowerCase();
+
+        return searchTerms.some(term => {
+          if (!term || term.length < 2) return false;
+          return (
+            artCatSlug === term ||
+            artCatName === term ||
+            artCatNameGu === term ||
+            (category?.id && artCatId === category.id) ||
+            (term.length >= 3 && (artTitle.includes(term) || artTitleGu.includes(term) || artExcerptGu.includes(term)))
+          );
+        });
+      });
+
+      // Sort explicitly by publishedAt / createdAt descending (MOST RECENTLY UPLOADED ARTICLE FIRST)
+      const sorted = [...categoryFiltered].sort((a, b) => {
+        const timeA = new Date(a.publishedAt || (a as any).createdAt || 0).getTime();
+        const timeB = new Date(b.publishedAt || (b as any).createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      setArticles(sorted);
+    }).catch((e) => console.warn(`Error loading articles for category ${catSlug}:`, e))
+      .finally(() => setLoading(false));
+  }, [catSlug, category]);
+
+  const catNameGu = typeof category === 'object' ? (category?.nameGu || category?.name || catSlug) : catSlug;
+  const catNameHi = typeof category === 'object' ? (category?.nameHi || category?.name || catSlug) : catSlug;
+  const catNameEn = typeof category === 'object' ? (category?.name || catSlug) : catSlug;
+
+  const categoryTitle = language === 'gu' ? catNameGu : (language === 'hi' ? catNameHi : catNameEn);
+
+  if (loading) {
+    return (
+      <section className="mx-auto max-w-screen-xl px-4 mt-10 animate-pulse">
+        <div className="h-8 w-48 rounded bg-muted/60 mb-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-7 h-64 rounded-xl bg-muted/30" />
+          <div className="lg:col-span-5 h-64 rounded-xl bg-muted/30" />
+        </div>
+      </section>
+    );
   }
 
-  const categoryTitle = language === 'gu'
-    ? (category.nameGu || category.name)
-    : language === 'hi'
-      ? (category.nameHi || category.name)
-      : category.name;
+  if (articles.length === 0) {
+    return (
+      <section className="mx-auto max-w-screen-xl px-4 mt-10">
+        <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2 mb-4 select-none">
+          <span className="bg-[#B3121B] text-white px-5 py-2 text-[16px] md:text-[18px] font-black rounded-lg leading-none tracking-tight">
+            {categoryTitle}
+          </span>
+          <Link
+            href={`/category/${catSlug}`}
+            className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
+          >
+            {language === 'gu' ? 'બધા જુઓ →' : 'View All →'}
+          </Link>
+        </div>
+        <div className="p-8 rounded-xl border border-dashed border-border/80 text-center text-muted-foreground bg-muted/10">
+          <p className="text-sm font-extrabold">
+            {language === 'gu'
+              ? `"${categoryTitle}" કેટેગરીમાં ટૂંક સમયમાં નવા સમાચાર મૂકવામાં આવશે`
+              : `Latest articles for "${categoryTitle}" will be published soon`}
+          </p>
+        </div>
+      </section>
+    );
+  }
 
-  const colorBadge = category.color || '#B3121B';
-  const lead = articles[0];
-  const sideArticles = articles.slice(1, 5);
+  const lead = articles[0]; // FIRST COME LATEST UPLOADED ARTICLE
+  const sideArticles = articles.slice(1, 6);
+  const isSingleArticle = articles.length === 1;
 
   return (
     <section className="mx-auto max-w-screen-xl px-4 mt-10">
-      {/* Section Header */}
-      <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2.5 mb-6 select-none">
-        <div className="flex items-center gap-2.5">
-          <span className="h-4 w-4 rounded-sm shadow-xs" style={{ backgroundColor: colorBadge }} />
-          <h2 className="text-[17px] md:text-[19px] font-black text-foreground leading-none">
-            {categoryTitle}
-          </h2>
-        </div>
+      {/* Section Header - ALWAYS RED BRAND TAG */}
+      <div className="flex items-center justify-between border-b-[3.5px] border-slate-950 dark:border-slate-800 pb-2 mb-4 select-none">
+        <span className="bg-[#B3121B] text-white px-5 py-2.5 text-[17px] md:text-[19px] font-black rounded-lg leading-none tracking-tight">
+          {categoryTitle}
+        </span>
         <Link
-          href={`/category/${category.slug}`}
-          className="text-[12.5px] font-bold text-muted-foreground hover:text-[#B3121B] flex items-center gap-1 transition-colors"
+          href={`/category/${catSlug}`}
+          className="text-[#B3121B] hover:text-red-700 font-extrabold text-[13px] md:text-[14px] hover:underline"
         >
-          <span>{language === 'gu' ? 'બધા જુઓ' : 'View All'}</span>
-          <ChevronRight className="h-4 w-4 text-[#B3121B]" />
+          {language === 'gu' ? 'બધા જુઓ →' : 'View All →'}
         </Link>
       </div>
 
-      {/* Grid Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Featured Lead Card (7 cols) */}
-        {lead ? (
-          <div className="lg:col-span-7 bg-card border border-border/80 rounded-xl p-4 shadow-sm group">
-            <Link href={`/news/${lead.slug}`} className="flex flex-col gap-3">
-              <div className="relative h-[240px] md:h-[300px] w-full overflow-hidden rounded-lg bg-muted border border-border/20">
-                <Image
-                  src={lead.image || '/assets/demo/1.jpg'}
-                  alt={lead.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 60vw"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#B3121B] bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded">
-                  {categoryTitle}
-                </span>
-                <h3 className="text-lg md:text-xl font-black text-foreground mt-2 line-clamp-2 group-hover:text-[#B3121B] transition-colors leading-snug">
-                  {language === 'gu' ? (lead.titleGu || lead.title) : lead.title}
-                </h3>
-                <p className="text-xs md:text-sm text-muted-foreground mt-1.5 line-clamp-2 font-medium">
-                  {language === 'gu' ? (lead.excerptGu || lead.excerpt) : lead.excerpt}
-                </p>
-                <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground font-semibold">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>{formatTime(lead.publishedAt)}</span>
-                </div>
-              </div>
-            </Link>
-          </div>
-        ) : null}
+      {/* DYNAMIC CONTENT LAYOUT BASED ON ARTICLE COUNT */}
+      {isSingleArticle ? (
+        /* SINGLE ARTICLE: FULL WIDTH BANNER CARD (THURS NO EMPTY RIGHT COLUMN) */
+        <div className="bg-card border border-border/80 rounded-xl p-4 md:p-6 shadow-sm group">
+          <Link href={`/news/${lead.slug}`} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+            <div className="md:col-span-7 relative h-[240px] sm:h-[300px] md:h-[340px] w-full overflow-hidden rounded-xl bg-muted border border-border/20">
+              <ArticleMedia
+                src={lead.image || (lead as any).imageUrl || '/assets/demo/1.jpg'}
+                alt={getArticleTitle(lead, language)}
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+              <span className="absolute top-3 left-3 bg-[#B3121B] text-white text-[10px] font-black uppercase px-2.5 py-1 rounded shadow-sm">
+                {language === 'gu' ? 'તાજા સમાચાર' : 'LATEST'}
+              </span>
+            </div>
 
-        {/* Side Cards List (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col divide-y divide-border/50 bg-card border border-border/80 rounded-xl p-4 shadow-sm">
-          {sideArticles.map((art) => (
-            <Link
-              key={art.id}
-              href={`/news/${art.slug}`}
-              className="group flex gap-3 py-3 first:pt-0 last:pb-0 hover:bg-muted/10 transition-colors"
-            >
-              <div className="relative h-[72px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
-                <Image
-                  src={art.image || '/assets/demo/2.jpg'}
-                  alt={art.title}
-                  fill
-                  sizes="95px"
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
+            <div className="md:col-span-5 flex flex-col justify-center space-y-3">
+              <span className="inline-block text-[11px] font-extrabold uppercase tracking-wide text-[#B3121B] bg-red-50 dark:bg-red-950/30 px-2.5 py-1 rounded w-max">
+                {categoryTitle}
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-foreground group-hover:text-[#B3121B] transition-colors leading-snug">
+                {getArticleTitle(lead, language)}
+              </h3>
+              <p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 leading-relaxed font-medium">
+                {stripHtmlTags(getArticleExcerpt(lead, language))}
+              </p>
+              <div className="flex items-center gap-2 pt-2 text-xs text-muted-foreground font-semibold border-t border-border/40">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span>{formatDate(lead.publishedAt || (lead as any).createdAt, language)}</span>
               </div>
-              <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
-                <h4 className="text-[13px] font-extrabold text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
-                  {language === 'gu' ? (art.titleGu || art.title) : art.title}
-                </h4>
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
-                  <span>{formatTime(art.publishedAt)}</span>
-                </div>
-              </div>
-            </Link>
-          ))}
+            </div>
+          </Link>
         </div>
-      </div>
+      ) : (
+        /* MULTIPLE ARTICLES: MAIN FEATURED CARD ON LEFT + SIDE LIST ON RIGHT */
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Featured Lead Card (7 cols) */}
+          {lead ? (
+            <div className="lg:col-span-7 bg-card border border-border/80 rounded-xl p-4 shadow-sm group">
+              <Link href={`/news/${lead.slug}`} className="flex flex-col gap-3">
+                <div className="relative h-[240px] md:h-[300px] w-full overflow-hidden rounded-lg bg-muted border border-border/20">
+                  <ArticleMedia
+                    src={lead.image || (lead as any).imageUrl || '/assets/demo/1.jpg'}
+                    alt={getArticleTitle(lead, language)}
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                  <span className="absolute top-3 left-3 bg-[#B3121B] text-white text-[10px] font-black uppercase px-2.5 py-1 rounded shadow-sm">
+                    {language === 'gu' ? 'તાજા સમાચાર' : 'LATEST'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] font-extrabold uppercase tracking-wide text-[#B3121B] bg-red-50 dark:bg-red-950/30 px-2 py-0.5 rounded">
+                    {categoryTitle}
+                  </span>
+                  <h3 className="text-lg md:text-xl font-black text-foreground mt-2 line-clamp-2 group-hover:text-[#B3121B] transition-colors leading-snug">
+                    {getArticleTitle(lead, language)}
+                  </h3>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-1.5 line-clamp-2 font-medium">
+                    {stripHtmlTags(getArticleExcerpt(lead, language))}
+                  </p>
+                  <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground font-semibold">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                    <span>{formatDate(lead.publishedAt || (lead as any).createdAt, language)}</span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+          ) : null}
+
+          {/* Side Cards List (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col divide-y divide-border/50 bg-card border border-border/80 rounded-xl p-4 shadow-sm">
+            {sideArticles.map((art) => (
+              <Link
+                key={art.id}
+                href={`/news/${art.slug}`}
+                className="group flex gap-3 py-3 first:pt-0 last:pb-0 hover:bg-muted/10 transition-colors"
+              >
+                <div className="relative h-[72px] w-[95px] shrink-0 overflow-hidden rounded-lg bg-muted border border-border/20">
+                  <ArticleMedia
+                    src={art.image || (art as any).imageUrl || '/assets/demo/2.jpg'}
+                    alt={getArticleTitle(art, language)}
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                </div>
+                <div className="flex flex-col justify-between min-w-0 flex-1 py-0.5">
+                  <h4 className="text-[13px] font-extrabold text-foreground leading-snug line-clamp-2 group-hover:text-[#B3121B] transition-colors">
+                    {getArticleTitle(art, language)}
+                  </h4>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-semibold mt-1">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                    <span>{formatDate(art.publishedAt || (art as any).createdAt, language)}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -7550,7 +7706,7 @@ const GALLERY_DATA = [
 function PhotoGallerySection({ language }: { language: Language }) {
   const CATS_GU = ['ગુજરાત', 'સંસ્કૃતિ', 'ધર્મ', 'પ્રવાસ', 'ખેલ', 'ઉત્સવ', 'શહેર', 'પ્રકૃતિ', 'ઐતિહાસ'];
   const CATS_EN = ['Gujarat', 'Culture', 'Religion', 'Travel', 'Sports', 'Festival', 'City', 'Nature', 'Heritage'];
-  
+
   const [photos, setPhotos] = useState<any[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollPosRef = useRef<number>(0);
@@ -7743,17 +7899,17 @@ function TrendingNewsSection({ articles, language }: { articles: Article[]; lang
                   article.image && !article.image.includes('photo-1599930113854') && !article.image.includes('photo-1589308078059')
                     ? article.image
                     : [
-                        'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
-                        'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
-                      ][index % 10]
+                      'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=500&auto=format&fit=crop&q=80',
+                      'https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=500&auto=format&fit=crop&q=80',
+                    ][index % 10]
                 }
                 alt={getArticleTitle(article, language)}
                 fill

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, memo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { isMediaVideo, sanitizeImageUrl } from '@/lib/media';
 
 const ReadingProgressBar = memo(function ReadingProgressBar() {
@@ -90,7 +91,6 @@ import {
 } from '@/data';
 import { useApp } from '@/components/AppProvider';
 import { useAutoTranslate, TranslatedText } from '@/lib/translate';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
@@ -510,6 +510,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [adSlide, setAdSlide] = useState(0);
   const [relatedLimit, setRelatedLimit] = useState(8);
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
 
   const [mostReadArticles, setMostReadArticles] = useState<typeof trending>(trending.slice(0, 5));
 
@@ -542,11 +543,20 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [article?.id, article?.slug]);
 
-  // Increment view count in real browser when reader opens the article page
+  // Increment view count in real browser when reader opens the article page (Deduplicated per session)
   useEffect(() => {
     if (article?.id) {
-      const endpoint = getBackendApiUrl(`/api/public/articles/${article.id}/view`);
-      fetch(endpoint, { method: 'POST' }).catch(() => { });
+      const storageKey = `gp_viewed_art_${article.id}`;
+      try {
+        if (!sessionStorage.getItem(storageKey)) {
+          sessionStorage.setItem(storageKey, '1');
+          const endpoint = getBackendApiUrl(`/api/public/articles/${article.id}/view`);
+          fetch(endpoint, { method: 'POST' }).catch(() => { });
+        }
+      } catch {
+        const endpoint = getBackendApiUrl(`/api/public/articles/${article.id}/view`);
+        fetch(endpoint, { method: 'POST' }).catch(() => { });
+      }
     }
   }, [article?.id]);
 
@@ -709,6 +719,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const body = useAutoTranslate(rawBody, language);
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
+  const authorAvatarImage = article.author?.image || (article.author as any)?.imageUrl || (article.author as any)?.avatar || '';
   const authorDesignation = getLocalized(language, {
     en: article.author.designation,
     gu: article.author.designationGu,
@@ -958,11 +969,8 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     }
 
     const distinctCatArts = Array.from(byCategory.values());
-    if (distinctCatArts.length >= 4) {
-      return distinctCatArts.slice(0, 4);
-    }
-
-    return poolToUse.slice(0, 4);
+    const combinedPool = [...distinctCatArts, ...poolToUse.filter(a => !distinctCatArts.includes(a))];
+    return combinedPool.slice(0, 10);
   }, [article.id, streamList, trending, related, mostReadArticles]);
 
   useEffect(() => {
@@ -1123,8 +1131,12 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
             <div className="byline select-none">
               <div className="flex items-center gap-[11px]">
-                <Link href={`/author/${article.author.id}`} className="shrink-0 w-[38px] h-[38px] rounded-full bg-[var(--red)] text-white flex items-center justify-center font-bold text-sm hover:opacity-90 transition-opacity">
-                  {authorName.substring(0, 2)}
+                <Link href={`/author/${article.author.id}`} className="shrink-0 w-[38px] h-[38px] rounded-full bg-[var(--red)] text-white flex items-center justify-center font-bold text-sm hover:opacity-90 transition-opacity overflow-hidden border border-[#B3121B]/20 shadow-xs">
+                  {authorAvatarImage ? (
+                    <img src={authorAvatarImage} alt={authorName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span>{authorName.substring(0, 2)}</span>
+                  )}
                 </Link>
                 <div>
                   <div className="text-[13.5px]">
@@ -1295,32 +1307,6 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 </svg>
               </a>
 
-              {/* Facebook */}
-              <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(articleUrl)}`}
-                target="_blank"
-                rel="noreferrer"
-                title={language === 'gu' ? 'ફેસબુક' : language === 'hi' ? 'ફેસબુક' : 'Facebook'}
-                className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(24,119,242,0.35)] hover:border-[#1877F2]"
-              >
-                <svg viewBox="0 0 24 24" className="w-[20px] h-[20px] shrink-0 transition-transform duration-300 group-hover:rotate-[15deg] group-hover:scale-110">
-                  <path fill="#1877F2" d="M24 12c0-6.627-5.373-12-12-12S0 5.373 0 12c0 5.99 4.388 10.954 10.125 11.854V15.47H7.078v-3.47h3.047V9.35c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12z" />
-                </svg>
-              </a>
-
-              {/* X (Twitter) */}
-              <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(title)}&url=${encodeURIComponent(articleUrl)}`}
-                target="_blank"
-                rel="noreferrer"
-                title={language === 'gu' ? 'પોસ્ટ' : language === 'hi' ? 'પોસ્ટ' : 'Post'}
-                className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 transition-all duration-300 hover:scale-[1.15] hover:-translate-y-1 active:scale-95 cursor-pointer shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.25)] dark:hover:shadow-[0_8px_20px_rgba(255,255,255,0.2)] hover:border-black dark:hover:border-white"
-              >
-                <svg viewBox="0 0 24 24" className="w-[18px] h-[18px] shrink-0 text-neutral-900 dark:text-neutral-100 transition-transform duration-300 group-hover:rotate-[-12deg] group-hover:scale-110">
-                  <path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-              </a>
-
               {/* Dailyhunt */}
               <a
                 href="https://profile.dailyhunt.in/gujaratpost"
@@ -1419,9 +1405,10 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 </svg>
               </button>
             </div>
-            {/* Article Main Content Body — split at 3rd paragraph to inject in-article ad */}
+
+            {/* Article Main Content Body — with "વધુ વાંચો" (Read More) expand button */}
             {(() => {
-              const SPLIT_AT = 3;
+              const SPLIT_AT = 2;
               const splitHtml = (html: string, atPara: number): [string, string] => {
                 if (!html) return ['', ''];
                 let count = 0;
@@ -1438,23 +1425,72 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                 return [html.slice(0, idx), html.slice(idx)];
               };
               const [topHtml, bottomHtml] = splitHtml(formattedArticleBodyHtml, SPLIT_AT);
+
+              if (!bottomHtml) {
+                return (
+                  <div>
+                    <ArticleContentBody html={formattedArticleBodyHtml} />
+                    {/* Horizontal Ad Banner placed directly after article description */}
+                    <AdSectionBanner section="ARTICLE_BOTTOM" fallbackToDefault className="my-6" />
+                  </div>
+                );
+              }
+
               return (
-                <>
-                  <ArticleContentBody html={topHtml || formattedArticleBodyHtml} />
-                  {bottomHtml && (
-                    <>
-                      <AdSectionBanner section="IN_ARTICLE" className="my-4" />
+                <div className="relative">
+                  <ArticleContentBody html={topHtml} />
+
+                  {/* IN_ARTICLE Ad Banner displayed inside description BEFORE the "વધુ વાંચો" button */}
+                  <AdSectionBanner section="IN_ARTICLE" fallbackToDefault className="my-6" />
+
+                  {!isContentExpanded ? (
+                    <div className="relative pt-2 pb-2">
+                      {/* Smooth gradient fade overlay */}
+                      <div className="absolute -top-28 inset-x-0 h-28 bg-gradient-to-t from-white via-white/90 to-transparent dark:from-[#0d1117] dark:via-[#0d1117]/90 dark:to-transparent pointer-events-none" />
+
+                      {/* Vadhu Vacho (Read More) Expand Button */}
+                      <div className="flex flex-col items-center justify-center relative z-20 pt-2 pb-4">
+                        <button
+                          type="button"
+                          onClick={() => setIsContentExpanded(true)}
+                          className="group inline-flex items-center gap-2.5 px-8 py-3.5 rounded-full bg-[#B3121B] hover:bg-red-700 text-white font-black text-sm sm:text-base shadow-xl shadow-red-900/30 hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer select-none border-2 border-white/20"
+                        >
+                          <span>{language === 'gu' ? 'વધુ વાંચો' : language === 'hi' ? 'और पढ़ें' : 'Read More'}</span>
+                          <ChevronDown className="w-5 h-5 transition-transform duration-300 group-hover:translate-y-0.5 stroke-[3]" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 transition-all duration-500 ease-in-out">
                       <ArticleContentBody html={bottomHtml} />
-                    </>
+
+                      {/* Horizontal Ad Banner placed directly after full article description */}
+                      <AdSectionBanner section="ARTICLE_BOTTOM" fallbackToDefault className="my-6" />
+
+                      {/* Collapse / Read Less Button */}
+                      <div className="flex justify-center pt-6 pb-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsContentExpanded(false);
+                            window.scrollTo({ top: 380, behavior: 'smooth' });
+                          }}
+                          className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-extrabold text-xs transition-all duration-200 cursor-pointer select-none shadow-sm"
+                        >
+                          <span>{language === 'gu' ? 'ઓછું વાંચો' : language === 'hi' ? 'कम पढ़ें' : 'Read Less'}</span>
+                          <ChevronUp className="w-4 h-4 transition-transform duration-300 group-hover:-translate-y-0.5 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    </div>
                   )}
-                </>
+                </div>
               );
             })()}
 
           </article>
 
           <aside className="side select-none" style={{ alignSelf: 'stretch' }} suppressHydrationWarning>
-            <div className="side-sticky" style={{ top: '24px' }}>
+            <div className="side-sticky sticky top-20 transition-all duration-300">
               {/* Most Read widget */}
               <div className="mostread">
                 <div className="wtitle">
@@ -1485,11 +1521,11 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                   <span>{language === 'gu' ? 'તમારા માટે ભલામણ' : language === 'hi' ? 'आपके लिए अनुशंसित' : 'Recommended Stories'}</span>
                 </div>
                 <div className="space-y-0 mt-3">
-                  {sidebarRecommendedPool.slice(0, 4).map((item, index) => {
+                  {sidebarRecommendedPool.slice(0, isContentExpanded ? 8 : 2).map((item, index) => {
                     const itemTitle = getArticleTitle(item, language);
                     const itemCategory = getCategoryLabel(item, language);
                     return (
-                      <Link key={item.id} href={`/news/${item.slug}`} className="s-compact hover:opacity-85 transition-opacity">
+                      <Link key={item.id || index} href={`/news/${item.slug}`} className="s-compact hover:opacity-85 transition-opacity">
                         <div>
                           <span className="kick">{itemCategory}</span>
                           <h3><TranslatedText text={itemTitle} /></h3>

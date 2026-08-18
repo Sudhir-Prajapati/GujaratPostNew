@@ -30,6 +30,8 @@ import {
 import { useApp } from '@/components/AppProvider';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
 
+import Link from 'next/link';
+
 interface RoleMeta {
   title: string;
   titleGu: string;
@@ -174,9 +176,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const currentRoleMeta = userRole ? ROLE_CONFIG[userRole] : null;
 
-  // Filter sidebar navigation strictly based on role
+  // Filter sidebar navigation strictly based on role (Keep default items visible while loading)
   const filteredMenuItems = menuItems.filter((item) => {
-    if (!userRole) return false;
+    if (!userRole) return true;
     if (userRole === 'SUPER_ADMIN') return true;
 
     const permittedPaths = currentRoleMeta?.permittedPaths || [];
@@ -226,7 +228,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-zinc-200 dark:border-zinc-800">
-          <a href={currentRoleMeta?.defaultPath || '/admin'} className="flex items-center gap-2">
+          <Link href={currentRoleMeta?.defaultPath || '/admin'} className="flex items-center gap-2">
             <div className="relative h-10 w-40 overflow-hidden rounded">
               <Image
                 src="/assets/gujarat-post-logo-chip.png"
@@ -236,7 +238,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 className="object-contain"
               />
             </div>
-          </a>
+          </Link>
           <button
             onClick={() => setSidebarOpen(false)}
             className="rounded p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 lg:hidden cursor-pointer"
@@ -269,9 +271,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const Icon = item.icon;
 
             return (
-              <a
+              <Link
                 key={item.label}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-200 ${isActive
                     ? 'bg-[#B3121B] text-white shadow-md shadow-red-900/20'
                     : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'
@@ -279,7 +282,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="truncate">{item.label}</span>
-              </a>
+              </Link>
             );
           })}
         </nav>

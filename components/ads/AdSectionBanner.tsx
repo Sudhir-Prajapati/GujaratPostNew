@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
 import { getPublicAdBySection } from '@/lib/api';
+import Advertisement from '@/components/ads/Advertisement';
 
 export interface AdSectionBannerProps {
   section: string;
   initialAd?: any;
   className?: string;
+  fallbackToDefault?: boolean;
 }
 
 export interface AdItemData {
@@ -16,7 +18,7 @@ export interface AdItemData {
   link: string;
 }
 
-export default function AdSectionBanner({ section, initialAd, className = '' }: AdSectionBannerProps) {
+export default function AdSectionBanner({ section, initialAd, className = '', fallbackToDefault = false }: AdSectionBannerProps) {
   const [adData, setAdData] = useState<any>(initialAd || null);
   const [loading, setLoading] = useState<boolean>(!initialAd);
 
@@ -40,6 +42,9 @@ export default function AdSectionBanner({ section, initialAd, className = '' }: 
   }
 
   if (!adData || !adData.isActive) {
+    if (fallbackToDefault) {
+      return <Advertisement position="banner" className={className} />;
+    }
     return null;
   }
 
@@ -56,6 +61,9 @@ export default function AdSectionBanner({ section, initialAd, className = '' }: 
   }
 
   if (items.length === 0) {
+    if (fallbackToDefault) {
+      return <Advertisement position="banner" className={className} />;
+    }
     return null;
   }
 

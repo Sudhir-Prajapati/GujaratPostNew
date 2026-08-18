@@ -24,7 +24,7 @@ import {
   Sliders,
   PanelTop,
 } from 'lucide-react';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { getBackendApiUrl, authFetch, clearApiCache } from '@/lib/api';
 
 const HEADER_SLOTS = [
   {
@@ -35,6 +35,8 @@ const HEADER_SLOTS = [
 ];
 
 const HOME_SECTIONS = [
+  { id: 'ARTICLE_BOTTOM', label: 'Article Bottom Horizontal Ad Banner (After Description)', description: 'Horizontal ad banner displayed directly after article description/body text' },
+  { id: 'IN_ARTICLE', label: 'In-Article Body Ad Banner (Inside Paragraphs)', description: 'Banner displayed inside article content between paragraphs when expanded' },
   { id: 'AFTER_HERO', label: 'After Hero Section (Top Banner)', description: 'Placed directly below the main hero news grid' },
   { id: 'AFTER_TRENDING', label: 'After Trending Section', description: 'Placed below trending news & ticker section' },
   { id: 'AFTER_WEBSTORIES', label: 'After Web Stories', description: 'Placed below interactive web stories bar' },
@@ -87,6 +89,8 @@ const isValidMediaUrl = (url: string | null | undefined): boolean => {
 
 export default function AdminAdsPage() {
   const [activeTab, setActiveTab] = useState<'header' | 'section' | 'sidebar' | 'random'>('header');
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [modalFilter, setModalFilter] = useState<'all' | 'active' | 'remaining'>('all');
   const [ads, setAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -183,7 +187,7 @@ export default function AdminAdsPage() {
       setActiveTab('header');
     } else if (FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section)) {
       setActiveTab('sidebar');
-    } else if (ad.section.includes('RANDOM') || ad.section.includes('BOTTOM')) {
+    } else if (ad.section.startsWith('RANDOM_ADS_') || ad.section.includes('RANDOM')) {
       setActiveTab('random');
     } else {
       setActiveTab('section');
@@ -309,6 +313,7 @@ export default function AdminAdsPage() {
 
       const json = await res.json();
       if (json.success) {
+        clearApiCache();
         setSuccessMessage('Advertisement saved successfully!');
         resetForm();
         fetchAds();
@@ -374,6 +379,7 @@ export default function AdminAdsPage() {
   const filteredAdsList = ads.filter((ad) => {
     if (activeTab === 'header') return ad.section === 'HEADER';
     if (activeTab === 'sidebar') return FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
+    if (activeTab === 'random') return Boolean(ad.includeInRandom) || ad.section?.includes('RANDOM');
     return ad.section !== 'HEADER' && !FIXED_SIDEBAR_SLOTS.some((s) => s.id === ad.section);
   });
 
@@ -395,15 +401,28 @@ export default function AdminAdsPage() {
           </p>
         </div>
 
-        {editingId && (
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={resetForm}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            onClick={() => setShowPreviewModal(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-4 py-2.5 text-sm font-bold shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer"
+            title="Open modal preview showing all configured ad slots, filled locations, and status"
           >
-            <X className="h-4 w-4" /> Cancel Edit
+            <Eye className="h-4 w-4" />
+            <span>Full Page Live Ad Preview</span>
+            <Sparkles className="h-3.5 w-3.5 opacity-90 animate-pulse" />
           </button>
-        )}
+
+          {editingId && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+            >
+              <X className="h-4 w-4" /> Cancel Edit
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs Navigation */}
@@ -464,36 +483,26 @@ export default function AdminAdsPage() {
       {/* Option 1: Existing Advertisements Selector for Random Bottom Ads Tab */}
       {activeTab === 'random' && (
         <div className="space-y-6">
-          {/* Header Banner for Random Ads Tab with Brand Red Color & Gujarat Post Logo */}
-          <div className="p-5 md:p-6 rounded-2xl bg-gradient-to-r from-[#700910] via-[#B3121B] to-[#420407] text-white shadow-lg border border-red-500/30 space-y-3 relative overflow-hidden">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-white/15 backdrop-blur-xs border border-white/20">
-                  <Sparkles className="h-5 w-5 text-amber-300" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-black uppercase tracking-wider text-white">
+          {/* Compact & Readable Header Banner for Random Ads Tab */}
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-r from-red-950 via-[#700910] to-red-950 text-white shadow-sm border border-red-700/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-1.5 rounded-lg bg-white/10 border border-white/20 text-amber-300 shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white">
                     Random Bottom Advertisements Pool
                   </h2>
-                  <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-300">
-                    7-Card Grid Layout • Gujarat Post Sponsored Ads
+                  <span className="text-[10px] font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                    7-Card Grid
                   </span>
                 </div>
-              </div>
-              <div className="shrink-0 bg-white px-2 py-1 rounded-lg shadow-2xs border border-white/30">
-                <Image
-                  src="/assets/gujarat-post-logo-chip.png"
-                  alt="Gujarat Post"
-                  width={90}
-                  height={20}
-                  className="h-5 w-auto object-contain"
-                />
+                <p className="text-[11px] text-red-100/90 font-medium mt-0.5">
+                  <strong>Option 1:</strong> Select existing website ads below &nbsp;•&nbsp; <strong>Option 2:</strong> Create a new custom ad for bottom section.
+                </p>
               </div>
             </div>
-            <p className="text-xs text-red-100/90 leading-relaxed font-medium pt-2 border-t border-white/15">
-              • <strong>Option 1:</strong> Select & toggle any existing website advertisement into the bottom Random 7-card grid pool.<br />
-              • <strong>Option 2:</strong> Create a brand new custom advertisement specifically for the bottom random section.
-            </p>
           </div>
 
           {/* Option 1 Card: Select Existing Ads */}
@@ -598,7 +607,7 @@ export default function AdminAdsPage() {
       )}
 
       {/* Main Form & Preview Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Form Card (7 Cols) */}
         <div className="lg:col-span-7 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
@@ -1081,7 +1090,6 @@ export default function AdminAdsPage() {
                 : 'Configured Section Ads'}{' '}
               ({filteredAdsList.length})
             </h3>
-
             {loading ? (
               <div className="py-8 flex flex-col items-center justify-center text-zinc-400">
                 <Loader2 className="h-6 w-6 animate-spin mb-2 text-red-500" />
@@ -1163,6 +1171,547 @@ export default function AdminAdsPage() {
           </div>
         </div>
       </div>
+
+      {/* Full Page Live Ad Preview Modal */}
+      {showPreviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950">
+              <div>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-lg shadow-red-600/30">
+                    <Eye className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight flex items-center gap-2">
+                      Full Website Advertisement Placement & Live Status Map
+                    </h2>
+                    <p className="mt-0.5 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-medium">
+                      Inspect all active custom ads vs remaining unfilled slots across Gujarat Post news portal.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                className="p-2.5 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition shadow-sm"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Filter & Stats Bar */}
+            <div className="bg-zinc-100/90 dark:bg-zinc-850 p-4 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-4 text-xs">
+              {/* Interactive Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 p-1 bg-zinc-200/80 dark:bg-zinc-800 rounded-2xl border border-zinc-300/50 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => setModalFilter('all')}
+                  className={`px-3.5 py-1.5 rounded-xl font-black transition-all ${
+                    modalFilter === 'all'
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  }`}
+                >
+                  All Placement Slots (15)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalFilter('active')}
+                  className={`px-3.5 py-1.5 rounded-xl font-black transition-all flex items-center gap-1.5 ${
+                    modalFilter === 'active'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10'
+                  }`}
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[3]" /> Active Live Ads ({ads.filter((a) => a.isActive).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalFilter('remaining')}
+                  className={`px-3.5 py-1.5 rounded-xl font-black transition-all flex items-center gap-1.5 ${
+                    modalFilter === 'remaining'
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-amber-700 dark:text-amber-400 hover:bg-amber-500/10'
+                  }`}
+                >
+                  <AlertCircle className="h-3.5 w-3.5" /> Remaining Unfilled ({15 - ads.filter((a) => a.isActive).length})
+                </button>
+              </div>
+
+              <a
+                href="/"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold transition shadow-md shadow-red-600/20 active:scale-95"
+              >
+                <span>Open Live News Website</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-8 flex-1 bg-zinc-50/60 dark:bg-zinc-900/60">
+
+              {modalFilter === 'remaining' && (
+                <div className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs sm:text-sm font-bold flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    Showing <strong>{15 - ads.filter((a) => a.isActive).length} Remaining Ad Slots</strong> that currently do not have a custom admin ad uploaded. Click <strong>"+ Setup"</strong> to configure any empty slot!
+                  </span>
+                </div>
+              )}
+
+              {/* SECTION 1: ARTICLE DETAIL PAGE ADS */}
+              {(modalFilter === 'all' || modalFilter === 'active' || modalFilter === 'remaining') && (
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4" /> 1. Article Page News Reader Ads (2 Slots)
+                    </h3>
+                    <span className="text-[11px] font-extrabold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">
+                      Displayed inside News Article Detail Page
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {['IN_ARTICLE', 'ARTICLE_BOTTOM'].map((sectionId) => {
+                      const foundAd = ads.find((a) => a.section === sectionId);
+                      const isFilled = Boolean(foundAd && foundAd.isActive);
+
+                      if (modalFilter === 'active' && !isFilled) return null;
+                      if (modalFilter === 'remaining' && isFilled) return null;
+
+                      const imageList = [foundAd?.image1, foundAd?.image2, foundAd?.image3].filter(Boolean);
+
+                      return (
+                        <div key={sectionId} className={`p-4 sm:p-5 rounded-2xl border transition-all ${isFilled ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40 shadow-sm' : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/40'}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="font-black text-sm sm:text-base text-zinc-900 dark:text-zinc-100">{sectionId === 'IN_ARTICLE' ? 'In-Article Body Ad Banner' : 'Article Bottom Horizontal Ad Banner'}</span>
+                              <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">Position: {sectionId === 'IN_ARTICLE' ? 'Inside article body' : 'Below article description'}</p>
+                            </div>
+                            <span className={`px-3 py-1 rounded-xl text-[10px] font-black shrink-0 ${isFilled ? 'bg-emerald-600 text-white shadow-sm' : 'bg-amber-600 text-white'}`}>
+                              {isFilled ? '🟢 ACTIVE AD LIVE' : '⚠️ REMAINING (EMPTY)'}
+                            </span>
+                          </div>
+
+                          <div className="mt-4">
+                            {isFilled && imageList.length > 0 ? (
+                              <div className={`grid gap-2 ${imageList.length === 3 ? 'grid-cols-3' : imageList.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                {imageList.map((imgUrl, idx) => (
+                                  <div key={idx} className="relative h-24 sm:h-28 rounded-xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-700">
+                                    <Image src={imgUrl!} alt={`Ad Image ${idx + 1}`} fill className="object-cover" />
+                                    <span className="absolute bottom-1 right-1 bg-black/70 text-white px-1.5 py-0.5 rounded text-[9px] font-black">
+                                      Card {idx + 1}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="h-24 rounded-xl bg-amber-500/10 border-2 border-dashed border-amber-500/30 flex items-center justify-center p-4 text-center">
+                                <div className="text-amber-800 dark:text-amber-300">
+                                  <p className="text-xs font-black">No Custom Admin Ad Uploaded</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-zinc-500">
+                              {isFilled ? `Layout: ${imageList.length} Split Card(s)` : 'Status: Unassigned Slot'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowPreviewModal(false);
+                                if (foundAd) handleEdit(foundAd);
+                                else {
+                                  setActiveTab('section');
+                                  setSelectedSection(sectionId);
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition shadow-sm ${
+                                isFilled
+                                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:scale-105'
+                                  : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                              }`}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              <span>{foundAd ? 'Edit' : '+ Setup'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2: TOP HEADER NAV AD */}
+              {(modalFilter === 'all' || modalFilter === 'active' || modalFilter === 'remaining') && (
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <PanelTop className="h-4 w-4" /> 2. Top Navigation Header Ad Banner (728×90)
+                    </h3>
+                    <span className="text-[11px] font-extrabold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">
+                      Displayed next to top Gujarat Post logo
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const foundAd = ads.find((a) => a.section === 'HEADER');
+                    const isFilled = Boolean(foundAd && foundAd.isActive);
+
+                    if (modalFilter === 'active' && !isFilled) return null;
+                    if (modalFilter === 'remaining' && isFilled) return null;
+
+                    return (
+                      <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${isFilled ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40 shadow-sm' : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/40'}`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <span className="font-black text-sm sm:text-base text-zinc-900 dark:text-zinc-100">Top Header Ad Banner (728×90 Desktop)</span>
+                            <p className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 mt-0.5">Position: Header bar top right side next to main logo</p>
+                          </div>
+                          <span className={`px-3 py-1 rounded-xl text-[10px] font-black ${isFilled ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
+                            {isFilled ? `🟢 ACTIVE (${foundAd?.mediaType || 'IMAGE'})` : '⚠️ REMAINING (EMPTY)'}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 relative h-24 w-full rounded-xl overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
+                          {isFilled && foundAd?.image1 ? (
+                            foundAd.mediaType === 'VIDEO' ? (
+                              <video src={foundAd.image1} autoPlay loop muted playsInline className="h-full w-full object-cover" />
+                            ) : (
+                              <Image src={foundAd.image1} alt="Header Ad" fill className="object-contain" />
+                            )
+                          ) : (
+                            <div className="text-center p-3">
+                              <p className="text-xs font-black text-amber-800 dark:text-amber-300">No Custom Header Banner Uploaded</p>
+                              <span className="text-[10px] text-zinc-400">Default Gujarat Post promo active</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowPreviewModal(false);
+                              if (foundAd) handleEdit(foundAd);
+                              else {
+                                setActiveTab('header');
+                                setSelectedSection('HEADER');
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition shadow-sm ${
+                              isFilled
+                                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:scale-105'
+                                : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                            }`}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            <span>{foundAd ? 'Edit Header Ad' : '+ Setup Header Ad Now'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* SECTION 3: FIXED RIGHT SIDEBAR ADS */}
+              {(modalFilter === 'all' || modalFilter === 'active' || modalFilter === 'remaining') && (
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <Sidebar className="h-4 w-4" /> 3. Fixed Right Sidebar Banners (4 Column Slots)
+                    </h3>
+                    <span className="text-[11px] font-extrabold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">
+                      Displayed alongside news sections on right side
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {FIXED_SIDEBAR_SLOTS.map((slot) => {
+                      const foundAd = ads.find((a) => a.section === slot.id);
+                      const isFilled = Boolean(foundAd && foundAd.isActive);
+
+                      if (modalFilter === 'active' && !isFilled) return null;
+                      if (modalFilter === 'remaining' && isFilled) return null;
+
+                      return (
+                        <div key={slot.id} className={`p-4 rounded-2xl border transition-all ${isFilled ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40' : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/40'}`}>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">{slot.label}</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black ${isFilled ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
+                              {isFilled ? '🟢 LIVE' : '⚠️ EMPTY'}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 relative h-24 w-full rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-950 flex items-center justify-center">
+                            {isFilled && foundAd?.image1 ? (
+                              <Image src={foundAd.image1} alt={slot.label} fill className="object-cover" />
+                            ) : (
+                              <div className="w-full h-full p-2 flex items-center justify-center text-center" style={{ background: slot.defaultColor }}>
+                                <span className="text-[9px] font-bold text-white leading-tight">{slot.description}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowPreviewModal(false);
+                                if (foundAd) handleEdit(foundAd);
+                                else {
+                                  setActiveTab('sidebar');
+                                  setSelectedSection(slot.id);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black transition shadow-sm ${
+                                isFilled
+                                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:scale-105'
+                                  : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                              }`}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              <span>{foundAd ? 'Edit' : '+ Setup'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 4: HOMEPAGE IN-BETWEEN SECTION BANNERS */}
+              {(modalFilter === 'all' || modalFilter === 'active' || modalFilter === 'remaining') && (
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <h3 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> 4. Homepage Section In-Between Banners (5 Slots)
+                    </h3>
+                    <span className="text-[11px] font-extrabold text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full">
+                      Full-width section breaks on homepage
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { id: 'AFTER_HERO', label: 'After Hero Section Banner' },
+                      { id: 'AFTER_TRENDING', label: 'After Trending News Banner' },
+                      { id: 'AFTER_WEBSTORIES', label: 'After Web Stories Banner' },
+                      { id: 'AFTER_VIDEOS', label: 'After Latest Videos Banner' },
+                      { id: 'AFTER_GALLERY', label: 'After Photo Gallery Banner' },
+                    ].map((slot) => {
+                      const foundAd = ads.find((a) => a.section === slot.id);
+                      const isFilled = Boolean(foundAd && foundAd.isActive);
+
+                      if (modalFilter === 'active' && !isFilled) return null;
+                      if (modalFilter === 'remaining' && isFilled) return null;
+
+                      const imageList = [foundAd?.image1, foundAd?.image2, foundAd?.image3].filter(Boolean);
+
+                      return (
+                        <div key={slot.id} className={`p-4 rounded-2xl border transition-all ${isFilled ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40 shadow-sm' : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/40'}`}>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">{slot.label}</span>
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-black ${isFilled ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
+                              {isFilled ? '🟢 LIVE' : '⚠️ EMPTY'}
+                            </span>
+                          </div>
+
+                          <div className="mt-3">
+                            {isFilled && imageList.length > 0 ? (
+                              <div className={`grid gap-1.5 ${imageList.length === 3 ? 'grid-cols-3' : imageList.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                {imageList.map((imgUrl, idx) => (
+                                  <div key={idx} className="relative h-20 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-700">
+                                    <Image src={imgUrl!} alt={`Ad Image ${idx + 1}`} fill className="object-cover" />
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="h-20 rounded-lg bg-amber-500/10 border border-dashed border-amber-500/30 flex items-center justify-center p-2 text-center">
+                                <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300">Default Promo Banner Active</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowPreviewModal(false);
+                                if (foundAd) handleEdit(foundAd);
+                                else {
+                                  setActiveTab('section');
+                                  setSelectedSection(slot.id);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }
+                              }}
+                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black transition shadow-sm ${
+                                isFilled
+                                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:scale-105'
+                                  : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                              }`}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              <span>{foundAd ? 'Edit' : '+ Setup'}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 5: RANDOM BOTTOM 7-CARD GRID ADS */}
+              {(modalFilter === 'all' || modalFilter === 'active' || modalFilter === 'remaining') && (
+                <div className="bg-white dark:bg-zinc-900 p-5 sm:p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-wider text-red-600 dark:text-red-400 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> 5. Random Bottom 7-Card Grid Pool Banners (3 Sections)
+                      </h3>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">
+                        Interactive promo grid pool at website bottom. Combines custom random ads & selected pool ads.
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-300 dark:border-emerald-800/60 shrink-0">
+                      {ads.filter((a) => a.isActive !== false && (Boolean(a.includeInRandom) || a.section?.includes('RANDOM'))).length} Active Ads in Random Pool
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {(() => {
+                      const allPoolAds = ads.filter(
+                        (a) => a.isActive !== false && (Boolean(a.includeInRandom) || a.section?.includes('RANDOM'))
+                      );
+
+                      return [
+                        { id: 'RANDOM_ADS_1', label: 'Random Ads Section 1', range: [0, 2] },
+                        { id: 'RANDOM_ADS_2', label: 'Random Ads Section 2', range: [2, 4] },
+                        { id: 'RANDOM_ADS_3', label: 'Random Ads Section 3', range: [4, 8] },
+                      ].map((slot, sIdx) => {
+                        const directAd = ads.find((a) => a.section === slot.id && a.isActive !== false);
+                        const assignedPoolAds = allPoolAds.slice(slot.range[0], slot.range[1]);
+                        
+                        const displayAds = directAd
+                          ? [directAd, ...assignedPoolAds.filter(a => a.id !== directAd.id)]
+                          : assignedPoolAds.length > 0
+                          ? assignedPoolAds
+                          : (allPoolAds.length > 0 && sIdx === 0 ? allPoolAds : []);
+
+                        const isFilled = displayAds.length > 0;
+
+                        if (modalFilter === 'active' && !isFilled) return null;
+                        if (modalFilter === 'remaining' && isFilled) return null;
+
+                        const imageList = displayAds.flatMap((a) => [a.image1, a.image2, a.image3]).filter(Boolean);
+
+                        return (
+                          <div key={slot.id} className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${isFilled ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-500/40 shadow-sm' : 'bg-amber-500/5 dark:bg-amber-950/20 border-amber-500/40'}`}>
+                            <div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 truncate">{slot.label}</span>
+                                <span className={`px-2 py-0.5 rounded-md text-[9px] font-black shrink-0 ${isFilled ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
+                                  {isFilled ? `🟢 LIVE (${displayAds.length} Ad${displayAds.length > 1 ? 's' : ''})` : '⚠️ EMPTY'}
+                                </span>
+                              </div>
+
+                              <div className="mt-3">
+                                {isFilled && imageList.length > 0 ? (
+                                  <div className={`grid gap-1.5 ${imageList.length >= 3 ? 'grid-cols-3' : imageList.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                                    {imageList.slice(0, 3).map((imgUrl, idx) => (
+                                      <div key={idx} className="relative h-20 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-200 dark:border-zinc-700">
+                                        <Image src={imgUrl!} alt={`Random Card ${idx + 1}`} fill className="object-cover" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="h-20 rounded-lg bg-amber-500/10 border border-dashed border-amber-500/30 flex items-center justify-center p-2 text-center">
+                                    <span className="text-[10px] font-bold text-amber-800 dark:text-amber-300">Random Default Grid Pool Active</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {displayAds.length > 0 && (
+                                <div className="mt-2.5 space-y-1">
+                                  {displayAds.map((adItem) => {
+                                    const itemSecLabel =
+                                      HEADER_SLOTS.find((s) => s.id === adItem.section)?.label ||
+                                      FIXED_SIDEBAR_SLOTS.find((s) => s.id === adItem.section)?.label ||
+                                      HOME_SECTIONS.find((s) => s.id === adItem.section)?.label ||
+                                      adItem.section;
+                                    return (
+                                      <div key={adItem.id} className="flex items-center justify-between text-[10px] font-bold bg-white/70 dark:bg-zinc-800/60 p-1.5 rounded-lg border border-zinc-200/50 dark:border-zinc-700/50">
+                                        <span className="truncate text-zinc-800 dark:text-zinc-200">{adItem.title || itemSecLabel}</span>
+                                        <span className="text-emerald-600 dark:text-emerald-400 shrink-0 ml-1">Active</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-3 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowPreviewModal(false);
+                                  const targetAd = displayAds[0] || directAd;
+                                  if (targetAd) handleEdit(targetAd);
+                                  else {
+                                    setActiveTab('random');
+                                    setSelectedSection(slot.id);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }
+                                }}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black transition shadow-sm ${
+                                  isFilled
+                                    ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:scale-105'
+                                    : 'bg-red-600 text-white hover:bg-red-700 hover:scale-105'
+                                }`}
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>{displayAds.length > 0 ? 'Edit' : '+ Setup'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:border-zinc-950 flex items-center justify-between">
+              <span className="text-xs font-bold text-zinc-500">
+                Setup ad slots to increase monetization efficiency across the portal.
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(false)}
+                className="px-6 py-2.5 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold text-xs sm:text-sm hover:opacity-90 transition shadow-sm"
+              >
+                Close Overview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

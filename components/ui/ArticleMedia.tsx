@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { Play } from 'lucide-react';
 import { isMediaVideo } from '@/lib/media';
 
@@ -35,34 +36,50 @@ export default function ArticleMedia({
   const [hasError, setHasError] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Reset error status if src changes
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
   useEffect(() => {
     if (isVideo && autoPlay && videoRef.current) {
       videoRef.current.defaultMuted = true;
       videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {
-        // Autoplay may be restricted until user interacts, but muted autoPlay works on all modern browsers
-      });
+      videoRef.current.play().catch(() => {});
     }
   }, [isVideo, autoPlay, src]);
 
-  if (!src || hasError) {
+  // Clean / sanitize Cloudinary or raw URLs
+  const cleanSrc = src && typeof src === 'string'
+    ? src.replace('/raw/upload/', '/image/upload/').trim()
+    : null;
+
+  // Fallback: If image/video missing or fails to load, render clean GP text badge card
+  if (!cleanSrc || hasError) {
     return (
-      <img
-        src="/assets/demo/1.jpg"
-        alt={alt}
-        className={`w-full h-full object-cover ${className}`}
-      />
+      <div className={`relative flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-900 via-slate-900 to-black p-2 overflow-hidden shadow-inner select-none ${className}`}>
+        {/* Ambient subtle backdrop pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:12px_12px] opacity-10" />
+        {/* GP Text Badge */}
+        <span className="relative z-10 text-[20px] font-black tracking-widest text-[#B3121B] drop-shadow-md font-sans">
+          GP
+        </span>
+      </div>
     );
   }
 
+  // Handle Video Media
   if (isVideo) {
     if (videoControls) {
       return (
         <div className={`relative overflow-hidden bg-black ${fill ? 'w-full h-full' : ''}`}>
           <video
             ref={videoRef}
-            src={src}
+            src={cleanSrc}
             controls
+            controlsList="nodownload nofullscreen noremoteplayback"
+            disablePictureInPicture
+            disableRemotePlayback
             autoPlay={autoPlay}
             muted
             loop
@@ -79,7 +96,10 @@ export default function ArticleMedia({
       <div className="relative w-full h-full overflow-hidden bg-zinc-900 group/media">
         <video
           ref={videoRef}
-          src={src}
+          src={cleanSrc}
+          controlsList="nodownload nofullscreen noremoteplayback"
+          disablePictureInPicture
+          disableRemotePlayback
           autoPlay={autoPlay}
           muted
           loop
@@ -109,14 +129,13 @@ export default function ArticleMedia({
     );
   }
 
+  // Handle Standard Image Media
   return (
     <img
-      src={src}
+      src={cleanSrc}
       alt={alt}
       className={`w-full h-full object-cover ${className}`}
-      onError={(e) => {
-        (e.target as HTMLImageElement).src = '/assets/demo/1.jpg';
-      }}
+      onError={() => setHasError(true)}
     />
   );
 }
