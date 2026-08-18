@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { X, User, Mail, ArrowRight, CheckCircle2, LogOut, Shield, AlertCircle, Loader2, KeyRound, Edit2, RefreshCw } from 'lucide-react';
+import { X, User, Mail, ArrowRight, CheckCircle2, LogOut, Shield, AlertCircle, Loader2, KeyRound, Edit2, RefreshCw, Clock } from 'lucide-react';
 import { SocialIcon } from './SocialLinks';
 
 interface UserAuthModalProps {
@@ -19,10 +19,13 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
   // Modal Step: 'email' | 'otp' | 'already_logged_in'
   const [step, setStep] = useState<'email' | 'otp' | 'already_logged_in'>('email');
 
-  // Input states
+  // Input states & refs
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   // OTP Timers: 10-minute validity, 60-second resend cooldown
   const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes in seconds
@@ -32,6 +35,17 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Auto focus input on step change
+  useEffect(() => {
+    if (isOpen) {
+      if (step === 'email') {
+        setTimeout(() => emailInputRef.current?.focus(), 150);
+      } else if (step === 'otp') {
+        setTimeout(() => otpInputRef.current?.focus(), 150);
+      }
+    }
+  }, [isOpen, step]);
 
   // OTP Expiry & Resend Countdown Effect
   useEffect(() => {
@@ -355,11 +369,12 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
             
             {/* Email Input Form */}
             <form onSubmit={handleSendOtp} className="space-y-2.5">
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none">
-                  <Mail className="h-4 w-4 text-zinc-400" />
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none transition-colors group-focus-within:text-[#B3121B]">
+                  <Mail className="h-4 w-4" />
                 </span>
                 <input
+                  ref={emailInputRef}
                   type="email"
                   value={email}
                   onChange={(e) => {
@@ -367,21 +382,21 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
                     if (error) setError(null);
                   }}
                   placeholder={texts.enterEmail}
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 py-3 pl-10 pr-4 text-xs font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition shadow-xs"
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-xs md:text-sm font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-all duration-200 ease-in-out shadow-xs"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting || !email.trim()}
-                className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition transform active:scale-98 cursor-pointer disabled:opacity-50"
+                className="w-full py-3 px-4 rounded-xl bg-[#B3121B] hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition transform active:scale-98 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
                     <span>{texts.continue}</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    <ArrowRight className="h-4 w-4" />
                   </>
                 )}
               </button>
@@ -438,29 +453,28 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
               </button>
             </div>
 
-            {/* OTP Expiration & Resend Timer Indicator */}
-            <div className="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between text-[11px] font-semibold">
-              <span className="text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
-                <span>{language === 'gu' ? 'ઓટીપી સમય:' : 'Expires in:'}</span>
-                <span className={`font-mono font-bold ${timeLeft < 60 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-zinc-900 dark:text-white'}`}>
-                  {formatTimer(timeLeft)}
-                </span>
+            {/* Prominent Centered OTP Expiration Timer */}
+            <div className="w-full py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 flex items-center justify-center gap-2 text-center text-sm font-extrabold text-zinc-800 dark:text-zinc-100 shadow-xs">
+              <Clock className="w-4 h-4 text-[#B3121B] shrink-0" />
+              <span>{language === 'gu' ? 'ઓટીપી સમય:' : 'OTP Expiry:'}</span>
+              <span className={`font-mono text-base tracking-wider ${timeLeft < 60 ? 'text-red-600 dark:text-red-400 animate-pulse font-black' : 'text-[#B3121B]'}`}>
+                {formatTimer(timeLeft)}
               </span>
-
               {timeLeft === 0 && (
-                <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400">
-                  {language === 'gu' ? 'સમય સમાપ્ત!' : 'Expired!'}
+                <span className="text-xs font-black text-red-600 dark:text-red-400 ml-1">
+                  ({language === 'gu' ? 'સમય સમાપ્ત' : 'Expired'})
                 </span>
               )}
             </div>
 
             {/* OTP Form */}
             <form onSubmit={handleVerifyOtp} className="space-y-3 pt-1">
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none">
-                  <KeyRound className="h-4 w-4 text-zinc-400" />
+              <div className="relative group">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none transition-colors group-focus-within:text-[#B3121B]">
+                  <KeyRound className="h-4 w-4" />
                 </span>
                 <input
+                  ref={otpInputRef}
                   type="text"
                   maxLength={6}
                   value={otp}
@@ -470,14 +484,14 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
                   }}
                   placeholder="------"
                   disabled={timeLeft === 0}
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 py-3 pl-10 pr-4 text-center font-mono text-base font-extrabold tracking-[0.3em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition shadow-xs disabled:opacity-50"
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-center font-mono text-lg font-black tracking-[0.4em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-all duration-200 ease-in-out shadow-xs disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting || otp.length < 4 || timeLeft === 0}
-                className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition transform active:scale-98 cursor-pointer disabled:opacity-50"
+                className="w-full py-3 px-4 rounded-xl bg-[#B3121B] hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs md:text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition transform active:scale-98 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
