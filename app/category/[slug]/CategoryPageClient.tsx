@@ -216,6 +216,104 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     return [...combined, ...fillArticles];
   }, [articles, videos, category, slug, categoryName]);
 
+  // Items for "બધું" (All) tab: Mix of standard news articles, video articles, and 1-2 YouTube videos
+  const allSectionItems = useMemo(() => {
+    const catNameLower = (category?.name || '').toLowerCase().trim();
+    const catGuLower = (category?.nameGu || '').toLowerCase().trim();
+    const slugLower = (slug || '').toLowerCase().trim();
+
+    // Matching YouTube videos for this category (up to 2)
+    const matchingYouTubeVideos = (videos || [])
+      .filter((v: any) => {
+        if (!v) return false;
+        const textToSearch = `${v.title || ''} ${v.titleGu || ''} ${v.description || ''} ${v.category || ''}`.toLowerCase();
+        return (
+          (catNameLower && textToSearch.includes(catNameLower)) ||
+          (catGuLower && textToSearch.includes(catGuLower)) ||
+          (slugLower && textToSearch.includes(slugLower))
+        );
+      })
+      .map((v: any) => ({
+        id: v.id || v.videoId,
+        slug: v.slug || `video-${v.id}`,
+        title: v.title || v.titleGu,
+        titleGu: v.titleGu || v.title,
+        titleHi: v.titleHi || v.title,
+        image: v.thumbnail || v.image,
+        category: v.category || categoryName,
+        categoryGu: v.categoryGu || categoryName,
+        categoryHi: v.categoryHi || categoryName,
+        publishedAt: v.publishedAt || new Date().toISOString(),
+        relativeTimeGu: v.relativeTimeGu || 'હમણાં જ',
+        relativeTime: v.relativeTime || 'Just now',
+        videoUrl: v.youtubeUrl || (v.videoId ? `https://www.youtube.com/watch?v=${v.videoId}` : ''),
+        videoId: v.videoId || safeYouTubeId(v.youtubeUrl),
+        isVideoItem: true,
+        isYouTube: true,
+      }));
+
+    const selectedVideos = matchingYouTubeVideos.length > 0
+      ? matchingYouTubeVideos.slice(0, 2)
+      : (videos || []).slice(0, 2).map((v: any) => ({
+          id: v.id || v.videoId,
+          slug: v.slug || `video-${v.id}`,
+          title: v.title || v.titleGu,
+          titleGu: v.titleGu || v.title,
+          titleHi: v.titleHi || v.title,
+          image: v.thumbnail || v.image,
+          category: v.category || categoryName,
+          categoryGu: v.categoryGu || categoryName,
+          categoryHi: v.categoryHi || categoryName,
+          publishedAt: v.publishedAt || new Date().toISOString(),
+          relativeTimeGu: v.relativeTimeGu || 'હમણાં જ',
+          relativeTime: v.relativeTime || 'Just now',
+          videoUrl: v.youtubeUrl || (v.videoId ? `https://www.youtube.com/watch?v=${v.videoId}` : ''),
+          videoId: v.videoId || safeYouTubeId(v.youtubeUrl),
+          isVideoItem: true,
+          isYouTube: true,
+        }));
+
+    const result: any[] = [];
+    const usedIds = new Set();
+
+    // 1. Top category news article
+    const firstArticle = (articles || [])[0];
+    if (firstArticle) {
+      result.push(firstArticle);
+      usedIds.add(firstArticle.id);
+    }
+
+    // 2. Interleave 1-2 YouTube videos and video articles
+    selectedVideos.forEach((v) => {
+      if (!usedIds.has(v.id)) {
+        result.push(v);
+        usedIds.add(v.id);
+      }
+    });
+
+    // 3. Articles in this category with video
+    (articles || []).forEach((a: any) => {
+      if ((a.videoUrl || a.youtubeUrl || a.mediaType === 'video' || a.isVideo) && !usedIds.has(a.id)) {
+        result.push({
+          ...a,
+          videoId: safeYouTubeId(a.videoUrl || a.youtubeUrl),
+          isVideoItem: true,
+        });
+        usedIds.add(a.id);
+      }
+    });
+
+    // 4. Fill remaining slots with standard category articles
+    (articles || []).forEach((a: any) => {
+      if (!usedIds.has(a.id)) {
+        result.push(a);
+        usedIds.add(a.id);
+      }
+    });
+
+    return result;
+  }, [articles, videos, category, slug, categoryName]);
+
   // Dynamic Section Items (Hero + Sub-Hero + Top Stories) driven by activeTab
   const currentSectionItems = useMemo(() => {
     if (activeTab === 'latest') {
@@ -227,9 +325,9 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
       return categoryVideoItems;
     }
 
-    // Default 'all' (બધું): Standard category articles
-    return articles || [];
-  }, [activeTab, articles, categoryVideoItems]);
+    // Default 'all' (બધું): Mixed feed of standard news articles, 1-2 YouTube videos, and video articles
+    return allSectionItems;
+  }, [activeTab, articles, categoryVideoItems, allSectionItems]);
 
   // Section Hero Article / Item
   const heroArticle = currentSectionItems[0] || articles[0];
@@ -311,7 +409,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
               {/* Main Big Hero Article / Video Card */}
               {heroArticle && (
                 <div>
-                  {activeTab === 'video' && heroArticle.videoId ? (
+                  {heroArticle.videoId ? (
                     <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-black shadow-sm mb-3">
                       {playingVideoId === (heroArticle.id || heroArticle.videoId) ? (
                         <iframe
