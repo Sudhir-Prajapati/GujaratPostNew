@@ -1,4 +1,4 @@
-// Backend Initialization
+// Backend Initialization - SMTP Email Support Loaded
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
