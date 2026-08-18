@@ -369,10 +369,8 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
             
             {/* Email Input Form */}
             <form onSubmit={handleSendOtp} className="space-y-2.5">
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none transition-colors group-focus-within:text-[#B3121B]">
-                  <Mail className="h-4 w-4" />
-                </span>
+              <div className="relative w-full">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none z-10" />
                 <input
                   ref={emailInputRef}
                   type="email"
@@ -382,7 +380,7 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
                     if (error) setError(null);
                   }}
                   placeholder={texts.enterEmail}
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-xs md:text-sm font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-all duration-200 ease-in-out shadow-xs"
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-xs md:text-sm font-semibold text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-colors duration-150 shadow-xs"
                 />
               </div>
 
@@ -469,10 +467,8 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
 
             {/* OTP Form */}
             <form onSubmit={handleVerifyOtp} className="space-y-3 pt-1">
-              <div className="relative group">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-zinc-400 pointer-events-none transition-colors group-focus-within:text-[#B3121B]">
-                  <KeyRound className="h-4 w-4" />
-                </span>
+              <div className="relative w-full">
+                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none z-10" />
                 <input
                   ref={otpInputRef}
                   type="text"
@@ -484,7 +480,7 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
                   }}
                   placeholder="------"
                   disabled={timeLeft === 0}
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-center font-mono text-lg font-black tracking-[0.4em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-all duration-200 ease-in-out shadow-xs disabled:opacity-50"
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 py-3 pl-10 pr-4 text-center font-mono text-lg font-black tracking-[0.4em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-[#B3121B]/30 focus:border-[#B3121B] transition-colors duration-150 shadow-xs disabled:opacity-50"
                 />
               </div>
 
