@@ -81,7 +81,7 @@ export class HeroController {
       const postsMap = new Map<string, any>();
       if (targetIds.length > 0) {
         const posts = await prisma.post.findMany({
-          where: { id: { in: targetIds } },
+          where: { id: { in: targetIds }, status: 'PUBLISHED' },
           include: {
             category: true,
             author: true,

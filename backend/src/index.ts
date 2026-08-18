@@ -32,8 +32,8 @@ app.use(
 );
 
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve uploaded files statically with correct MIME types (PDF, images) and CORS headers
 const express_static = express.static(path.join(process.cwd(), 'uploads'), {
@@ -43,73 +43,16 @@ const express_static = express.static(path.join(process.cwd(), 'uploads'), {
     }
     if (filePath.endsWith('.pdf')) {
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+      res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath)}"`);
     }
   },
 });
 
-const pdfCloudinaryCache = new Map<string, string>();
-
-app.use('/uploads', async (req, res, next) => {
+app.use('/uploads', (req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-
-  if (req.path.toLowerCase().endsWith('.pdf')) {
-    const filename = path.basename(req.path);
-    try {
-      if (pdfCloudinaryCache.has(filename)) {
-        return res.redirect(302, pdfCloudinaryCache.get(filename)!);
-      }
-
-      // Query database for Cloudinary CDN URL matching this PDF filename
-      const posts: any[] = (await prisma.$queryRawUnsafe(
-        `SELECT content, contentGu, contentHi FROM posts WHERE content LIKE ? OR contentGu LIKE ? OR contentHi LIKE ? LIMIT 5`,
-        `%${filename.slice(0, 20)}%`, `%${filename.slice(0, 20)}%`, `%${filename.slice(0, 20)}%`
-      ).catch(() => [])) as any[];
-
-      for (const p of posts) {
-        const text = `${p.content || ''} ${p.contentGu || ''} ${p.contentHi || ''}`;
-        const matches = text.match(/https:\/\/res\.cloudinary\.com\/[^\s"'<>]+\.pdf/gi);
-        if (matches && matches.length > 0) {
-          const matchedCdnUrl = matches.find((m) => m.toLowerCase().includes(filename.slice(0, 15).toLowerCase())) || matches[0];
-          pdfCloudinaryCache.set(filename, matchedCdnUrl);
-          return res.redirect(302, matchedCdnUrl);
-        }
-      }
-
-      // Fallback: If local file still exists, upload it now to Cloudinary
-      const localFilePath = path.join(process.cwd(), 'uploads', req.path);
-      if (fs.existsSync(localFilePath)) {
-        const { v2: cloudinary } = await import('cloudinary');
-        cloudinary.config({
-          cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dvcffkyjz',
-          api_key: process.env.CLOUDINARY_API_KEY || '495845865934762',
-          api_secret: process.env.CLOUDINARY_API_SECRET || 'ea99jiIs2CS9jRYnPpTmF9PjNIM',
-        });
-
-        console.log(`☁️ Auto-migrating local PDF to Cloudinary CDN: ${req.path}`);
-        const result = await cloudinary.uploader.upload(localFilePath, {
-          folder: 'gujarat-post',
-          resource_type: 'raw',
-          use_filename: true,
-          unique_filename: true,
-        });
-
-        let cdnUrl = result.secure_url || result.url;
-        if (cdnUrl.includes('res.cloudinary.com')) {
-          cdnUrl = cdnUrl.replace('/image/upload/', '/raw/upload/').replace('/fl_attachment/', '/');
-        }
-
-        pdfCloudinaryCache.set(filename, cdnUrl);
-        return res.redirect(302, cdnUrl);
-      }
-    } catch (err) {
-      console.warn('⚠️ Cloudinary auto-migration notice:', err);
-    }
-  }
-
-  next();
-}, express_static);
+  express_static(req, res, next);
+});
 
 // Root endpoint status check
 app.get('/', (req, res) => {
@@ -147,7 +90,7 @@ const bootstrap = async () => {
     console.log('Successfully connected to MySQL database via Prisma.');
 
     // 3. Start listening
-    const server = app.listen(PORT, () => {
+    const server = app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
     });
     server.on('error', (err: any) => {
@@ -163,7 +106,7 @@ const bootstrap = async () => {
   } catch (error) {
     console.error('Bootstrap warning:', error);
     // Start listening anyway so backend stays online and nodemon never crashes
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
     });
   }

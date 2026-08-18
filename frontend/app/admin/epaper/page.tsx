@@ -485,6 +485,11 @@ export default function AdminEPaperPage() {
       return;
     }
 
+    if (uploading || uploadingThumb) {
+      showToast('error', 'Please wait for file upload to finish before saving.');
+      return;
+    }
+
     const currentTitle = title.trim() || `${city.toUpperCase()} EDITION`;
 
     // Check if an edition for this city, date & title already exists
@@ -778,15 +783,15 @@ export default function AdminEPaperPage() {
                 onClick={() => openReader(edition)}
                 className="relative aspect-[3/4] w-full overflow-hidden bg-slate-200 dark:bg-zinc-800 cursor-pointer"
               >
-                {isImageUrl(edition.fileUrl) ? (
+                {isImageUrl(edition.thumbnailUrl) ? (
                   <img
-                    src={edition.fileUrl}
+                    src={edition.thumbnailUrl}
                     alt={edition.title || edition.city}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
-                ) : isImageUrl(edition.thumbnailUrl) ? (
+                ) : isImageUrl(edition.fileUrl) ? (
                   <img
-                    src={edition.thumbnailUrl}
+                    src={edition.fileUrl}
                     alt={edition.title || edition.city}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
@@ -1331,11 +1336,11 @@ export default function AdminEPaperPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || uploading || uploadingThumb}
                   className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#B3121B] text-white text-xs font-black hover:bg-[#8e0e15] disabled:opacity-60 transition cursor-pointer shadow-md"
                 >
-                  {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {editingEdition ? 'Save Changes' : status === 'PUBLISHED' ? 'Publish Edition' : 'Save as Draft'}
+                  {(saving || uploading || uploadingThumb) && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {uploading ? 'Uploading PDF File...' : uploadingThumb ? 'Uploading Thumbnail...' : editingEdition ? 'Save Changes' : status === 'PUBLISHED' ? 'Publish Edition' : 'Save as Draft'}
                 </button>
               </div>
             </form>
@@ -1450,27 +1455,11 @@ export default function AdminEPaperPage() {
 
               {/* Toolbar Controls */}
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1 bg-slate-800 rounded-xl p-1 border border-slate-700">
-                  <button
-                    onClick={() => setZoomLevel((z) => Math.max(75, z - 25))}
-                    className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 cursor-pointer"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="h-4 w-4" />
-                  </button>
-                  <span className="text-xs font-mono font-bold px-2 text-slate-200">{zoomLevel}%</span>
-                  <button
-                    onClick={() => setZoomLevel((z) => Math.min(200, z + 25))}
-                    className="p-1.5 hover:bg-slate-700 rounded-lg text-slate-300 cursor-pointer"
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="h-4 w-4" />
-                  </button>
-                </div>
 
                 {activeReaderEdition.fileUrl && !activeReaderEdition.fileUrl.startsWith('blob:') && (
                   <a
                     href={formatEpaperDownloadUrl(activeReaderEdition.fileUrl)}
+                    download="GujaratPost_EPaper.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-red-700 transition"
@@ -1507,20 +1496,21 @@ export default function AdminEPaperPage() {
                   }
                 }
               }}
-              className="relative flex-1 overflow-auto bg-slate-950 p-4 flex items-center justify-center"
+              className="relative flex-1 overflow-auto bg-slate-950 p-4 flex items-start justify-center"
             >
-              <div
-                className="transition-all duration-200 max-w-full"
-                style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
-              >
-                {isPdfUrl(activeReaderEdition.fileUrl) || activeReaderEdition.fileUrl?.includes('/uploads/') ? (
-                  <iframe
-                    key={`${activeReaderEdition.id}-p${currentPage}`}
-                    src={formatEpaperPdfUrl(activeReaderEdition.fileUrl, currentPage)}
-                    className="w-[820px] max-w-full h-[880px] rounded-xl border border-slate-700 bg-white shadow-2xl"
-                    title={`Gujarat Post E-Paper Page ${currentPage}`}
-                  />
-                ) : (
+              {isPdfUrl(activeReaderEdition.fileUrl) || activeReaderEdition.fileUrl?.includes('/uploads/') ? (
+                <iframe
+                  key={`${activeReaderEdition.id}-p${currentPage}`}
+                  src={formatEpaperPdfUrl(activeReaderEdition.fileUrl, currentPage)}
+                  className="bg-white border-0 shadow-2xl rounded-xl transition-all duration-200"
+                  style={{
+                    width: `${Math.round(850 * (zoomLevel / 100))}px`,
+                    height: `${Math.round(1150 * (zoomLevel / 100))}px`,
+                    maxWidth: '95vw',
+                  }}
+                  title={`Gujarat Post E-Paper Page ${currentPage}`}
+                />
+              ) : (
                   <div className="relative mx-auto w-[680px] max-w-full min-h-[900px] rounded-lg bg-white p-8 text-slate-900 shadow-2xl border border-slate-300 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between border-b-4 border-slate-950 pb-2">
@@ -1555,7 +1545,6 @@ export default function AdminEPaperPage() {
                     </div>
                   </div>
                 )}
-              </div>
             </div>
 
             {/* Bottom Nav */}

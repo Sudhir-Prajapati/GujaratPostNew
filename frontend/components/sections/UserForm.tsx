@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowLeft, Save, Globe, Lock, Mail, User, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Loader2, ArrowLeft, Save, Globe, Lock, Mail, User, ShieldCheck, Eye, EyeOff, Upload, X } from 'lucide-react';
 
 interface UserFormProps {
   userId?: string; // If present, we are in Edit mode
@@ -66,6 +66,27 @@ export default function UserForm({ userId }: UserFormProps) {
   // Author Profile Toggle
   const [enableProfile, setEnableProfile] = useState(false);
   const [profile, setProfile] = useState<AuthorProfile>({ ...DEFAULT_PROFILE });
+
+  // Image Source Mode: 'file' | 'url'
+  const [imageSourceMode, setImageSourceMode] = useState<'file' | 'url'>('file');
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image file size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) {
+        setProfile((prev) => ({ ...prev, image: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Writing capable roles that require/allow profile management
   const writingRoles = ['SUPER_ADMIN', 'EDITOR', 'REPORTER', 'PHOTOGRAPHER'];
@@ -475,33 +496,95 @@ export default function UserForm({ userId }: UserFormProps) {
                 <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 space-y-4">
                   <h3 className="text-sm font-bold text-zinc-850 dark:text-zinc-200">Profile Picture</h3>
                   
-                  {/* Image preview */}
+                  {/* Image preview with Remove option */}
                   <div className="flex justify-center">
-                    <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-zinc-200 dark:border-zinc-700 bg-zinc-50 flex items-center justify-center">
+                    <div className="relative h-28 w-28 overflow-hidden rounded-full border-2 border-red-500/30 bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center shadow-inner group">
                       {profile.image ? (
-                        <img
-                          src={profile.image}
-                          alt="preview"
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&q=80';
-                          }}
-                        />
+                        <>
+                          <img
+                            src={profile.image}
+                            alt="preview"
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&q=80';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleProfileFieldChange('image', '')}
+                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold gap-1"
+                          >
+                            <X className="h-4 w-4" /> Remove
+                          </button>
+                        </>
                       ) : (
-                        <span className="text-zinc-400 text-xs">No image</span>
+                        <span className="text-zinc-400 text-xs font-semibold">No image</span>
                       )}
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">Image URL</label>
-                    <input
-                      type="text"
-                      value={profile.image}
-                      onChange={(e) => handleProfileFieldChange('image', e.target.value)}
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
-                    />
+                  {/* Mode Selector: Local PC Upload vs Image URL */}
+                  <div className="space-y-3 pt-1">
+                    <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setImageSourceMode('file')}
+                        className={`py-1.5 rounded-lg transition-all ${
+                          imageSourceMode === 'file'
+                            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-xs'
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                        }`}
+                      >
+                        📁 Local PC
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageSourceMode('url')}
+                        className={`py-1.5 rounded-lg transition-all ${
+                          imageSourceMode === 'url'
+                            ? 'bg-white dark:bg-zinc-900 text-red-600 dark:text-red-400 shadow-xs'
+                            : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                        }`}
+                      >
+                        🔗 Image URL
+                      </button>
+                    </div>
+
+                    {imageSourceMode === 'file' ? (
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                          Upload File from Local PC
+                        </label>
+                        <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl p-4 text-center hover:border-red-500 transition-colors bg-zinc-50/50 dark:bg-zinc-950/20">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                          />
+                          <Upload className="mx-auto h-6 w-6 text-zinc-400 mb-1" />
+                          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-300 block">
+                            Click or drag image file here
+                          </span>
+                          <span className="text-[10px] text-zinc-400 block mt-0.5">
+                            PNG, JPG, WEBP or GIF (Max 5MB)
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1">
+                          Image URL Link
+                        </label>
+                        <input
+                          type="text"
+                          value={profile.image}
+                          onChange={(e) => handleProfileFieldChange('image', e.target.value)}
+                          placeholder="https://images.unsplash.com/..."
+                          className="w-full rounded-xl border border-zinc-200 bg-zinc-50 p-2.5 text-xs text-zinc-900 focus:outline-none dark:border-zinc-850 dark:bg-zinc-950/40 dark:text-white"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

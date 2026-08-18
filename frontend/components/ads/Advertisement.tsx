@@ -7,16 +7,28 @@ import { ArrowUpRight, BarChart3, Megaphone, Users, ExternalLink } from 'lucide-
 import { getPublicAdBySection } from '@/lib/api';
 
 interface AdProps {
-  position: 'header' | 'sidebar' | 'in-article' | 'footer' | 'banner';
+  position?: 'header' | 'sidebar' | 'in-article' | 'footer' | 'banner' | string;
+  section?: string;
   className?: string;
 }
 
-const adSizes: Record<AdProps['position'], { h: number; label: string }> = {
+const adSizes: Record<string, { h: number; label: string }> = {
   header: { h: 90, label: '728 × 90' },
   sidebar: { h: 250, label: '300 × 250' },
   'in-article': { h: 250, label: 'In-article' },
   footer: { h: 90, label: '728 × 90' },
   banner: { h: 70, label: '468 × 60' },
+};
+
+const sectionToPosMap: Record<string, string> = {
+  HEADER: 'header',
+  AFTER_HERO: 'banner',
+  SIDEBAR_HERO_TOP: 'sidebar',
+  SIDEBAR_GUJARAT: 'sidebar',
+  SIDEBAR_WORLD: 'sidebar',
+  SIDEBAR_POPULAR: 'sidebar',
+  AFTER_TRENDING: 'banner',
+  AFTER_WEBSTORIES: 'banner',
 };
 
 const isValidMediaUrl = (url: string | null | undefined): boolean => {
@@ -32,36 +44,35 @@ const isValidMediaUrl = (url: string | null | undefined): boolean => {
   }
 };
 
-export default function Advertisement({ position, className = '' }: AdProps) {
-  const { h, label } = adSizes[position];
-  const vertical = position === 'sidebar' || position === 'in-article';
+export default function Advertisement({ position, section, className = '' }: AdProps) {
+  const targetSection = section || (position === 'header' ? 'HEADER' : position === 'sidebar' ? 'SIDEBAR_HERO_TOP' : 'AFTER_HERO');
+  const effectivePos = position || sectionToPosMap[targetSection] || 'sidebar';
+  const sizeConfig = adSizes[effectivePos] || adSizes['sidebar'];
+  const { h, label } = sizeConfig;
+  const vertical = effectivePos === 'sidebar' || effectivePos === 'in-article';
 
   const [adData, setAdData] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(position === 'header');
 
   useEffect(() => {
-    if (position === 'header') {
-      let isMounted = true;
-      getPublicAdBySection('HEADER').then((data) => {
-        if (isMounted) {
-          setAdData(data);
-          setLoading(false);
-        }
-      });
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [position]);
+    let isMounted = true;
+    getPublicAdBySection(targetSection).then((data) => {
+      if (isMounted) {
+        setAdData(data);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [targetSection]);
 
-  // Check if dynamic custom ad exists for header slot and has a valid media URL
+  // Check if dynamic custom ad exists for section and has a valid media URL
   const mediaUrl = adData?.image1 ? adData.image1.trim() : '';
   const hasCustomAd =
     adData &&
-    adData.isActive &&
+    adData.isActive !== false &&
     isValidMediaUrl(mediaUrl);
 
-  if (position === 'header' && hasCustomAd) {
+  if (hasCustomAd) {
     const redirectLink = adData.link1 ? adData.link1.trim() : '#';
     const isVideo =
       (adData.mediaType || '').toUpperCase() === 'VIDEO' ||
@@ -69,7 +80,7 @@ export default function Advertisement({ position, className = '' }: AdProps) {
 
     return (
       <aside
-        aria-label="Header Advertisement"
+        aria-label="Advertisement"
         className={`group relative isolate overflow-hidden rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-900 shadow-sm transition-all duration-300 hover:border-red-500/40 ${className}`}
         style={{ minHeight: h }}
       >
@@ -91,11 +102,11 @@ export default function Advertisement({ position, className = '' }: AdProps) {
           ) : (
             <Image
               src={mediaUrl}
-              alt={adData.title || 'Header Advertisement'}
+              alt={adData.title || 'Advertisement'}
               fill
               unoptimized={true}
               className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-              priority
+              priority={effectivePos === 'header'}
             />
           )}
 

@@ -4,12 +4,14 @@ import { SITE_URL } from "@/data";
 import { getPublicArticleBySlug, getPublicArticles } from "@/lib/api";
 import NewsDetailClient from "./NewsDetailClient";
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function generateStaticParams() {
   try {
-    const { articles } = await getPublicArticles({ limit: 50 });
-    return (articles || []).map((article) => ({ slug: article.slug }));
+    const res = await getPublicArticles({ limit: 50 }).catch(() => ({ articles: [], total: 0, totalPages: 1 }));
+    const articles = res?.articles || [];
+    return articles.map((article) => ({ slug: article.slug }));
   } catch {
     return [];
   }
@@ -60,10 +62,13 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
 
   // Dynamically fetch related articles and calculate smart relevance scores
   const categorySlug = (article.category || '').toLowerCase().replace(/\s+/g, '-');
-  const [{ articles: categoryArticles }, { articles: fallbackArticles }] = await Promise.all([
-    getPublicArticles({ categorySlug, limit: 20 }),
-    getPublicArticles({ limit: 50 }),
+  const [catRes, fallbackRes] = await Promise.all([
+    getPublicArticles({ categorySlug, limit: 20 }).catch(() => ({ articles: [], total: 0, totalPages: 1 })),
+    getPublicArticles({ limit: 50 }).catch(() => ({ articles: [], total: 0, totalPages: 1 })),
   ]);
+
+  const categoryArticles = catRes?.articles || [];
+  const fallbackArticles = fallbackRes?.articles || [];
 
   const currentTags = new Set([
     ...(article.tags || []),
@@ -71,7 +76,7 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
     ...(article.tagsHi || []),
   ].map((t) => t?.toLowerCase().trim()).filter(Boolean));
 
-  const allCandidates = [...(categoryArticles || []), ...(fallbackArticles || [])];
+  const allCandidates = [...categoryArticles, ...fallbackArticles];
   const uniqueCandidates = allCandidates.filter(
     (a, idx, self) => a.id !== article.id && self.findIndex((t) => t.id === a.id) === idx
   );
@@ -119,7 +124,8 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
 
   const related = scoredRelated.map((entry) => entry.item);
 
-  const { articles: trending } = await getPublicArticles({ isTrending: true, limit: 20 });
+  const trendingRes = await getPublicArticles({ isTrending: true, limit: 20 }).catch(() => ({ articles: [], total: 0, totalPages: 1 }));
+  const trending = trendingRes?.articles || [];
 
   const articleUrl = `${SITE_URL}/news/${article.slug}`;
   const structuredData = {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText,
@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Database,
   ArrowUpRight,
-  Loader2,
   FolderOpen,
   Image as ImageIcon,
   Video,
@@ -19,12 +18,17 @@ import {
   Plus,
   Check,
   X,
-  Lock,
   ChevronRight,
   TrendingUp,
   FileCheck2,
-  CheckCircle,
-  Play
+  Sparkles,
+  Radio,
+  Newspaper,
+  Film,
+  ExternalLink,
+  Edit3,
+  Layers,
+  Zap,
 } from 'lucide-react';
 import { getBackendApiUrl, authFetch } from '@/lib/api';
 
@@ -64,15 +68,39 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>('Editor');
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [dbArticles, setDbArticles] = useState<any[]>([]);
+
+  // Compute live Most Read Articles dynamically from database
+  const mostReadArticles = useMemo(() => {
+    const pool = dbArticles.length > 0 ? dbArticles : [
+      ...(data?.trendingArticles || []),
+      ...(data?.recentlyPublished || []),
+      ...(data?.recentDrafts || []),
+    ];
+    const uniqueMap = new Map<string, any>();
+    pool.forEach((art) => {
+      if (art && art.id && !uniqueMap.has(art.id)) {
+        uniqueMap.set(art.id, art);
+      }
+    });
+    return Array.from(uniqueMap.values())
+      .sort((a, b) => (b.views || 0) - (a.views || 0));
+  }, [dbArticles, data]);
+
+  // Dynamic right-side item limit (minimum 7 articles; expands if left column grows)
+  const leftSideCount = (data?.recentDrafts?.length || 0) + (data?.recentlyPublished?.length || 0);
+  const rightSideLimit = Math.max(7, leftSideCount);
 
   // Fetch logged in user and stats
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [meRes, statsRes] = await Promise.all([
+        const [meRes, statsRes, articlesRes] = await Promise.all([
           authFetch(getBackendApiUrl('/api/auth/me')),
-          authFetch(getBackendApiUrl('/api/admin/stats'))
+          authFetch(getBackendApiUrl('/api/admin/stats')),
+          authFetch(getBackendApiUrl('/api/admin/articles?limit=50')),
         ]);
 
         if (meRes.status === 401 || statsRes.status === 401) {
@@ -83,14 +111,22 @@ export default function AdminDashboard() {
         const meJson = await meRes.json();
         const statsJson = await statsRes.json();
 
+        if (articlesRes && articlesRes.ok) {
+          const articlesJson = await articlesRes.json();
+          const rawArts = articlesJson.data?.articles || articlesJson.data || [];
+          if (Array.isArray(rawArts)) {
+            setDbArticles(rawArts);
+          }
+        }
+
         if (meRes.ok && meJson.data?.user) {
           setUserRole(meJson.data.user.role);
+          setUserName(meJson.data.user.name || meJson.data.user.email?.split('@')[0] || 'Admin');
         }
 
         if (statsRes.ok && statsJson.data) {
           setData(statsJson.data);
         } else {
-          // Provide fallback safe data structure so admin panel always opens smoothly
           setData({
             articles: { total: 0, published: 0, draft: 0, pendingReview: 0 },
             views: 0,
@@ -107,7 +143,6 @@ export default function AdminDashboard() {
           });
         }
       } catch (err: any) {
-        // Provide fallback safe data structure on error
         setData({
           articles: { total: 0, published: 0, draft: 0, pendingReview: 0 },
           views: 0,
@@ -141,19 +176,16 @@ export default function AdminDashboard() {
           ...currentArticleData,
           status: 'PUBLISHED',
           isPublished: true,
-          publishedAt: new Date().toISOString()
-        })
+          publishedAt: new Date().toISOString(),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to publish article.');
-      
-      // Update UI state locally
+
       alert('Article published successfully!');
-      setData(prev => {
+      setData((prev) => {
         if (!prev) return null;
-        // remove from pending review list
-        const updatedPending = prev.pendingReporterArticles.filter(a => a.id !== id);
-        // add to recently published list
+        const updatedPending = prev.pendingReporterArticles.filter((a) => a.id !== id);
         const updatedPublished = [json.data, ...prev.recentlyPublished].slice(0, 5);
         return {
           ...prev,
@@ -161,10 +193,10 @@ export default function AdminDashboard() {
             ...prev.articles,
             published: prev.articles.published + 1,
             draft: Math.max(0, prev.articles.draft - 1),
-            pendingReview: Math.max(0, prev.articles.pendingReview - 1)
+            pendingReview: Math.max(0, prev.articles.pendingReview - 1),
           },
           pendingReporterArticles: updatedPending,
-          recentlyPublished: updatedPublished
+          recentlyPublished: updatedPublished,
         };
       });
     } catch (err: any) {
@@ -179,19 +211,17 @@ export default function AdminDashboard() {
     if (!confirm('Are you sure you want to reject this draft and return it to the Reporter?')) return;
     setActionLoadingId(id);
     try {
-      // Keeps it in DRAFT state but writes a log or alert (for simulation here, we keep it as DRAFT)
       alert('Draft returned to Reporter for corrections.');
-      setData(prev => {
+      setData((prev) => {
         if (!prev) return null;
-        // remove from pending review list
-        const updatedPending = prev.pendingReporterArticles.filter(a => a.id !== id);
+        const updatedPending = prev.pendingReporterArticles.filter((a) => a.id !== id);
         return {
           ...prev,
           articles: {
             ...prev.articles,
-            pendingReview: Math.max(0, prev.articles.pendingReview - 1)
+            pendingReview: Math.max(0, prev.articles.pendingReview - 1),
           },
-          pendingReporterArticles: updatedPending
+          pendingReporterArticles: updatedPending,
         };
       });
     } catch (err: any) {
@@ -217,8 +247,8 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 w-64 rounded bg-zinc-200 dark:bg-zinc-800" />
+      <div className="space-y-6 animate-pulse p-2">
+        <div className="h-36 w-full rounded-3xl bg-gradient-to-r from-zinc-200 to-zinc-300 dark:from-zinc-800 dark:to-zinc-900" />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 rounded-2xl bg-zinc-200 dark:bg-zinc-800" />
@@ -239,166 +269,245 @@ export default function AdminDashboard() {
     );
   }
 
-  // Dashboard Stats Cards Configurations
   const statCards = [
     {
       label: 'Total Articles',
       value: data ? formatNumber(data.articles.total) : '0',
       description: `${data?.articles.published || 0} published • ${data?.articles.draft || 0} drafts`,
       icon: FileText,
-      color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      gradient: 'from-blue-600 to-indigo-600',
+      bgLight: 'bg-blue-50/70 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30',
+      badgeColor: 'bg-blue-600 text-white',
+      href: '/admin/articles',
     },
     {
       label: 'Pending Review',
       value: data ? formatNumber(data.articles.pendingReview) : '0',
       description: 'Submitted reporter drafts needing review',
       icon: FileCheck2,
-      color: 'bg-red-500/10 text-red-650 dark:text-red-405',
+      gradient: 'from-rose-600 to-red-600',
+      bgLight: 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30',
+      badgeColor: 'bg-rose-600 text-white',
+      highlight: (data?.articles.pendingReview || 0) > 0,
+      href: '/admin/articles?status=DRAFT',
     },
     {
       label: 'Total Views',
       value: data ? formatNumber(data.views) : '0',
       description: 'Cumulative news articles view counts',
       icon: Eye,
-      color: 'bg-green-500/10 text-green-605 dark:text-green-405',
+      gradient: 'from-emerald-600 to-teal-600',
+      bgLight: 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30',
+      badgeColor: 'bg-emerald-600 text-white',
+      href: '/admin/articles',
     },
     {
       label: 'Categories',
       value: data ? formatNumber(data.categories) : '0',
       description: 'Active news categories & sections',
       icon: FolderOpen,
-      color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      gradient: 'from-purple-600 to-violet-600',
+      bgLight: 'bg-purple-50/70 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/30',
+      badgeColor: 'bg-purple-600 text-white',
+      href: '/admin/categories',
     },
     {
-      label: 'Gallery Images',
+      label: 'Gallery Media',
       value: data ? formatNumber(data.galleryImages) : '0',
       description: 'Uploaded high-res media files',
       icon: ImageIcon,
-      color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      gradient: 'from-amber-600 to-orange-600',
+      bgLight: 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30',
+      badgeColor: 'bg-amber-600 text-white',
+      href: '/admin/gallery',
     },
     {
       label: 'Videos Embeds',
       value: data ? formatNumber(data.videos) : '0',
       description: 'YouTube videos and shorts clips',
       icon: Video,
-      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      gradient: 'from-red-600 to-pink-600',
+      bgLight: 'bg-red-50/70 dark:bg-red-950/20 border-red-100 dark:border-red-900/30',
+      badgeColor: 'bg-red-600 text-white',
+      href: '/admin/videos',
     },
   ];
 
-  // If SUPER_ADMIN, add active sessions card
-  if (userRole === 'SUPER_ADMIN' && data) {
-    statCards.push({
-      label: 'Active Sessions',
-      value: formatNumber(data.activeSessions),
-      description: 'Currently logged-in editor/author devices',
-      icon: Users,
-      color: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400',
-    });
-  }
+
+
+  const quickShortcuts = [
+    { label: 'Write Article', href: '/admin/articles/create', icon: Plus, bg: 'bg-red-600 text-white hover:bg-red-700' },
+    { label: 'Hero Layout', href: '/admin/hero', icon: Layers, bg: 'bg-zinc-900 text-white dark:bg-zinc-800 hover:bg-black' },
+    { label: 'Categories', href: '/admin/categories', icon: FolderOpen, bg: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 hover:bg-blue-100' },
+    { label: 'Advertisements', href: '/admin/advertisements', icon: Zap, bg: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 hover:bg-amber-100' },
+    { label: 'Gallery Media', href: '/admin/gallery', icon: ImageIcon, bg: 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 hover:bg-purple-100' },
+    { label: 'Videos Stream', href: '/admin/videos', icon: Video, bg: 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 hover:bg-rose-100' },
+    { label: 'Shorts & Reels', href: '/admin/shorts', icon: Film, bg: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 hover:bg-emerald-100' },
+    { label: 'E-Paper Releases', href: '/admin/epaper', icon: Newspaper, bg: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 hover:bg-indigo-100' },
+  ];
 
   return (
-    <div className="space-y-8">
-      {/* Title */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Editorial Dashboard</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Review reporter submissions, inspect analytics and edit portal components.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.push('/admin/articles/create')}
-            className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-zinc-850 dark:bg-white dark:text-zinc-950 dark:hover:bg-zinc-105"
-          >
-            <Plus className="h-4 w-4" />
-            Write Article
-          </button>
+    <div className="space-y-8 pb-10">
+      {/* Executive Welcome Hero Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-red-950 p-6 sm:p-8 text-white shadow-xl dark:border dark:border-zinc-800/80">
+        <div className="absolute right-0 top-0 -mt-10 -mr-10 h-72 w-72 rounded-full bg-red-600/10 blur-3xl" />
+        <div className="absolute left-1/2 bottom-0 h-48 w-48 rounded-full bg-blue-600/10 blur-2xl" />
+
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold backdrop-blur-md border border-white/10">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+              <span>LIVE EDITORIAL SYSTEM</span>
+              <span className="text-zinc-400">•</span>
+              <span className="text-red-400 font-semibold">{userRole || 'ADMIN'}</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
+              Welcome back, <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-amber-300">{userName}</span>
+            </h1>
+            <p className="max-w-2xl text-xs sm:text-sm text-zinc-300 leading-relaxed">
+              Gujarat Post News Management Portal. Monitor live audience reach, publish breaking stories, inspect reporter submissions, and manage custom homepage hero slots.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => router.push('/admin/articles/create')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-xs font-black text-white shadow-lg shadow-red-600/30 hover:bg-red-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              <Plus className="h-4 w-4 stroke-[3]" />
+              Write New Article
+            </button>
+            <button
+              onClick={() => router.push('/admin/hero')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-3 text-xs font-bold text-white backdrop-blur-md border border-white/15 hover:bg-white/20 transition-all"
+            >
+              <Layers className="h-4 w-4" />
+              Manage Hero
+            </button>
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-2xl bg-zinc-800/80 px-4 py-3 text-xs font-bold text-zinc-200 hover:bg-zinc-700 transition-all"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Live Portal
+            </a>
+          </div>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {/* Metrics Cards Grid */}
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
               key={card.label}
-              className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-200 dark:border-zinc-800 dark:bg-zinc-900"
+              onClick={() => card.href && router.push(card.href)}
+              className={`group relative overflow-hidden rounded-3xl border ${card.bgLight} p-6 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer select-none hover:-translate-y-1`}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{card.label}</span>
-                <span className={`rounded-xl p-2.5 ${card.color}`}>
-                  <Icon className="h-5 w-5" />
+              {card.highlight && (
+                <span className="absolute top-3 right-3 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600" />
                 </span>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  {card.label}
+                </span>
+                <div className={`rounded-2xl p-3 shadow-md ${card.badgeColor} group-hover:scale-110 transition-transform duration-300`}>
+                  <Icon className="h-5 w-5" />
+                </div>
               </div>
-              <div className="mt-4">
-                <span className="text-3xl font-black tracking-tight">{card.value}</span>
-                <p className="mt-1 text-xs text-zinc-405 dark:text-zinc-500">{card.description}</p>
+              <div className="mt-5">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black tracking-tight text-zinc-900 dark:text-white">
+                    {card.value}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span>{card.description}</span>
+                </p>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* ─── REVIEW QUEUE SECTION ─── */}
+      {/* ─── PENDING REVIEW QUEUE ─── */}
       {data && data.pendingReporterArticles.length > 0 && (
-        <div className="rounded-2xl border border-red-200/60 bg-red-50/10 p-6 dark:border-red-900/30">
-          <h3 className="text-lg font-bold text-red-655 dark:text-red-405 flex items-center gap-2 mb-4">
-            <FileCheck2 className="h-5 w-5" />
-            Pending Review Queue ({data.pendingReporterArticles.length})
-          </h3>
-          <div className="divide-y divide-red-205/20 overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-[600px]">
+        <div className="rounded-3xl border border-rose-300/80 bg-gradient-to-r from-rose-50/80 via-rose-50/30 to-amber-50/50 p-6 shadow-md dark:border-rose-900/40 dark:from-rose-950/20 dark:to-zinc-900">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-black text-rose-700 dark:text-rose-400 flex items-center gap-2">
+              <FileCheck2 className="h-5 w-5" />
+              Reporter Submissions Pending Review ({data.pendingReporterArticles.length})
+            </h3>
+            <span className="text-xs font-bold text-rose-600 bg-rose-100 px-3 py-1 rounded-full dark:bg-rose-950/60">
+              Needs Editor Approval
+            </span>
+          </div>
+
+          <div className="divide-y divide-rose-200/50 overflow-x-auto dark:divide-zinc-800">
+            <table className="w-full text-left text-sm min-w-[650px]">
               <thead>
-                <tr className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                  <th className="pb-3 pr-4">Article</th>
-                  <th className="pb-3 px-4">Author</th>
+                <tr className="text-[11px] font-black text-zinc-500 uppercase tracking-wider">
+                  <th className="pb-3 pr-4">Article Headline</th>
+                  <th className="pb-3 px-4">Reporter</th>
+                  <th className="pb-3 px-4">Category</th>
                   <th className="pb-3 px-4">Submitted At</th>
-                  <th className="pb-3 text-right">Actions</th>
+                  <th className="pb-3 text-right">Review Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-850">
+              <tbody className="divide-y divide-rose-100 dark:divide-zinc-850">
                 {data.pendingReporterArticles.map((art) => (
-                  <tr key={art.id} className="hover:bg-zinc-50/40">
-                    <td className="py-3.5 pr-4">
-                      <p className="font-bold text-zinc-900 dark:text-white line-clamp-1">{art.title}</p>
-                      <span className="inline-block rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-550 dark:bg-zinc-800 dark:text-zinc-400 mt-1">
-                        {art.category?.name || 'Uncategorized'}
+                  <tr key={art.id} className="hover:bg-white/60 dark:hover:bg-zinc-850/50 transition-colors">
+                    <td className="py-4 pr-4">
+                      <p className="font-extrabold text-zinc-900 dark:text-white line-clamp-1">{art.title}</p>
+                      <p className="text-xs text-zinc-500 line-clamp-1 mt-0.5">{art.excerpt || 'No excerpt provided.'}</p>
+                    </td>
+                    <td className="py-4 px-4 text-zinc-700 dark:text-zinc-300 font-bold whitespace-nowrap">
+                      {art.author?.name || 'Staff Reporter'}
+                    </td>
+                    <td className="py-4 px-4 whitespace-nowrap">
+                      <span className="inline-block rounded-xl bg-zinc-900 px-2.5 py-1 text-[11px] font-bold text-white dark:bg-zinc-800">
+                        {art.category?.name || 'General'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-zinc-600 dark:text-zinc-300 font-medium">
-                      {art.author?.name || 'Staff'}
-                    </td>
-                    <td className="py-3.5 px-4 text-zinc-500">
+                    <td className="py-4 px-4 text-xs font-semibold text-zinc-500 whitespace-nowrap">
                       {new Date(art.updatedAt).toLocaleDateString('en-IN', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                       })}
                     </td>
-                    <td className="py-3.5 text-right whitespace-nowrap">
+                    <td className="py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => router.push(`/admin/articles/${art.id}/edit`)}
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          className="rounded-xl border border-zinc-300 px-3 py-1.5 text-xs font-extrabold text-zinc-700 hover:bg-white dark:border-zinc-700 dark:text-zinc-200"
                         >
-                          Review & Edit
+                          Edit Details
                         </button>
                         <button
                           onClick={() => handleApprovePublish(art.id, art)}
                           disabled={actionLoadingId === art.id}
-                          className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                          className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700 shadow-sm flex items-center gap-1"
                         >
-                          <Check className="h-3 w-3" /> Approve
+                          <Check className="h-3.5 w-3.5 stroke-[3]" /> Approve
                         </button>
                         <button
                           onClick={() => handleRejectDraft(art.id)}
                           disabled={actionLoadingId === art.id}
-                          className="rounded-lg bg-red-550 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-650 disabled:opacity-50 flex items-center gap-1"
+                          className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-rose-700 shadow-sm flex items-center gap-1"
                         >
-                          <X className="h-3 w-3" /> Return
+                          <X className="h-3.5 w-3.5 stroke-[3]" /> Return
                         </button>
                       </div>
                     </td>
@@ -410,249 +519,190 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Main Content Split: Left Lists vs Right Logs & Actions */}
+      {/* Main Grid Split: Left Lists vs Right Column */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Column: Lists */}
+        {/* Left Column: Article Feeds & Tables */}
         <div className="lg:col-span-2 space-y-6">
           
+          {/* Quick Action Shortcuts Grid */}
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
+                <Zap className="h-5 w-5 text-amber-500" />
+                Quick Operations & Shortcuts
+              </h3>
+              <span className="text-xs font-bold text-zinc-400">Direct Navigation</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {quickShortcuts.map((s) => {
+                const Icon = s.icon;
+                return (
+                  <button
+                    key={s.label}
+                    onClick={() => router.push(s.href)}
+                    className={`group flex flex-col items-center justify-center p-4 rounded-2xl ${s.bg} transition-all duration-200 shadow-sm hover:shadow-md text-center space-y-2`}
+                  >
+                    <Icon className="h-6 w-6 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs font-black tracking-tight">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Recent Drafts */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Recent Drafts</h3>
-              <button 
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-zinc-500" />
+                <h3 className="text-lg font-black tracking-tight">Recent Drafts</h3>
+              </div>
+              <button
                 onClick={() => router.push('/admin/articles?status=DRAFT')}
-                className="text-xs font-bold text-accent hover:underline flex items-center gap-0.5"
+                className="text-xs font-extrabold text-red-600 hover:underline flex items-center gap-1"
               >
-                View all drafts <ChevronRight className="h-3 w-3" />
+                View all drafts <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
+
             {data?.recentDrafts && data.recentDrafts.length > 0 ? (
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {data.recentDrafts.slice(0, 4).map((art) => (
-                  <div key={art.id} className="py-3 flex items-center justify-between gap-4">
-                    <div>
-                      <p 
+                {data.recentDrafts.slice(0, 5).map((art) => (
+                  <div key={art.id} className="py-3.5 flex items-center justify-between gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50 px-2 rounded-xl transition-colors">
+                    <div className="min-w-0 flex-1">
+                      <p
                         onClick={() => router.push(`/admin/articles/${art.id}/edit`)}
-                        className="font-bold text-zinc-800 hover:text-accent cursor-pointer dark:text-zinc-200 line-clamp-1"
+                        className="font-extrabold text-zinc-900 hover:text-red-600 cursor-pointer dark:text-zinc-100 line-clamp-1"
                       >
                         {art.title}
                       </p>
-                      <div className="flex items-center gap-2 text-[10px] font-semibold text-zinc-400 mt-1 uppercase">
+                      <div className="flex items-center gap-2 text-[11px] font-bold text-zinc-400 mt-1 uppercase tracking-wide">
                         <span>By {art.author?.name || 'Staff'}</span>
                         <span>•</span>
-                        <span>{art.category?.name || 'General'}</span>
+                        <span className="text-zinc-600 dark:text-zinc-300">{art.category?.name || 'General'}</span>
                       </div>
                     </div>
                     <button
                       onClick={() => router.push(`/admin/articles/${art.id}/edit`)}
-                      className="rounded-lg p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 flex items-center gap-1 shrink-0"
                     >
-                      <ChevronRight className="h-4 w-4" />
+                      <span>Edit</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-450 dark:text-zinc-500 py-4 text-center">No drafts found.</p>
+              <div className="py-8 text-center border-2 border-dashed border-zinc-100 rounded-2xl dark:border-zinc-800">
+                <FileText className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-zinc-400">No active drafts found.</p>
+              </div>
             )}
           </div>
 
-          {/* Recently Published */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold">Recently Published</h3>
-              <button 
-                onClick={() => router.push('/admin/articles?status=PUBLISHED')}
-                className="text-xs font-bold text-accent hover:underline flex items-center gap-0.5"
-              >
-                View all published <ChevronRight className="h-3 w-3" />
-              </button>
+        </div>
+
+        {/* Right Column: Most Read Articles */}
+        <div className="space-y-6">
+          
+          {/* Most Read Articles Panel */}
+          <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 select-none">
+            <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-red-600 shrink-0" />
+                <h3 className="text-sm font-extrabold text-zinc-900 dark:text-white flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 rounded-full shadow-2xs">
+                  <Eye className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
+                  <span>Most Read Articles</span>
+                </h3>
+              </div>
+
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-red-600 bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-md">
+                Sorted by Views
+              </span>
             </div>
-            {data?.recentlyPublished && data.recentlyPublished.length > 0 ? (
+
+            {mostReadArticles && mostReadArticles.length > 0 ? (
               <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {data.recentlyPublished.slice(0, 4).map((art) => (
-                  <div key={art.id} className="py-3 flex items-center justify-between gap-4">
+                {mostReadArticles.slice(0, 7).map((art) => (
+                  <div key={art.id} className="py-3 flex items-center justify-between gap-3 hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50 px-1 rounded-xl transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-zinc-800 dark:text-zinc-200 line-clamp-1">
-                        {art.title}
-                      </p>
-                      <div className="flex items-center gap-3 text-[10px] font-semibold text-zinc-400 mt-1 uppercase">
-                        <span className="flex items-center gap-0.5"><Eye className="h-3 w-3" /> {art.views} views</span>
-                        <span>•</span>
-                        <span>Published: {new Date(art.publishedAt).toLocaleDateString('en-IN')}</span>
+                      <p className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 line-clamp-1">{art.title}</p>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 mt-0.5">
+                        <span className="text-zinc-500 font-semibold">{formatNumber(art.views)} views</span>
                       </div>
                     </div>
                     <a
                       href={`/news/${art.slug}`}
                       target="_blank"
-                      className="rounded-lg border border-zinc-200 p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800"
-                      title="View on site"
+                      rel="noopener noreferrer"
+                      className="rounded-lg border border-zinc-200 px-2.5 py-1 text-[11px] font-bold text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800 shrink-0 flex items-center gap-1 select-none"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-3.5 w-3.5 text-zinc-500" />
+                      <span>Show</span>
                     </a>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-zinc-450 dark:text-zinc-500 py-4 text-center">No published articles found.</p>
-            )}
-          </div>
-
-          {/* Trending Articles */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h3 className="text-lg font-bold flex items-center gap-1.5 mb-4">
-              <TrendingUp className="h-5 w-5 text-accent" />
-              Trending Strip Articles
-            </h3>
-            {data?.trendingArticles && data.trendingArticles.length > 0 ? (
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                {data.trendingArticles.slice(0, 4).map((art) => (
-                  <div key={art.id} className="py-3 flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-zinc-805 dark:text-zinc-200 line-clamp-1">{art.title}</p>
-                      <p className="text-[10px] font-bold text-accent mt-0.5">Priority Order: {art.priority}</p>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/admin/articles/${art.id}/edit`)}
-                      className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-bold text-zinc-600 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-zinc-450 dark:text-zinc-500 py-4 text-center">No articles marked as trending.</p>
+              <p className="text-xs text-zinc-400 py-6 text-center font-bold">No articles found.</p>
             )}
           </div>
 
         </div>
+      </div>
 
-        {/* Right Column: Timeline & Actions */}
-        <div className="space-y-6">
-          
-          {/* Quick Actions Panel */}
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h3 className="text-lg font-bold mb-4">Quick Shortcuts</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => router.push('/admin/articles/create')}
-                className="flex flex-col items-center justify-center p-4 border rounded-xl hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-950/40 text-center space-y-1.5"
-              >
-                <Plus className="h-5 w-5 text-zinc-550" />
-                <span className="text-xs font-bold">Write Article</span>
-              </button>
-              <button
-                onClick={() => router.push('/admin/categories')}
-                className="flex flex-col items-center justify-center p-4 border rounded-xl hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-950/40 text-center space-y-1.5"
-              >
-                <FolderOpen className="h-5 w-5 text-zinc-550" />
-                <span className="text-xs font-bold">Categories</span>
-              </button>
-              <button
-                onClick={() => router.push('/admin/gallery')}
-                className="flex flex-col items-center justify-center p-4 border rounded-xl hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-950/40 text-center space-y-1.5"
-              >
-                <ImageIcon className="h-5 w-5 text-zinc-550" />
-                <span className="text-xs font-bold">Gallery</span>
-              </button>
-              <button
-                onClick={() => router.push('/admin/videos')}
-                className="flex flex-col items-center justify-center p-4 border rounded-xl hover:bg-zinc-50 hover:border-zinc-300 dark:border-zinc-800 dark:hover:bg-zinc-950/40 text-center space-y-1.5"
-              >
-                <Video className="h-5 w-5 text-zinc-550" />
-                <span className="text-xs font-bold">Videos</span>
-              </button>
-            </div>
+      {/* Full-Width Section: Recently Published (Spans across left and right) */}
+      <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 w-full">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Newspaper className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-lg font-black tracking-tight">Recently Published</h3>
           </div>
-
-          {/* Security Logs (SUPER_ADMIN only) or System Timeline */}
-          {userRole === 'SUPER_ADMIN' ? (
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b pb-2">
-                <Database className="h-5 w-5 text-zinc-500" />
-                <h3 className="text-lg font-bold">Security Audit Trail</h3>
-              </div>
-              
-              <div className="space-y-4 max-h-[30rem] overflow-y-auto pr-1">
-                {data?.recentLogs && data.recentLogs.length > 0 ? (
-                  data.recentLogs.map((log) => (
-                    <div key={log.id} className="group relative flex gap-3 text-xs">
-                      <div className="flex flex-col items-center">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 ring-4 ring-white dark:bg-zinc-800 dark:ring-zinc-900">
-                          <span className="h-2 w-2 rounded-full bg-primary" />
-                        </span>
-                        <span className="flex-1 w-[1px] bg-zinc-100 group-last:bg-transparent dark:bg-zinc-800" />
-                      </div>
-                      <div className="flex-1 pb-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                            {log.action.replace('_', ' ')}
-                          </span>
-                          <span className="text-[10px] text-zinc-400 font-medium">
-                            {formatLogDate(log.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-zinc-550 dark:text-zinc-450 mt-0.5">
-                          By <span className="font-semibold">{log.userEmail}</span> ({log.userRole})
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center text-zinc-400 py-6">
-                    <Calendar className="h-8 w-8 mb-2" />
-                    <span className="text-xs">No recent log entries.</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            // Editor Timeline (General system status)
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 flex flex-col">
-              <div className="flex items-center gap-2 mb-4 border-b pb-2">
-                <Activity className="h-5 w-5 text-zinc-550" />
-                <h3 className="text-lg font-bold">Newsroom Activity Timeline</h3>
-              </div>
-              <div className="space-y-4 max-h-[30rem] overflow-y-auto pr-1">
-                {data?.recentLogs && data.recentLogs.length > 0 ? (
-                  data.recentLogs
-                    .filter(log => !log.action.includes('USER') && !log.action.includes('LOGIN') && !log.action.includes('SESSION'))
-                    .map((log) => (
-                      <div key={log.id} className="group relative flex gap-3 text-xs">
-                        <div className="flex flex-col items-center">
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-zinc-150 ring-4 ring-white dark:bg-zinc-800 dark:ring-zinc-900">
-                            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-                          </span>
-                          <span className="flex-1 w-[1px] bg-zinc-100 group-last:bg-transparent dark:bg-zinc-800" />
-                        </div>
-                        <div className="flex-1 pb-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-zinc-800 dark:text-zinc-200">
-                              {log.action.replace('_', ' ')}
-                            </span>
-                            <span className="text-[10px] text-zinc-450 font-medium">
-                              {formatLogDate(log.createdAt)}
-                            </span>
-                          </div>
-                          <p className="text-zinc-500 dark:text-zinc-450 mt-0.5">
-                            Author: <span className="font-semibold">{log.userEmail.split('@')[0]}</span>
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center text-zinc-400 py-6">
-                    <Activity className="h-8 w-8 mb-2" />
-                    <span className="text-xs">No recent newsroom logs.</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+          <button
+            onClick={() => router.push('/admin/articles?status=PUBLISHED')}
+            className="text-xs font-extrabold text-emerald-600 hover:underline flex items-center gap-1"
+          >
+            View all published <ChevronRight className="h-3.5 w-3.5" />
+          </button>
         </div>
+
+        {data?.recentlyPublished && data.recentlyPublished.length > 0 ? (
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {data.recentlyPublished.slice(0, 5).map((art) => (
+              <div key={art.id} className="py-3.5 flex items-center justify-between gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50 px-2 rounded-xl transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-1">
+                    {art.title}
+                  </p>
+                  <div className="flex items-center gap-3 text-[11px] font-bold text-zinc-400 mt-1 uppercase tracking-wide">
+                    <span className="flex items-center gap-1 text-emerald-600 font-extrabold">
+                      <Eye className="h-3.5 w-3.5" /> {formatNumber(art.views)} views
+                    </span>
+                    <span>•</span>
+                    <span>Published: {new Date(art.publishedAt || art.createdAt).toLocaleDateString('en-IN')}</span>
+                  </div>
+                </div>
+                <a
+                  href={`/news/${art.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-xl border border-zinc-200 p-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-400 shrink-0"
+                  title="View live article"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-8 text-center border-2 border-dashed border-zinc-100 rounded-2xl dark:border-zinc-800">
+            <Newspaper className="h-8 w-8 text-zinc-300 mx-auto mb-2" />
+            <p className="text-xs font-bold text-zinc-400">No published articles found.</p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

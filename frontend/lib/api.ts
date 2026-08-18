@@ -1,14 +1,24 @@
 import { Article, Video, Photo } from '@/types';
 import { PHOTOS } from '@/data';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/public';
+export const BACKEND_API_BASE = typeof window !== 'undefined'
+  ? '/api'
+  : (process.env.NEXT_PUBLIC_API_URL
+    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
+    : 'http://127.0.0.1:5000/api');
 
-export const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
-  : 'http://localhost:5000/api';
+export const API_BASE_URL = typeof window !== 'undefined'
+  ? '/api/public'
+  : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api/public');
 
 export function getBackendApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined') {
+    if (cleanPath.startsWith('/api/')) {
+      return cleanPath;
+    }
+    return `/api${cleanPath}`;
+  }
   if (cleanPath.startsWith('/api/')) {
     return `${BACKEND_API_BASE}${cleanPath.substring(4)}`;
   }
@@ -71,12 +81,12 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    // Increase timeout to 120s to allow remote cloud database queries (and cold starts on Render) to complete smoothly
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    // 15-second timeout so API calls fail fast and trigger fallbacks without hanging Next.js SSR
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     try {
       const res = await fetch(url, {
-        next: { revalidate: 300 },
+        cache: 'no-store',
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -84,7 +94,20 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
       if (!res.ok) {
         throw new Error(`HTTP error ${res.status}`);
       }
-      const json = await res.json();
+
+      const text = await res.text();
+      if (!text || !text.trim()) {
+        return null;
+      }
+
+      let json: any = null;
+      try {
+        json = JSON.parse(text);
+      } catch (parseErr: any) {
+        console.warn(`JSON parse error for ${url}:`, parseErr?.message || parseErr);
+        return null;
+      }
+
       apiCache.set(url, { timestamp: Date.now(), data: json });
       return json;
     } catch (error) {
@@ -117,6 +140,8 @@ export async function getPublicArticles(options: {
   isTrending?: boolean;
   isBreaking?: boolean;
   isFeatured?: boolean;
+  sort?: string;
+  orderBy?: string;
 } = {}): Promise<{ articles: Article[]; total: number; totalPages: number }> {
   try {
     const params = new URLSearchParams();
@@ -127,12 +152,21 @@ export async function getPublicArticles(options: {
     if (options.isTrending) params.append('isTrending', 'true');
     if (options.isBreaking) params.append('isBreaking', 'true');
     if (options.isFeatured) params.append('isFeatured', 'true');
+    if ((options as any).sort) params.append('sort', (options as any).sort);
+    if ((options as any).orderBy) params.append('orderBy', (options as any).orderBy);
 
     const url = `${API_BASE_URL}/articles?${params.toString()}`;
     const json = await fetchCachedJson<any>(url);
 
-    if (json?.success && json.data?.articles) {
-      return json.data;
+    if (json?.success && Array.isArray(json.data?.articles)) {
+      const filtered = json.data.articles.filter(
+        (a: any) => a && a.status !== 'DRAFT' && a.status !== 'ARCHIVED' && a.status !== 'IN_REVIEW' && a.isPublished !== false
+      );
+      return {
+        articles: filtered,
+        total: json.data.total ?? filtered.length,
+        totalPages: json.data.totalPages ?? 1,
+      };
     }
   } catch (error: any) {
     console.warn('Backend API fetch error for articles:', error?.message || error);
@@ -159,6 +193,73 @@ export async function getPublicArticleBySlug(slug: string): Promise<Article | nu
   } catch (error: any) {
     console.warn('Backend API fetch error for article detail:', error?.message || error);
   }
+
+  // Fallback article detail lookup for weather/rain/AQI news items
+  const fallbackArticles: Article[] = [
+    {
+      id: 'news-1',
+      slug: 'gujarat-seven-day-rain-forecast',
+      title: 'રાજ્યમાં હજુ સાત દિવસ વરસાદી માહોલ રહેવાની હવામાન વિભાગની આગાહી',
+      titleGu: 'રાજ્યમાં હજુ સાત દિવસ વરસાદી માહોલ રહેવાની હવામાન વિભાગની આગાહી',
+      excerpt: 'હવામાન વિભાગ દ્વારા આગામી 7 દિવસ દરમિયાન ગુજરાતના વિવિધ જિલ્લાઓમાં મધ્યમથી ભારે વરસાદની આગાહી કરવામાં આવી છે.',
+      content: '<p>હવામાન વિભાગ દ્વારા આગામી 7 દિવસ દરમિયાન ગુજરાતના વિવિધ જિલ્લાઓમાં મધ્યમથી ભારે વરસાદની આગાહી કરવામાં આવી છે. દક્ષિણ ગુજરાત અને સૌરાષ્ટ્રના દરિયાકાંઠાના વિસ્તારોમાં પવન સાથે વરસાદ પડાવાની શક્યતા છે.</p><p>બંગાળની ખાડીમાં સર્જાયેલા લો પ્રેશરના કારણે રાજ્યમાં ચોમાસું ફરી સક્રિય બન્યું છે.</p>',
+      image: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=600&q=80',
+      category: 'WEATHER',
+      author: { id: 'team', name: 'Gujarat Post Team' },
+      publishedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      views: 1240,
+      tags: ['Weather', 'Rain', 'Gujarat'],
+    },
+    {
+      id: 'news-2',
+      slug: 'ahmedabad-aqi-moderate-category',
+      title: 'અમદાવાદમાં AQI 100 પાર, હવા ગુણવત્તા મધ્યમ શ્રેણીમાં નોંધાઈ',
+      titleGu: 'અમદાવાદમાં AQI 100 પાર, હવા ગુણવત્તા મધ્યમ શ્રેણીમાં નોંધાઈ',
+      excerpt: 'અમદાવાદ શહેરનો સરેરાશ એર ક્વોલિટી ઈન્ડેક્સ (AQI) 103 નોંધાયો છે, જે મધ્યમ શ્રેણીમાં આવે છે.',
+      content: '<p>અમદાવાદ શહેરનો સરેરાશ એર ક્વોલિટી ઈન્ડેક્સ (AQI) 103 નોંધાયો છે, જે મધ્યમ શ્રેણીમાં આવે છે. શહેરના નવરંગપુરા અને ચાંદખેડા વિસ્તારમાં PM 2.5 અને PM 10નું પ્રમાણ વધારે જોવા મળ્યું છે.</p>',
+      image: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&q=80',
+      category: 'WEATHER',
+      author: { id: 'team', name: 'Gujarat Post Team' },
+      publishedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      views: 890,
+      tags: ['AQI', 'Air Quality', 'Ahmedabad'],
+    },
+    {
+      id: 'news-3',
+      slug: 'north-gujarat-red-alert-rain',
+      title: 'આગામી ત્રણ કલાક અતિભારે વરસાદની હવામાન વિભાગની આગાહી',
+      titleGu: 'આગામી ત્રણ કલાક અતિભારે વરસાદની હવામાન વિભાગની આગાહી',
+      excerpt: 'ઉત્તર ગુજરાતના બનાસકાંઠા, પાટણ અને મહેસાણા જિલ્લાઓમાં અતિભારે વરસાદનું રેડ એલર્ટ જાહેર કરાયું છે.',
+      content: '<p>ઉત્તર ગુજરાતના બનાસકાંઠા, પાટણ અને મહેસાણા જિલ્લાઓમાં અતિભારે વરસાદનું રેડ એલર્ટ જાહેર કરાયું છે. તંત્ર દ્વારા નાગરિકોને સલામત સ્થળે રહેવા અપીલ કરાઈ છે.</p>',
+      image: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=600&q=80',
+      category: 'WEATHER',
+      author: { id: 'team', name: 'Gujarat Post Team' },
+      publishedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      views: 1560,
+      tags: ['Rain Alert', 'North Gujarat'],
+    },
+    {
+      id: 'news-4',
+      slug: 'gujarat-rainfall-surat-details',
+      title: 'જુઓ ગુજરાતમાં ક્યાં કેટલો વરસાદ ખાબક્યો: સુરતમાં 4 ઈંચ અનરાધાર વરસાદ - Video',
+      titleGu: 'જુઓ ગુજરાતમાં ક્યાં કેટલો વરસાદ ખાબક્યો: સુરતમાં 4 ઈંચ અનરાધાર વરસાદ - Video',
+      excerpt: 'સુરતમાં મેઘરાજાએ તોફાની બેટિંગ કરતા 4 ઈંચ જેટલો પાણી ખાબક્યું છે.',
+      content: '<p>સુરત શહેરમાં અનરાધાર વરસાદ પડતા નીચાણવાળા વિસ્તારોમાં પાણી ભરાયા છે. રસ્તાઓ પર પાણી ફરી વળતા વાહનવ્યવહારને અસર પહોંચી છે.</p>',
+      image: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=600&q=80',
+      category: 'WEATHER',
+      author: { id: 'team', name: 'Gujarat Post Team' },
+      publishedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      views: 2100,
+      tags: ['Surat', 'Rainfall'],
+    },
+  ];
+
+  const match = fallbackArticles.find(a => a.slug === slug);
+  if (match) return match;
 
   return null;
 }

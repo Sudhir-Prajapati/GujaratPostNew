@@ -50,8 +50,8 @@ export default async function CategoryPage({
   const resolvedSlug = categorySlugMapping[slug] || slug;
   
   // 1. Fetch category details directly from Express Backend API
-  const dbCategories = await getPublicCategories();
-  const dbCat = dbCategories.find((c: any) => c.slug === resolvedSlug);
+  const dbCategories = await getPublicCategories().catch(() => []);
+  const dbCat = (Array.isArray(dbCategories) ? dbCategories : []).find((c: any) => c.slug === resolvedSlug);
   const fallbackCat = CATEGORY_META[resolvedSlug as keyof typeof CATEGORY_META];
 
   if (!dbCat && !fallbackCat) {
@@ -68,18 +68,22 @@ export default async function CategoryPage({
   };
 
   // 2. Fetch dynamic category articles from Backend API — latest first (updatedAt desc)
-  let { articles: rawArticles, total, totalPages } = await getPublicArticles({
+  const catRes = await getPublicArticles({
     categorySlug: resolvedSlug,
     page,
     limit,
-  });
+  }).catch(() => ({ articles: [], total: 0, totalPages: 1 }));
+
+  let rawArticles = catRes?.articles || [];
+  let total = catRes?.total || 0;
+  let totalPages = catRes?.totalPages || 1;
 
   // Fallback: If category filter returns 0 articles, load general published news so category page is never blank
   if (!rawArticles || rawArticles.length === 0) {
     const fallbackRes = await getPublicArticles({
       page: 1,
       limit: 40,
-    });
+    }).catch(() => ({ articles: [], total: 0, totalPages: 1 }));
     rawArticles = fallbackRes.articles || [];
     total = fallbackRes.total || rawArticles.length;
     totalPages = fallbackRes.totalPages || 1;
@@ -93,10 +97,11 @@ export default async function CategoryPage({
   });
 
   // 3. Fetch dynamic trending articles from Backend API
-  const { articles: trending } = await getPublicArticles({
+  const trendingRes = await getPublicArticles({
     isTrending: true,
     limit: 10,
-  });
+  }).catch(() => ({ articles: [], total: 0, totalPages: 1 }));
+  const trending = trendingRes?.articles || [];
 
   return (
     <CategoryPageClient

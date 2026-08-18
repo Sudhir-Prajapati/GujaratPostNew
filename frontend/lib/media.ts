@@ -55,16 +55,22 @@ export function formatEpaperPdfUrl(url?: string | null, page: number = 1): strin
   if (!url || typeof url !== 'string') return '';
   const clean = url.trim();
 
-  const backendOrigin = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/public\/?$/, '').replace(/\/api\/?$/, '')
-    : 'http://localhost:5000';
+  const backendOrigin = typeof window !== 'undefined'
+    ? ''
+    : (process.env.NEXT_PUBLIC_API_URL
+      ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/public\/?$/, '').replace(/\/api\/?$/, '')
+      : 'http://127.0.0.1:5000');
 
   if (clean.startsWith('/uploads/') || clean.includes('/uploads/')) {
-    const filename = clean.split('/').pop()?.split('?')[0] || '';
+    const filename = clean.split('/uploads/').pop()?.split('?')[0] || '';
     return `${backendOrigin}/uploads/${filename}#page=${page}&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
   }
 
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    if (clean.includes('/uploads/')) {
+      const filename = clean.split('/uploads/').pop()?.split('?')[0] || '';
+      return `${backendOrigin}/uploads/${filename}#page=${page}&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
+    }
     const proxyUrl = `${backendOrigin}/api/public/download-pdf?url=${encodeURIComponent(clean)}`;
     return `${proxyUrl}#page=${page}&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
   }
@@ -76,17 +82,23 @@ export function formatEpaperDownloadUrl(url?: string | null): string {
   if (!url || typeof url !== 'string') return '#';
   const clean = url.trim();
 
-  const backendOrigin = process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/public\/?$/, '').replace(/\/api\/?$/, '')
-    : 'http://localhost:5000';
+  const backendOrigin = typeof window !== 'undefined'
+    ? ''
+    : (process.env.NEXT_PUBLIC_API_URL
+      ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/public\/?$/, '').replace(/\/api\/?$/, '')
+      : 'http://127.0.0.1:5000');
 
   if (clean.startsWith('/uploads/') || clean.includes('/uploads/')) {
-    const filename = clean.split('/').pop()?.split('?')[0] || '';
+    const filename = clean.split('/uploads/').pop()?.split('?')[0] || '';
     return `${backendOrigin}/uploads/${filename}`;
   }
 
   if (clean.startsWith('http://') || clean.startsWith('https://')) {
-    return `${backendOrigin}/api/public/download-pdf?url=${encodeURIComponent(clean)}`;
+    if (clean.includes('/uploads/')) {
+      const filename = clean.split('/uploads/').pop()?.split('?')[0] || '';
+      return `${backendOrigin}/uploads/${filename}`;
+    }
+    return `${backendOrigin}/api/public/download-pdf?url=${encodeURIComponent(clean)}&download=true`;
   }
 
   return clean;
