@@ -22,13 +22,35 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
   // Input states
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
-  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // OTP Timers: 10-minute validity, 60-second resend cooldown
+  const [timeLeft, setTimeLeft] = useState<number>(600); // 10 minutes in seconds
+  const [resendCooldown, setResendCooldown] = useState<number>(60); // 60 seconds resend cooldown
 
   // Statuses
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // OTP Expiry & Resend Countdown Effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (step === 'otp') {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+        setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step]);
+
+  // Format seconds to MM:SS
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // Check if user is already verified & logged in on modal open
   useEffect(() => {
@@ -106,7 +128,7 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
         return;
       }
 
-      // 3. Reader -> Generate & send OTP (Do NOT store in DB yet!)
+      // 3. Reader -> Generate & send OTP to real email
       const resOtp = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -119,15 +141,16 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
         throw new Error(jsonOtp.message || 'Failed to send OTP.');
       }
 
-      const generated = jsonOtp.data?.otp || '123456';
-      setDemoOtp(generated);
+      // Reset timers (10 mins validity, 60s resend cooldown)
+      setTimeLeft(600);
+      setResendCooldown(60);
       setStep('otp');
       setSuccessMessage(
         language === 'gu'
           ? `${cleanEmail} પર ઓટીપી કોડ મોકલાયો છે.`
           : `OTP code sent to ${cleanEmail}`
       );
-      setTimeout(() => setSuccessMessage(null), 3000);
+      setTimeout(() => setSuccessMessage(null), 4000);
     } catch (err: any) {
       setError(err.message || 'Error triggering OTP verification');
     } finally {
@@ -139,6 +162,15 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (timeLeft === 0) {
+      setError(
+        language === 'gu'
+          ? 'ઓટીપીનો સમય સમાપ્ત થઈ ગયો છે. કૃપા કરીને નવો ઓટીપી મોકલો.'
+          : 'OTP has expired. Please request a new OTP.'
+      );
+      return;
+    }
 
     const cleanEmail = email.trim();
     const cleanOtp = otp.trim();
@@ -197,6 +229,8 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
 
   // Resend OTP
   const handleResendOtp = async () => {
+    if (resendCooldown > 0) return;
+
     setError(null);
     setIsSubmitting(true);
     try {
@@ -206,14 +240,17 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
         body: JSON.stringify({ email: email.trim() }),
       });
       const jsonOtp = await resOtp.json();
-      const generated = jsonOtp.data?.otp || '123456';
-      setDemoOtp(generated);
+      if (!resOtp.ok) {
+        throw new Error(jsonOtp.message || 'Failed to resend OTP.');
+      }
+      setTimeLeft(600);
+      setResendCooldown(60);
       setSuccessMessage(
-        language === 'gu' ? 'નવો ઓટીપી મોકલ્યો છે.' : 'New OTP sent to email.'
+        language === 'gu' ? 'તમારા ઇમેઇલ પર નવો ઓટીપી મોકલ્યો છે.' : 'New OTP sent to your email.'
       );
-      setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      setError('Failed to resend OTP.');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to resend OTP.');
     } finally {
       setIsSubmitting(false);
     }
@@ -226,7 +263,6 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
     setUserEmail(null);
     setEmail('');
     setOtp('');
-    setDemoOtp(null);
     setStep('email');
   };
 
@@ -402,12 +438,21 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
               </button>
             </div>
 
-            {/* Demo OTP Hint Badge */}
-            {demoOtp && (
-              <div className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/50 text-[11px] font-bold text-amber-800 dark:text-amber-300">
-                Demo OTP Code: <span className="font-extrabold text-amber-600 dark:text-amber-400 tracking-wider text-xs ml-1">{demoOtp}</span>
-              </div>
-            )}
+            {/* OTP Expiration & Resend Timer Indicator */}
+            <div className="px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 flex items-center justify-between text-[11px] font-semibold">
+              <span className="text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
+                <span>{language === 'gu' ? 'ઓટીપી સમય:' : 'Expires in:'}</span>
+                <span className={`font-mono font-bold ${timeLeft < 60 ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-zinc-900 dark:text-white'}`}>
+                  {formatTimer(timeLeft)}
+                </span>
+              </span>
+
+              {timeLeft === 0 && (
+                <span className="text-[10px] font-extrabold text-red-600 dark:text-red-400">
+                  {language === 'gu' ? 'સમય સમાપ્ત!' : 'Expired!'}
+                </span>
+              )}
+            </div>
 
             {/* OTP Form */}
             <form onSubmit={handleVerifyOtp} className="space-y-3 pt-1">
@@ -424,13 +469,14 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
                     if (error) setError(null);
                   }}
                   placeholder="------"
-                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 py-3 pl-10 pr-4 text-center font-mono text-base font-extrabold tracking-[0.3em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition shadow-xs"
+                  disabled={timeLeft === 0}
+                  className="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 py-3 pl-10 pr-4 text-center font-mono text-base font-extrabold tracking-[0.3em] text-zinc-900 dark:text-white placeholder:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition shadow-xs disabled:opacity-50"
                 />
               </div>
 
               <button
                 type="submit"
-                disabled={isSubmitting || otp.length < 4}
+                disabled={isSubmitting || otp.length < 4 || timeLeft === 0}
                 className="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition transform active:scale-98 cursor-pointer disabled:opacity-50"
               >
                 {isSubmitting ? (
@@ -441,15 +487,20 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
               </button>
             </form>
 
-            <div className="flex items-center justify-center gap-1 text-[11px] pt-1">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] pt-1">
               <span className="text-zinc-400">Didn&apos;t receive code?</span>
               <button
                 type="button"
                 onClick={handleResendOtp}
-                disabled={isSubmitting}
-                className="font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1 cursor-pointer"
+                disabled={isSubmitting || resendCooldown > 0}
+                className="font-bold text-red-600 dark:text-red-400 hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
               >
-                <RefreshCw className="w-3 h-3" /> {texts.resendOtp}
+                <RefreshCw className={`w-3 h-3 ${isSubmitting ? 'animate-spin' : ''}`} />
+                {resendCooldown > 0 ? (
+                  <span>{texts.resendOtp} ({resendCooldown}s)</span>
+                ) : (
+                  <span>{texts.resendOtp}</span>
+                )}
               </button>
             </div>
           </div>
