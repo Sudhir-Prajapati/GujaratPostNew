@@ -146,74 +146,119 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
     return isNaN(t) ? 0 : t;
   };
 
-  /* Filter & Sort logic based on activeTab */
-  const filteredArticles = useMemo(() => {
-    let result = [...(articles || [])];
+  /* Filter & Sort logic based on activeTab specifically for Section (Hero + Sub-Hero + Top Stories) */
 
+  // 1. Articles with Video OR YouTube videos whose title/description explicitly contains the category name (e.g. Surat / સુરત)
+  const categoryVideoItems = useMemo(() => {
+    const catNameLower = (category?.name || '').toLowerCase().trim();
+    const catGuLower = (category?.nameGu || '').toLowerCase().trim();
+    const slugLower = (slug || '').toLowerCase().trim();
+
+    // Articles in this category with video
+    const videoArticles = (articles || [])
+      .filter((a: any) => a.videoUrl || a.youtubeUrl || a.mediaType === 'video' || a.isVideo)
+      .map((a: any) => ({
+        id: a.id,
+        slug: a.slug,
+        title: a.title,
+        titleGu: a.titleGu,
+        titleHi: a.titleHi,
+        image: a.image || a.featuredImage,
+        category: a.category,
+        categoryGu: a.categoryGu,
+        categoryHi: a.categoryHi,
+        publishedAt: a.publishedAt,
+        relativeTimeGu: a.relativeTimeGu,
+        relativeTime: a.relativeTime,
+        videoUrl: a.videoUrl || a.youtubeUrl,
+        videoId: safeYouTubeId(a.videoUrl || a.youtubeUrl),
+        isVideoItem: true,
+        isArticle: true,
+      }));
+
+    // YouTube videos ONLY if title/description contains category title/slug (e.g. Surat / સુરત)
+    const categoryMatchingYouTubeVideos = (videos || [])
+      .filter((v: any) => {
+        if (!v) return false;
+        const textToSearch = `${v.title || ''} ${v.titleGu || ''} ${v.description || ''} ${v.category || ''}`.toLowerCase();
+        return (
+          (catNameLower && textToSearch.includes(catNameLower)) ||
+          (catGuLower && textToSearch.includes(catGuLower)) ||
+          (slugLower && textToSearch.includes(slugLower))
+        );
+      })
+      .map((v: any) => ({
+        id: v.id || v.videoId,
+        slug: v.slug || `video-${v.id}`,
+        title: v.title || v.titleGu,
+        titleGu: v.titleGu || v.title,
+        titleHi: v.titleHi || v.title,
+        image: v.thumbnail || v.image,
+        category: v.category || categoryName,
+        categoryGu: v.categoryGu || categoryName,
+        categoryHi: v.categoryHi || categoryName,
+        publishedAt: v.publishedAt || new Date().toISOString(),
+        relativeTimeGu: v.relativeTimeGu || 'હમણાં જ',
+        relativeTime: v.relativeTime || 'Just now',
+        videoUrl: v.youtubeUrl || (v.videoId ? `https://www.youtube.com/watch?v=${v.videoId}` : ''),
+        videoId: v.videoId || safeYouTubeId(v.youtubeUrl),
+        isVideoItem: true,
+        isYouTube: true,
+      }));
+
+    const combined: any[] = [...videoArticles, ...categoryMatchingYouTubeVideos];
+
+    // If fewer than 6 video items exist, fill remaining slots with standard category news articles
+    // so Top Stories and Sub-Hero slots are always 100% full with no empty space
+    const usedIds = new Set(combined.map((item) => item.id).filter(Boolean));
+    const fillArticles = (articles || []).filter((art) => !usedIds.has(art.id));
+
+    return [...combined, ...fillArticles];
+  }, [articles, videos, category, slug, categoryName]);
+
+  // Dynamic Section Items (Hero + Sub-Hero + Top Stories) driven by activeTab
+  const currentSectionItems = useMemo(() => {
     if (activeTab === 'latest') {
-      // Strictly latest news uploaded sorted by time descending
-      result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
-    } else if (sortBy === 'popular') {
-      result.sort((a, b) => (b.views || 0) - (a.views || 0));
-    } else {
-      // Default: latest first
-      result.sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
+      // Strictly latest uploaded articles sorted by time descending
+      return [...(articles || [])].sort((a, b) => getArticleTimeMs(b) - getArticleTimeMs(a));
     }
 
-    return result;
-  }, [articles, activeTab, sortBy]);
+    if (activeTab === 'video') {
+      return categoryVideoItems;
+    }
 
-  // #1 Hero Item
-  const heroArticle = filteredArticles[0];
+    // Default 'all' (બધું): Standard category articles
+    return articles || [];
+  }, [activeTab, articles, categoryVideoItems]);
 
-  // #2 Small Article below Hero Card on the left side
-  const subHeroArticle = filteredArticles[1];
+  // Section Hero Article / Item
+  const heroArticle = currentSectionItems[0] || articles[0];
 
-  // Guaranteed 4 items (articles 3, 4, 5, 6) for Top Stories column on the right
+  // Section Sub-Hero Small Article
+  const subHeroArticle = currentSectionItems[1];
+
+  // Section 4 Top Stories (Items 3 to 6)
   const topStories = useMemo(() => {
-    const sliced = filteredArticles.slice(2, 6);
+    const sliced = currentSectionItems.slice(2, 6);
     if (sliced.length >= 4) return sliced;
 
-    const usedIds = new Set([heroArticle?.id, subHeroArticle?.id, ...sliced.map((a) => a.id)].filter(Boolean));
-    const pool = filteredArticles.length > 2 ? filteredArticles : sliced;
+    const usedIds = new Set([heroArticle?.id, subHeroArticle?.id, ...sliced.map((a: any) => a.id)].filter(Boolean));
+    const pool = currentSectionItems.length > 2 ? currentSectionItems : sliced;
     const fallbacks = pool.filter((a: any) => !usedIds.has(a.id));
     return [...sliced, ...fallbacks].slice(0, 4);
-  }, [filteredArticles, heroArticle, subHeroArticle]);
+  }, [currentSectionItems, heroArticle, subHeroArticle]);
 
-  const topStoriesIds = useMemo(() => new Set([heroArticle?.id, subHeroArticle?.id, ...topStories.map((a) => a.id)].filter(Boolean)), [heroArticle, subHeroArticle, topStories]);
+  const topStoriesIds = useMemo(() => new Set([heroArticle?.id, subHeroArticle?.id, ...topStories.map((a: any) => a.id)].filter(Boolean)), [heroArticle, subHeroArticle, topStories]);
 
-  // Remaining articles (excluding Hero, Sub-Hero, and Top Stories) for Lokpriya / Remaining Grid
+  // Remaining articles for Popular News grid (steady view)
   const popularArticles = useMemo(() => {
-    return filteredArticles.filter((art) => !topStoriesIds.has(art.id));
-  }, [filteredArticles, topStoriesIds]);
-
-  /* Mixed Feed for Video Tab (Video + Image Articles interleave) */
-  const videoTabFeaturedVideo = useMemo(() => {
-    if (videos.length > 0) return videos[0];
-    return null;
-  }, [videos]);
-
-  const mixedVideoFeed = useMemo(() => {
-    const result: any[] = [];
-    const remainingVideos = videos.slice(1);
-    const remainingArticles = articles || [];
-
-    const maxLen = Math.max(remainingVideos.length, remainingArticles.length);
-    for (let i = 0; i < maxLen; i++) {
-      if (remainingVideos[i]) {
-        result.push({ ...remainingVideos[i], isVideoItem: true });
-      }
-      if (remainingArticles[i]) {
-        result.push({ ...remainingArticles[i], isVideoItem: false });
-      }
-    }
-    return result;
-  }, [videos, articles]);
+    return (articles || []).filter((art) => !topStoriesIds.has(art.id));
+  }, [articles, topStoriesIds]);
 
   /* 3 Filter tabs */
   const tabs: { id: FilterTab; gu: string; hi: string; en: string }[] = [
     { id: 'all', gu: 'બધું', hi: 'सभी', en: 'All' },
-    { id: 'latest', gu: 'તાજા સમાચાર', hi: 'ताज़ा समाचार', en: 'Latest' },
+    { id: 'latest', gu: 'તાજા સમાચાર', hi: 'તાઝા સમાચાર', en: 'Latest' },
     { id: 'video', gu: 'વીડિયો', hi: 'वीडियो', en: 'Video' },
   ];
 
@@ -242,7 +287,10 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setPlayingVideoId(null);
+              }}
               className={`rounded-full px-5 py-2 text-xs sm:text-sm font-black transition cursor-pointer ${activeTab === tab.id
                   ? 'bg-accent text-white font-black shadow-sm'
                   : 'border border-border bg-card text-foreground hover:border-accent hover:text-accent font-semibold'
@@ -256,38 +304,81 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
         {/* ── MAIN CONTENT + SIDEBAR ─────────────────────────────── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
 
-          {/* ── LEFT: Hero + Top Stories ─────────────────────────── */}
+          {/* ── LEFT: Hero + Top Stories (Controlled by activeTab) ── */}
           <div className="grid grid-cols-1 md:grid-cols-[1.25fr_1fr] gap-8 min-w-0">
             {/* Left Column: Hero Article + Sub Hero Small Article */}
             <div className="flex flex-col">
-              {/* Main Big Hero Article */}
-              <Link href={`/news/${heroArticle.slug}`} className="group block">
-                <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
-                  <ArticleMedia
-                    src={heroArticle.image || (heroArticle as any).featuredImage}
-                    alt={getArticleTitle(heroArticle, language)}
-                    className="transition-transform duration-500 group-hover:scale-105"
-                  />
-                </div>
-                <div className="mt-3">
-                  <span className="text-xs font-black uppercase tracking-wide text-accent">
-                    {getArticleLocation(heroArticle)}
-                  </span>
-                  <h2 className="mt-1 text-xl md:text-[22px] font-black leading-snug tracking-tight text-foreground group-hover:text-accent transition-colors line-clamp-2">
-                    {getArticleTitle(heroArticle, language)}
-                  </h2>
-                  <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground font-semibold">
-                    <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-muted-foreground/70" />{getArticleTime(heroArticle)}</span>
-                    <span>·</span>
-                    <span>{formatDate(heroArticle.publishedAt)}</span>
+              {/* Main Big Hero Article / Video Card */}
+              {heroArticle && (
+                <div>
+                  {activeTab === 'video' && heroArticle.videoId ? (
+                    <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-black shadow-sm mb-3">
+                      {playingVideoId === (heroArticle.id || heroArticle.videoId) ? (
+                        <iframe
+                          src={youtubeEmbedUrl(heroArticle.videoId, 'autoplay=1')}
+                          title={getArticleTitle(heroArticle, language)}
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div
+                          onClick={() => setPlayingVideoId(heroArticle.id || heroArticle.videoId)}
+                          className="relative w-full h-full cursor-pointer group"
+                        >
+                          <ArticleMedia
+                            src={heroArticle.image || (heroArticle as any).thumbnail || `https://img.youtube.com/vi/${heroArticle.videoId}/hqdefault.jpg`}
+                            alt={getArticleTitle(heroArticle, language)}
+                            className="transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/20 transition">
+                            <div className="w-14 h-14 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                              <Play className="w-7 h-7 fill-current ml-0.5" />
+                            </div>
+                          </div>
+                          <span className="absolute top-2.5 right-2.5 bg-black/80 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded flex items-center gap-1">
+                            <VideoIcon className="w-3 h-3 text-red-500" /> VIDEO
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Link href={heroArticle.slug ? `/news/${heroArticle.slug}` : '#'} className="group block">
+                      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-sm bg-muted shadow-sm">
+                        <ArticleMedia
+                          src={heroArticle.image || (heroArticle as any).featuredImage}
+                          alt={getArticleTitle(heroArticle, language)}
+                          className="transition-transform duration-500 group-hover:scale-105"
+                        />
+                        {heroArticle.videoId && (
+                          <span className="absolute top-2.5 right-2.5 bg-black/80 text-white text-[10px] font-black uppercase px-2 py-0.5 rounded flex items-center gap-1">
+                            <VideoIcon className="w-3 h-3 text-red-500" /> VIDEO
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )}
+
+                  <div className="mt-3">
+                    <span className="text-xs font-black uppercase tracking-wide text-accent">
+                      {getArticleLocation(heroArticle)}
+                    </span>
+                    <h2 className="mt-1 text-xl md:text-[22px] font-black leading-snug tracking-tight text-foreground group-hover:text-accent transition-colors line-clamp-1">
+                      {getArticleTitle(heroArticle, language)}
+                    </h2>
+                    <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground font-semibold">
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-muted-foreground/70" />{getArticleTime(heroArticle)}</span>
+                      <span>·</span>
+                      <span>{formatDate(heroArticle.publishedAt)}</span>
+                    </div>
                   </div>
                 </div>
-              </Link>
+              )}
 
               {/* Small Article below Hero Article */}
               {subHeroArticle && (
                 <div className="mt-4 pt-3.5 border-t border-border">
-                  <Link href={`/news/${subHeroArticle.slug}`} className="group flex items-start gap-4">
+                  <Link href={subHeroArticle.slug ? `/news/${subHeroArticle.slug}` : '#'} className="group flex items-start gap-4">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-black uppercase tracking-wide text-accent">
                         {getArticleLocation(subHeroArticle)}
@@ -303,7 +394,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                     </div>
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
                       <ArticleMedia
-                        src={subHeroArticle.image || (subHeroArticle as any).featuredImage}
+                        src={subHeroArticle.image || (subHeroArticle as any).featuredImage || (subHeroArticle as any).thumbnail}
                         alt={getArticleTitle(subHeroArticle, language)}
                         className="transition-transform duration-300 group-hover:scale-105"
                       />
@@ -322,8 +413,8 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                 </span>
               </div>
               <div className="flex flex-col divide-y divide-border">
-                {topStories.map((art) => (
-                  <Link key={art.id} href={`/news/${art.slug}`} className="group flex items-start gap-4 py-3 first:pt-1 last:pb-1">
+                {topStories.map((art: any) => (
+                  <Link key={art.id} href={art.slug ? `/news/${art.slug}` : '#'} className="group flex items-start gap-4 py-3 first:pt-1 last:pb-1">
                     <div className="min-w-0 flex-1">
                       <span className="text-[10px] font-black uppercase tracking-wide text-accent">
                         {getArticleLocation(art)}
@@ -339,7 +430,7 @@ export default function CategoryPageClient({ articles, category, slug }: Props) 
                     </div>
                     <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-sm bg-muted shadow-sm">
                       <ArticleMedia
-                        src={art.image || (art as any).featuredImage}
+                        src={art.image || art.featuredImage || art.thumbnail}
                         alt={getArticleTitle(art, language)}
                         className="transition-transform duration-300 group-hover:scale-105"
                       />
