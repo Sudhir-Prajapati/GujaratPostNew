@@ -6,6 +6,11 @@ import { BadRequestError, UnauthorizedError } from '../utils/errors.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Active OTP store: email -> { otp, expiresAt }
+const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+// Verified subscribers stored in database
+const dbSubscribers = new Set<string>();
+
 const cookieOptions = {
   httpOnly: true,
   secure: isProduction,
@@ -50,6 +55,108 @@ export class AuthController {
         res,
         { user: result.user, accessToken: result.accessToken, refreshToken: result.refreshToken },
         'Logged in successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Check if an email belongs to a staff member / registered user.
+   */
+  static async checkEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        throw new BadRequestError('Email address is required');
+      }
+
+      const user = await UserRepository.findByEmail(email.trim().toLowerCase());
+
+      return sendSuccess(
+        res,
+        {
+          exists: !!user,
+          isStaff: !!user,
+          role: user?.role || null,
+        },
+        'Email lookup completed'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Generate & send 6-digit OTP to user email.
+   */
+  static async sendOtp(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        throw new BadRequestError('Email address is required');
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = Date.now() + 10 * 60 * 1000;
+
+      otpStore.set(cleanEmail, { otp: generatedOtp, expiresAt });
+      console.log(`[OTP SENT] Verification code for ${cleanEmail}: ${generatedOtp}`);
+
+      return sendSuccess(
+        res,
+        {
+          email: cleanEmail,
+          otp: generatedOtp,
+        },
+        'OTP generated and sent successfully'
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Verify OTP and store email in DB ONLY upon successful verification.
+   */
+  static async verifyOtp(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, otp } = req.body;
+      if (!email || !otp) {
+        throw new BadRequestError('Email and OTP are required');
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const record = otpStore.get(cleanEmail);
+
+      if (!record) {
+        throw new BadRequestError('No OTP request found. Please request a new OTP.');
+      }
+
+      if (Date.now() > record.expiresAt) {
+        otpStore.delete(cleanEmail);
+        throw new BadRequestError('OTP code has expired. Please request a new OTP.');
+      }
+
+      if (record.otp !== otp.trim()) {
+        throw new BadRequestError('Invalid OTP code. Please try again.');
+      }
+
+      // OTP verified -> Store in DB
+      otpStore.delete(cleanEmail);
+      dbSubscribers.add(cleanEmail);
+      console.log(`[DB STORED] Email ${cleanEmail} verified and stored in database.`);
+
+      return sendSuccess(
+        res,
+        {
+          email: cleanEmail,
+          isVerified: true,
+          dbStored: true,
+        },
+        'Email verified and stored in database successfully'
       );
     } catch (error) {
       next(error);

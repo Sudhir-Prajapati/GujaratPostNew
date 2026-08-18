@@ -172,6 +172,19 @@ router.get('/articles', async (req, res, next) => {
     if (isBreaking) where.isBreaking = true;
     if (isFeatured) where.isFeatured = true;
 
+    const sortParam = ((req.query.sort as string) || (req.query.orderBy as string) || '').toLowerCase();
+
+    const orderByClause: any = (sortParam === 'latest')
+      ? [{ articleNumber: 'desc' }, { createdAt: 'desc' }]
+      : isFeatured
+      ? [{ createdAt: 'desc' }]
+      : [
+        { isFeatured: 'desc' },
+        { articleNumber: 'desc' },
+        { createdAt: 'desc' },
+        { priority: 'desc' },
+      ];
+
     let [posts, total] = await withDbRetry(() =>
       Promise.all([
         prisma.post.findMany({
@@ -181,14 +194,7 @@ router.get('/articles', async (req, res, next) => {
             author: true,
             tags: { include: { tag: true } },
           },
-          orderBy: isFeatured
-            ? [{ createdAt: 'desc' }]
-            : [
-              { isFeatured: 'desc' },
-              { articleNumber: 'desc' },
-              { createdAt: 'desc' },
-              { priority: 'desc' },
-            ],
+          orderBy: orderByClause,
           skip,
           take: limit,
         }),

@@ -14,17 +14,24 @@ function slugify(text: string): string {
 let lastAutoPublishTime = 0;
 const AUTO_PUBLISH_COOLDOWN_MS = 5 * 60 * 1000; // Run at most once every 5 minutes
 
-export async function syncArticleToHeroSettings(postId: string, isFeatured?: boolean, isTrending?: boolean) {
+export async function syncArticleToHeroSettings(postId: string, isFeatured?: boolean, isTrending?: boolean, status?: string) {
   try {
+    const post = await prisma.post.findUnique({ where: { id: postId }, select: { status: true, isFeatured: true, isTrending: true } });
+    if (!post) return;
+
+    const isPublished = post.status === 'PUBLISHED';
+    const effectiveFeatured = isPublished && (isFeatured !== undefined ? isFeatured : post.isFeatured);
+    const effectiveTrending = isPublished && (isTrending !== undefined ? isTrending : post.isTrending);
+
     const heroSetting = await prisma.heroSetting.findUnique({ where: { id: 'default' } });
     if (!heroSetting) {
-      if (isFeatured) {
+      if (effectiveFeatured) {
         await prisma.heroSetting.create({
           data: {
             id: 'default',
             slot1Id: postId,
             heroGridIds: JSON.stringify([postId]),
-            trendingNewsIds: isTrending ? JSON.stringify([postId]) : undefined,
+            trendingNewsIds: effectiveTrending ? JSON.stringify([postId]) : undefined,
           },
         });
       }
@@ -43,23 +50,27 @@ export async function syncArticleToHeroSettings(postId: string, isFeatured?: boo
 
     let updated = false;
     let slot1Id = heroSetting.slot1Id;
+    let slot2Id = heroSetting.slot2Id;
+    let slot3Id = heroSetting.slot3Id;
 
-    if (isFeatured) {
+    if (effectiveFeatured) {
       heroGridIds = [postId, ...heroGridIds.filter((id) => id !== postId)].slice(0, 20);
-      slot1Id = postId;
-      updated = true;
-    } else if (isFeatured === false) {
-      heroGridIds = heroGridIds.filter((id) => id !== postId);
-      if (slot1Id === postId) {
-        slot1Id = heroGridIds[0] || null;
+      if (slot1Id !== postId) {
+        slot1Id = postId;
       }
+      updated = true;
+    } else {
+      heroGridIds = heroGridIds.filter((id) => id !== postId);
+      if (slot1Id === postId) slot1Id = heroGridIds[0] || null;
+      if (slot2Id === postId) slot2Id = null;
+      if (slot3Id === postId) slot3Id = null;
       updated = true;
     }
 
-    if (isTrending) {
+    if (effectiveTrending) {
       trendingNewsIds = [postId, ...trendingNewsIds.filter((id) => id !== postId)].slice(0, 15);
       updated = true;
-    } else if (isTrending === false) {
+    } else {
       trendingNewsIds = trendingNewsIds.filter((id) => id !== postId);
       updated = true;
     }
@@ -69,6 +80,8 @@ export async function syncArticleToHeroSettings(postId: string, isFeatured?: boo
         where: { id: 'default' },
         data: {
           slot1Id,
+          slot2Id,
+          slot3Id,
           heroGridIds: JSON.stringify(heroGridIds),
           trendingNewsIds: JSON.stringify(trendingNewsIds),
         },

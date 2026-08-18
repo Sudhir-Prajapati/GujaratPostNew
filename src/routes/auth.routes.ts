@@ -6,6 +6,9 @@ import { Router } from 'express';
    const router = Router();
 
    router.post('/login', loginRateLimiter, AuthController.login);
+   router.post('/check-email', AuthController.checkEmail);
+   router.post('/send-otp', AuthController.sendOtp);
+   router.post('/verify-otp', AuthController.verifyOtp);
    router.post('/refresh', AuthController.refresh);
    router.post('/logout', AuthController.logout);
    router.get('/me', requireAuth, AuthController.me);
