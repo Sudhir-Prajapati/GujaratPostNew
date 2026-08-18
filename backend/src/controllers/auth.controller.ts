@@ -3,6 +3,7 @@ import { AuthService } from '../services/auth.service.js';
 import { UserRepository } from '../repositories/user.repository.js';
 import { sendSuccess } from '../utils/response.js';
 import { BadRequestError, UnauthorizedError } from '../utils/errors.js';
+import { sendOtpEmail } from '../utils/mail.js';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -105,13 +106,15 @@ export class AuthController {
       otpStore.set(cleanEmail, { otp: generatedOtp, expiresAt });
       console.log(`[OTP SENT] Verification code for ${cleanEmail}: ${generatedOtp}`);
 
+      // Dispatch OTP email via Gmail SMTP (App Password)
+      await sendOtpEmail(cleanEmail, generatedOtp);
+
       return sendSuccess(
         res,
         {
           email: cleanEmail,
-          otp: generatedOtp,
         },
-        'OTP generated and sent successfully'
+        'OTP generated and sent to email successfully'
       );
     } catch (error) {
       next(error);
