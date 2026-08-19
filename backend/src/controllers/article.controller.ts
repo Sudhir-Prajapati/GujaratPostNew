@@ -248,6 +248,7 @@ export class ArticleController {
   static async createArticle(req: Request, res: Response, next: NextFunction) {
     try {
       const {
+        language: rawLanguage,
         title,
         titleGu,
         titleHi,
@@ -277,6 +278,12 @@ export class ArticleController {
         location,
         scheduledAt,
       } = req.body;
+
+      // Validate language: must be 'gu', 'en', or 'hi'. Default to 'gu'.
+      let safeLanguage = 'gu';
+      if (typeof rawLanguage === 'string' && ['gu', 'en', 'hi'].includes(rawLanguage.trim().toLowerCase())) {
+        safeLanguage = rawLanguage.trim().toLowerCase();
+      }
 
       if (!title || !content || !categoryId || !authorId) {
         throw new BadRequestError('Title, content, categoryId, and authorId are required.');
@@ -355,6 +362,7 @@ export class ArticleController {
         data: {
           slug: postSlug,
           articleNumber: assignedArticleNum,
+          language: safeLanguage,
           title: title.trim(),
           titleGu: (titleGu || title).trim(),
           titleHi: (titleHi || title).trim(),
@@ -412,6 +420,7 @@ export class ArticleController {
     try {
       const { id } = req.params;
       const {
+        language: rawLanguage,
         title,
         titleGu,
         titleHi,
@@ -450,6 +459,12 @@ export class ArticleController {
       }
 
       const updateData: any = {};
+
+      if (rawLanguage !== undefined) {
+        if (typeof rawLanguage === 'string' && ['gu', 'en', 'hi'].includes(rawLanguage.trim().toLowerCase())) {
+          updateData.language = rawLanguage.trim().toLowerCase();
+        }
+      }
 
       if (location !== undefined) updateData.location = location ? String(location).trim() : null;
 

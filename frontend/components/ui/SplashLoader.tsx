@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
+import { useApp } from '@/components/AppProvider';
+
 export default function SplashLoader() {
+  const { language } = useApp();
   const [visible, setVisible] = useState(true);
   const [shouldRender, setShouldRender] = useState(true);
 
@@ -319,7 +322,19 @@ export default function SplashLoader() {
 
       {/* Brand Slogan */}
       <p className="mt-2 text-xs sm:text-sm font-extrabold text-[#a3a3a3] uppercase tracking-widest leading-none select-none">
-        Real Stories. <span className="text-[#e62117]">Real Gujarat.</span>
+        {language === 'gu' ? (
+          <>
+            વાસ્તવિક વાર્તાઓ. <span className="text-[#e62117]">વાસ્તવિક ગુજરાત.</span>
+          </>
+        ) : language === 'hi' ? (
+          <>
+            સચ્ચી કહાનીયાં। <span className="text-[#e62117]">સચ્ચા ગુજરાત।</span>
+          </>
+        ) : (
+          <>
+            Real Stories. <span className="text-[#e62117]">Real Gujarat.</span>
+          </>
+        )}
       </p>
 
       {/* Modern Sweep Loader Bar */}

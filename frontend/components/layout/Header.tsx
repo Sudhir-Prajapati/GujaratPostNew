@@ -352,7 +352,19 @@ export default function Header() {
             {/* Slogan */}
             <div className="flex flex-col justify-center leading-tight">
               <p className="text-[12px] md:text-[13px] font-black text-foreground tracking-wide whitespace-nowrap">
-                Real Stories. <span className="text-red-600">Real Gujarat.</span>
+                {language === 'gu' ? (
+                  <>
+                    વાસ્તવિક વાર્તાઓ. <span className="text-red-600">વાસ્તવિક ગુજરાત.</span>
+                  </>
+                ) : language === 'hi' ? (
+                  <>
+                    સચ્ચી કહાનીયાં। <span className="text-red-600">સચ્ચા ગુજરાત।</span>
+                  </>
+                ) : (
+                  <>
+                    Real Stories. <span className="text-red-600">Real Gujarat.</span>
+                  </>
+                )}
               </p>
             </div>
 
