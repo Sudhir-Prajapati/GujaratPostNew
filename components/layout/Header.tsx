@@ -351,7 +351,7 @@ export default function Header() {
           <div className="flex flex-col items-start gap-1 select-none">
             {/* Slogan */}
             <div className="flex flex-col justify-center leading-tight">
-              <p className="text-[12px] md:text-[13px] font-black text-foreground tracking-wide whitespace-nowrap">
+              <p key={language} className="text-[12px] md:text-[13px] font-black text-foreground tracking-wide whitespace-nowrap">
                 {language === 'gu' ? (
                   <>
                     વાસ્તવિક વાર્તાઓ. <span className="text-red-600">વાસ્તવિક ગુજરાત.</span>
