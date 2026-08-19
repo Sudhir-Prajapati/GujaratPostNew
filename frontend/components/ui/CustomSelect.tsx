@@ -18,6 +18,7 @@ interface CustomSelectProps {
   required?: boolean;
   searchable?: boolean;
   disabled?: boolean;
+  error?: boolean;
   className?: string;
 }
 
@@ -29,6 +30,7 @@ export default function CustomSelect({
   required = false,
   searchable = true,
   disabled = false,
+  error = false,
   className = '',
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -91,9 +93,11 @@ export default function CustomSelect({
         disabled={disabled}
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full rounded-xl border px-4 py-3 text-left text-sm font-semibold flex items-center justify-between transition-all duration-200 outline-none shadow-sm ${
-          isOpen
-            ? 'border-primary ring-2 ring-primary/20 bg-white dark:bg-zinc-900 dark:border-primary'
-            : 'border-zinc-200 bg-zinc-50/70 hover:bg-zinc-100/80 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:hover:bg-zinc-900/60'
+          error
+            ? 'border-2 border-red-500 bg-red-50/80 text-red-900 ring-2 ring-red-500/20 dark:border-red-600 dark:bg-red-950/40 dark:text-red-200'
+            : isOpen
+              ? 'border-primary ring-2 ring-primary/20 bg-white dark:bg-zinc-900 dark:border-primary'
+              : 'border-zinc-200 bg-zinc-50/70 hover:bg-zinc-100/80 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-950/40 dark:hover:bg-zinc-900/60'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span className={`truncate ${selectedOption ? 'text-zinc-900 dark:text-zinc-100 font-bold' : 'text-zinc-400 dark:text-zinc-500'}`}>

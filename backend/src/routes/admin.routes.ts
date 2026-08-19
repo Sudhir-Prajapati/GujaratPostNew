@@ -11,6 +11,7 @@ import { InstagramReelController } from '../controllers/instagramReel.controller
 import { WebStoryController } from '../controllers/webStory.controller.js';
 import { EPaperController } from '../controllers/epaper.controller.js';
 import { AdController } from '../controllers/ad.controller.js';
+import { AiController } from '../controllers/ai.controller.js';
 import uploadRoutes from './upload.routes.js';
 
 import { requireAuth } from '../middleware/auth.middleware.js';
@@ -55,6 +56,7 @@ router.get('/articles/:id', requireAuth, requireRole(articleRoles), ArticleContr
 router.post('/articles', requireAuth, requireRole(articleRoles), ArticleController.createArticle);
 router.put('/articles/:id', requireAuth, requireRole(articleRoles), ArticleController.updateArticle);
 router.delete('/articles/:id', requireAuth, requireRole([Role.SUPER_ADMIN, Role.EDITOR]), ArticleController.deleteArticle);
+router.post('/ai/generate-seo', requireAuth, requireRole(articleRoles), AiController.generateSeo);
 
 // ==========================================
 // 5. Videos (SUPER_ADMIN, EDITOR)
