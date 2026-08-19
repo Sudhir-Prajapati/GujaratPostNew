@@ -94,7 +94,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return;
 
     try {
-      const hadCookie = document.cookie.includes('googtrans=');
       document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
       document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname}`;
@@ -103,10 +102,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (selectEl) {
         selectEl.value = 'gu';
         selectEl.dispatchEvent(new Event('change'));
-      }
-
-      if (hadCookie) {
-        window.location.reload();
       }
     } catch (e) {
       console.warn(e);
