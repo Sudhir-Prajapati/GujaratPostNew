@@ -60,7 +60,7 @@ function PlayStoreIcon({ className = 'h-4 w-4' }: { className?: string }) {
 
 // The 12 flat navigation links shown in the nav bar
 const NAV_LINKS = [
-  { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' },
+  { label: 'Home', labelGu: 'હોમ', labelHi: 'હોમ', href: '/' },
   { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' },
   { label: 'Gujarat', labelGu: 'ગુજરાત', labelHi: 'गुजरात', href: '/category/gujarat' },
   { label: 'India', labelGu: 'ભારત', labelHi: 'भारत', href: '/category/national' },
