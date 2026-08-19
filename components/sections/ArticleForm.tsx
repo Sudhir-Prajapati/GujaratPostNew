@@ -228,6 +228,9 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [slug, setSlug] = useState('');
   const [articleNumber, setArticleNumber] = useState<number | ''>('');
 
+  // Article Primary Language ('gu' | 'en' | 'hi')
+  const [articleLanguage, setArticleLanguage] = useState<'gu' | 'en' | 'hi'>('gu');
+
   // Multilingual Text
   const [title, setTitle] = useState('');
   const [titleGu, setTitleGu] = useState('');
@@ -745,21 +748,39 @@ interface ExtraDescriptionSlot {
           return;
         }
 
-        const primaryTitle = art.title || art.titleGu || art.titleHi || '';
-        const primaryExcerpt = art.excerpt || art.excerptGu || art.excerptHi || '';
-        const primaryContent = art.content || art.contentGu || art.contentHi || '';
+        const lang = (art.language as 'gu' | 'en' | 'hi') || 'gu';
+        setArticleLanguage(lang);
+        setContentLang(lang);
+
+        let primaryTitle = '';
+        let primaryExcerpt = '';
+        let primaryContent = '';
+
+        if (lang === 'gu') {
+          primaryTitle = art.titleGu || art.title || '';
+          primaryExcerpt = art.excerptGu || art.excerpt || '';
+          primaryContent = art.contentGu || art.content || '';
+        } else if (lang === 'en') {
+          primaryTitle = art.title || art.titleGu || '';
+          primaryExcerpt = art.excerpt || art.excerptGu || '';
+          primaryContent = art.content || art.contentGu || '';
+        } else if (lang === 'hi') {
+          primaryTitle = art.titleHi || art.title || '';
+          primaryExcerpt = art.excerptHi || art.excerpt || '';
+          primaryContent = art.contentHi || art.content || '';
+        }
 
         setSlug(art.slug || '');
         setArticleNumber(art.articleNumber ?? '');
-        setTitle(art.title || primaryTitle);
+        setTitle(primaryTitle);
         setTitleGu(art.titleGu || primaryTitle);
         setTitleHi(art.titleHi || primaryTitle);
 
-        setExcerpt(art.excerpt || primaryExcerpt);
+        setExcerpt(primaryExcerpt);
         setExcerptGu(art.excerptGu || primaryExcerpt);
         setExcerptHi(art.excerptHi || primaryExcerpt);
 
-        setContent(art.content || primaryContent);
+        setContent(primaryContent);
         setContentGu(art.contentGu || primaryContent);
         setContentHi(art.contentHi || primaryContent);
 
@@ -1056,6 +1077,7 @@ interface ExtraDescriptionSlot {
     const tags = combinedTagNames.map((name) => ({ name }));
 
     const payload = {
+      language: articleLanguage,
       slug: safeSlug,
       articleNumber: isEditMode && articleNumber !== '' ? Number(articleNumber) : undefined,
       title: safeTitle || effectiveTitle,
@@ -1538,6 +1560,41 @@ const SEO_TOPIC_DICTIONARY: Array<{ patterns: RegExp[]; tags: string[]; keywords
 
       {/* Form Content Panel - Line-by-Line Flow */}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-6">
+
+        {/* LINE 0: Article Primary Language Selector */}
+        <div>
+          <label className="block text-xs font-extrabold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 mb-1.5">
+            Article Primary Language <span className="text-red-500">*</span>
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            {[
+              { id: 'gu', label: 'Gujarati (ગુજરાતી)', flag: '🇮🇳' },
+              { id: 'en', label: 'English', flag: '🌍' },
+              { id: 'hi', label: 'Hindi (હિન્દી)', flag: '🇮🇳' },
+            ].map((item) => {
+              const active = articleLanguage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setArticleLanguage(item.id as 'gu' | 'en' | 'hi');
+                    setContentLang(item.id as 'gu' | 'en' | 'hi');
+                  }}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+                    active
+                      ? 'bg-red-600 text-white shadow-md ring-2 ring-red-600/30'
+                      : 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                  }`}
+                >
+                  <span>{item.flag}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-zinc-400 mt-1.5">Select the main writing language for this news story.</p>
+        </div>
 
         {/* LINE 1: News Name (In English / Slug) */}
         <div id="field-slug">

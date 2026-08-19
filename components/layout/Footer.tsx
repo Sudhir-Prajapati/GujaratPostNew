@@ -133,7 +133,10 @@ function NavColumn({ title, links, titleHref }: { title: string; links: { label:
 }
 
 /* ─── Footer Component ─────────────────────────────────────────────────── */
+import { useApp } from '@/components/AppProvider';
+
 export default function Footer({ isInline = false }: { isInline?: boolean }) {
+    const { language } = useApp();
     const pathname = usePathname();
 
     if (pathname === '/login' || pathname.startsWith('/admin')) {
@@ -160,7 +163,19 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                     <div className="flex flex-col gap-2 lg:w-72 flex-shrink-0">
                         <div>
                             <p className="text-[15px] font-bold text-white tracking-tight leading-snug ml-1">
-                                Real Stories. <span className="text-[#B3121B]">Real Gujarat.</span>
+                                {language === 'gu' ? (
+                                  <>
+                                    વાસ્તવિક વાર્તાઓ. <span className="text-[#B3121B]">વાસ્તવિક ગુજરાત.</span>
+                                  </>
+                                ) : language === 'hi' ? (
+                                  <>
+                                    સચ્ચી કહાનીયાં। <span className="text-[#B3121B]">સચ્ચા ગુજરાત।</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    Real Stories. <span className="text-[#B3121B]">Real Gujarat.</span>
+                                  </>
+                                )}
                             </p>
                         </div>
                         <Link
