@@ -89,6 +89,17 @@ export default function AdminDashboard() {
       .sort((a, b) => (b.views || 0) - (a.views || 0));
   }, [dbArticles, data]);
 
+  // Compute Recently Published sorted newest-first by publication / creation date
+  const sortedRecentlyPublished = useMemo(() => {
+    if (!data?.recentlyPublished) return [];
+    return [...data.recentlyPublished].sort((a, b) => {
+      const timeA = new Date(a.publishedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.publishedAt || b.createdAt || 0).getTime();
+      if (timeA !== timeB) return timeB - timeA;
+      return (b.articleNumber || 0) - (a.articleNumber || 0);
+    });
+  }, [data?.recentlyPublished]);
+
   // Dynamic right-side item limit (minimum 7 articles; expands if left column grows)
   const leftSideCount = (data?.recentDrafts?.length || 0) + (data?.recentlyPublished?.length || 0);
   const rightSideLimit = Math.max(7, leftSideCount);
@@ -667,9 +678,9 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {data?.recentlyPublished && data.recentlyPublished.length > 0 ? (
+        {sortedRecentlyPublished && sortedRecentlyPublished.length > 0 ? (
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {data.recentlyPublished.slice(0, 5).map((art) => (
+            {sortedRecentlyPublished.slice(0, 5).map((art) => (
               <div key={art.id} className="py-3.5 flex items-center justify-between gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50 px-2 rounded-xl transition-colors">
                 <div className="flex-1 min-w-0">
                   <p className="font-extrabold text-zinc-900 dark:text-zinc-100 line-clamp-1">

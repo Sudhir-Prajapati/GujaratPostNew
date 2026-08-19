@@ -253,7 +253,9 @@ export default function ArticleForm({ articleId }: ArticleFormProps) {
   const [quoteCiteGu, setQuoteCiteGu] = useState('');
   const [quoteCiteHi, setQuoteCiteHi] = useState('');
 
-interface ExtraImageSlot {
+  const [fieldErrors, setFieldErrors] = useState<{ slug?: boolean; title?: boolean; category?: boolean; author?: boolean }>({});
+
+  interface ExtraImageSlot {
   id: string;
   url: string;
   mode: 'upload' | 'url';
@@ -978,16 +980,39 @@ interface ExtraDescriptionSlot {
     const effectiveQuoteCite = (quoteCite || quoteCiteGu || quoteCiteHi || '').trim();
     const effectiveD2 = extraDescriptions.length > 0 ? (extraDescriptions[0].en || extraDescriptions[0].gu || extraDescriptions[0].hi || '').trim() : '';
 
-    // Granular Validation with explicit field names
+    // Granular Validation with explicit field names and red border highlighting
     const missingFields: string[] = [];
-    if (!effectiveTitle) missingFields.push('Title');
-    if (!safeSlug) missingFields.push('News Name (Slug)');
-    if (!safeCategory) missingFields.push('Category');
-    if (!safeAuthor) missingFields.push('Author');
+    const errors: { slug?: boolean; title?: boolean; category?: boolean; author?: boolean } = {};
+
+    if (!safeSlug) {
+      missingFields.push('News Name (Slug)');
+      errors.slug = true;
+    }
+    if (!effectiveTitle) {
+      missingFields.push('Title');
+      errors.title = true;
+    }
+    if (!safeCategory) {
+      missingFields.push('Category (Topic)');
+      errors.category = true;
+    }
+    if (!safeAuthor && userRole !== 'REPORTER') {
+      missingFields.push('Publish By (Author)');
+      errors.author = true;
+    }
+
+    setFieldErrors(errors);
 
     if (missingFields.length > 0) {
-      setError(`Please fill in the required setting: ${missingFields.join(', ')}.`);
+      setError(`Please fill in all required fields before saving: ${missingFields.join(', ')}.`);
       setLoading(false);
+      
+      setTimeout(() => {
+        const targetEl = document.getElementById('error-banner') || document.getElementById('field-slug') || document.getElementById('field-title') || document.getElementById('field-author');
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
       return;
     }
 
@@ -1129,31 +1154,261 @@ interface ExtraDescriptionSlot {
     return 'Save & Publish Article';
   };
 
+// Gujarati & English stop-words to exclude from raw tag & keyword extraction
+const SEO_STOP_WORDS = new Set([
+  'અને', 'કે', 'પણ', 'છે', 'હતા', 'હતી', 'હતું', 'માટે', 'પર', 'થી', 'ને', 'માં', 'એક',
+  'જેટલા', 'જેવા', 'સાથે', 'કરી', 'કરવામાં', 'આવ્યા', 'આવી', 'આવ્યો', 'હવે', 'સુધી',
+  'બાદ', 'વચ્ચે', 'અંગે', 'આપવામાં', 'લેવામાં', 'નાખ્યા', 'નાખ્યું', 'સામે', 'કર્યા',
+  'અહીં', 'ત્યાં', 'ત્યારબાદ', 'તમામ', 'અલગ', 'જવા', 'તરીકે', 'અગાઉ', 'ધ્વારા', 'દ્વારા',
+  'and', 'or', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from', 'about', 'into',
+  'is', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'the', 'a', 'an', 'this', 'that'
+]);
+
+// Topic dictionary mapping news keywords in Gujarati / Hindi / English to high-traffic tags & keywords
+const SEO_TOPIC_DICTIONARY: Array<{ patterns: RegExp[]; tags: string[]; keywords: string[] }> = [
+  {
+    patterns: [/હત્યા/i, /મર્ડર/i, /છરી/i, /તલવાર/i, /ખાતમો/i, /murder/i, /homicide/i, /stab/i, /killed/i],
+    tags: ['murder', 'crime', 'police', 'હત્યા', 'મર્ડર', 'ક્રાઇમ'],
+    keywords: ['murder news', 'crime news', 'police investigation', 'homicide case']
+  },
+  {
+    patterns: [/પોલીસ/i, /ધડપકડ/i, /હુમલો/i, /હુમલાખોરો/i, /ગુનો/i, /police/i, /arrest/i, /attack/i, /crime/i],
+    tags: ['police', 'crime', 'arrest', 'પોલીસ', 'ધડપકડ', 'હુમલો'],
+    keywords: ['police action', 'crime report', 'police investigation', 'crime update']
+  },
+  {
+    patterns: [/વરસાદ/i, /પૂર/i, /પાણી/i, /મેઘરાજા/i, /ઝાપટાં/i, /rain/i, /flood/i, /monsoon/i, /rainfall/i],
+    tags: ['monsoon', 'rain', 'flood', 'weather', 'વરસાદ', 'પૂર'],
+    keywords: ['monsoon update', 'heavy rainfall', 'weather forecast', 'flood alert']
+  },
+  {
+    patterns: [/અકસ્માત/i, /મોત/i, /ઈજા/i, /accident/i, /crash/i, /collision/i, /dead/i],
+    tags: ['accident', 'road accident', 'police', 'અકસ્માત', 'મોત'],
+    keywords: ['road accident news', 'fatal crash', 'accident report']
+  },
+  {
+    patterns: [/ચૂંટણી/i, /રાજકારણ/i, /ભાજપ/i, /કોંગ્રેસ/i, /આપ/i, /election/i, /politics/i, /bjp/i, /congress/i],
+    tags: ['politics', 'election', 'bjp', 'congress', 'રાજકારણ', 'ચૂંટણી'],
+    keywords: ['political news', 'election updates', 'gujarat politics', 'political statement']
+  },
+  {
+    patterns: [/સોનું/i, /ચાંદી/i, /બજાર/i, /શેરબજાર/i, /gold/i, /silver/i, /market/i, /sensex/i, /business/i],
+    tags: ['business', 'gold price', 'market', 'શેરબજાર', 'સોનું-ચાંદી', 'બિઝનેસ'],
+    keywords: ['gold rate today', 'stock market news', 'business update', 'financial news']
+  },
+  {
+    patterns: [/શાળા/i, /કોલેજ/i, /પરીક્ષા/i, /પરિણામ/i, /school/i, /college/i, /exam/i, /result/i, /education/i],
+    tags: ['education', 'exam', 'result', 'પરીક્ષા', 'શાળા-કોલેજ', 'શિક્ષણ'],
+    keywords: ['education news', 'exam results', 'board exam update', 'gujarat education']
+  },
+];
+
+  // Auto-generate SEO fields (SEO Title, SEO Description, SEO Keywords, Article Tags) based on Title, Category, and Location
+  const autoGenerateSeoDetails = (
+    overrideTitle?: string,
+    overrideCatId?: string,
+    overrideLoc?: string,
+    forceOverwrite = false
+  ) => {
+    const activeTitle = (overrideTitle !== undefined ? overrideTitle : (title || titleGu || titleHi)).trim();
+    const activeCatId = overrideCatId !== undefined ? overrideCatId : categoryId;
+    const activeLoc = overrideLoc !== undefined ? overrideLoc : location;
+
+    if (!activeTitle) return;
+
+    const selectedCat = categories.find((c) => c.id === activeCatId);
+    const catName = selectedCat?.name || '';
+    const brandSuffix = 'gujaratpost news';
+
+    // 1. SEO Title
+    let genTitle = activeTitle;
+    if (activeLoc && !genTitle.toLowerCase().includes(activeLoc.toLowerCase())) {
+      genTitle += ` in ${activeLoc}`;
+    }
+    if (!genTitle.toLowerCase().includes(brandSuffix)) {
+      genTitle += ` ${brandSuffix}`;
+    }
+
+    // 2. SEO Description
+    let genDesc = activeTitle;
+    if (activeLoc && !genDesc.toLowerCase().includes(activeLoc.toLowerCase())) {
+      genDesc += ` in ${activeLoc}`;
+    }
+    if (!genDesc.toLowerCase().includes(brandSuffix)) {
+      genDesc += ` ${brandSuffix}`;
+    }
+
+    // 3. Dynamic Keyword & Tag Extraction with Topic Dictionary & Stop Words Removal
+    const keywordSet = new Set<string>();
+    const tagSet = new Set<string>();
+
+    // Analyze Title against Topic Dictionary
+    SEO_TOPIC_DICTIONARY.forEach((topic) => {
+      const match = topic.patterns.some((pattern) => pattern.test(activeTitle));
+      if (match) {
+        topic.tags.forEach((t) => tagSet.add(t));
+        topic.keywords.forEach((k) => {
+          if (activeLoc) keywordSet.add(`${activeLoc.toLowerCase()} ${k}`);
+          keywordSet.add(k);
+        });
+      }
+    });
+
+    // Process Words & Exclude Gujarati/English Stop Words
+    const rawWords = activeTitle
+      .replace(/[^\w\s\u0A80-\u0AFF\u0900-\u097F]/gi, ' ')
+      .split(/\s+/)
+      .map((w) => w.trim())
+      .filter((w) => w.length > 2 && !SEO_STOP_WORDS.has(w.toLowerCase()));
+
+    if (rawWords.length > 0) {
+      const mainKeywordsPhrase = rawWords.slice(0, 5).join(' ');
+      if (mainKeywordsPhrase) keywordSet.add(mainKeywordsPhrase);
+
+      rawWords.slice(0, 4).forEach((w) => {
+        tagSet.add(w);
+      });
+    }
+
+    // Add Location & Category context
+    if (activeLoc) {
+      const locLower = activeLoc.toLowerCase();
+      keywordSet.add(`${locLower} news`);
+      keywordSet.add(`${locLower} crime news`);
+      keywordSet.add(activeLoc);
+      tagSet.add(locLower);
+      tagSet.add(activeLoc);
+    }
+
+    if (catName) {
+      const catLower = catName.toLowerCase();
+      keywordSet.add(`${catLower} news`);
+      keywordSet.add(catName);
+      tagSet.add(catLower);
+    }
+
+    keywordSet.add('gujarat news');
+    keywordSet.add('gujaratpost news');
+    keywordSet.add('gujarat post');
+
+    tagSet.add('gujarat');
+    tagSet.add('gujaratpost');
+
+    const genKeywords = Array.from(keywordSet).join(', ');
+    const genTags = Array.from(tagSet).join(', ');
+
+    if (forceOverwrite || !seoTitle.trim()) {
+      setSeoTitle(genTitle);
+    }
+    if (forceOverwrite || !seoDescription.trim()) {
+      setSeoDescription(genDesc);
+    }
+    if (forceOverwrite || !seoKeywords.trim()) {
+      setSeoKeywords(genKeywords);
+    }
+    if (forceOverwrite || !tagsString.trim()) {
+      setTagsString(genTags);
+    }
+  };
+
+  const [loadingAiSeo, setLoadingAiSeo] = useState(false);
+  const [seoSource, setSeoSource] = useState<'gemini' | 'local' | null>(null);
+
+  // Generate high-traffic SEO details strictly using Google Gemini AI (100% FREE AI Engine)
+  const generateSeoWithGeminiAI = async (
+    overrideTitle?: string,
+    overrideCatId?: string,
+    overrideLoc?: string,
+    isAutoTrigger = false
+  ) => {
+    const activeTitle = (overrideTitle !== undefined ? overrideTitle : (title || titleGu || titleHi)).trim();
+    if (!activeTitle) {
+      if (!isAutoTrigger) {
+        alert('Please enter an article title first before generating SEO details with Gemini AI.');
+      }
+      return;
+    }
+
+    const activeCatId = overrideCatId !== undefined ? overrideCatId : categoryId;
+    const activeLoc = overrideLoc !== undefined ? overrideLoc : location;
+
+    setLoadingAiSeo(true);
+    const selectedCat = categories.find((c) => c.id === activeCatId);
+
+    try {
+      const res = await authFetch(getBackendApiUrl('/api/admin/ai/generate-seo'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: activeTitle,
+          categoryName: selectedCat?.name || '',
+          location: activeLoc || '',
+          content: desc1 || desc1Gu || desc1Hi || excerpt || '',
+        }),
+      });
+
+      const rawText = await res.text();
+      let json: any = {};
+      try {
+        json = JSON.parse(rawText);
+      } catch (pErr) {
+        throw new Error(`Server status ${res.status}: ${rawText.slice(0, 80)}`);
+      }
+
+      if (!res.ok) throw new Error(json.error || json.message || 'Failed to generate SEO metadata with Gemini AI.');
+
+      if (json.data) {
+        if (json.data.seoTitle) setSeoTitle(json.data.seoTitle);
+        if (json.data.seoDescription) setSeoDescription(json.data.seoDescription);
+        if (json.data.seoKeywords) setSeoKeywords(json.data.seoKeywords);
+        if (json.data.tags) setTagsString(json.data.tags);
+        setSeoSource('gemini');
+      }
+    } catch (err: any) {
+      console.error('[Gemini AI SEO API Error]:', err?.message);
+      setSeoSource(null);
+      if (!isAutoTrigger) {
+        alert(`Gemini AI Error: ${err?.message || 'Failed to generate SEO details with Gemini AI API.'}`);
+      }
+    } finally {
+      setLoadingAiSeo(false);
+    }
+  };
+
   const handleCategorySelect = (val: string) => {
     setCategoryId(val);
     const selectedCat = categories.find((c) => c.id === val);
+    let resolvedLoc = location;
     if (selectedCat) {
       const catNameLower = selectedCat.name.trim().toLowerCase();
 
       // Auto-set location based on category type
       if (INTERNATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n))) {
+        resolvedLoc = 'International';
         setLocation('International');
       } else if (NATIONAL_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
+        resolvedLoc = 'National';
         setLocation('National');
       } else if (GUJARAT_CATEGORY_NAMES.some((n) => catNameLower.includes(n) || catNameLower === n)) {
         // Try to match exact city, else default to Gujarat
         const cityMatch = LOCATION_OPTIONS.find(
           (loc) => loc.value.toLowerCase() === catNameLower || catNameLower.includes(loc.value.toLowerCase())
         );
-        setLocation(cityMatch ? cityMatch.value : 'Gujarat');
+        resolvedLoc = cityMatch ? cityMatch.value : 'Gujarat';
+        setLocation(resolvedLoc);
       } else {
         // No match — try direct match across all options
         const directMatch = LOCATION_OPTIONS.find(
           (loc) => loc.value.toLowerCase() === catNameLower || loc.label.toLowerCase() === catNameLower
         );
-        if (directMatch) setLocation(directMatch.value);
+        if (directMatch) {
+          resolvedLoc = directMatch.value;
+          setLocation(directMatch.value);
+        }
       }
     }
+    const currentTitle = title || titleGu || titleHi;
+    generateSeoWithGeminiAI(currentTitle, val, resolvedLoc, true);
   };
 
 
@@ -1270,37 +1525,50 @@ interface ExtraDescriptionSlot {
         </div>
       </div>
 
-      {/* Error Alert */}
+      {/* Error Alert Banner */}
       {error && (
-        <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-950/20 dark:bg-red-950/10 dark:text-red-400">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div>{error}</div>
+        <div id="error-banner" className="flex items-start gap-3.5 rounded-2xl border-2 border-red-500 bg-red-50 p-4 text-sm font-bold text-red-700 dark:border-red-600 dark:bg-red-950/70 dark:text-red-200 shadow-md transition-all">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+          <div className="space-y-0.5">
+            <p className="font-black text-sm uppercase tracking-wider text-red-800 dark:text-red-300">⚠️ Form Validation Failed</p>
+            <p className="text-xs font-semibold leading-relaxed">{error}</p>
+          </div>
         </div>
       )}
 
       {/* Form Content Panel - Line-by-Line Flow */}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 space-y-6">
 
-
-
         {/* LINE 1: News Name (In English / Slug) */}
-        <div>
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
+        <div id="field-slug">
+          <label className={`block text-xs uppercase tracking-wider ${fieldErrors.slug ? 'font-black text-red-600 dark:text-red-400' : 'font-extrabold text-zinc-700 dark:text-zinc-300'}`}>
             News Name (In English) <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={slug || ''}
-            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''))}
+            onChange={(e) => {
+              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''));
+              if (fieldErrors.slug) setFieldErrors((prev) => ({ ...prev, slug: false }));
+            }}
             placeholder="e.g. flood-havoc-gujarat-30-deaths"
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-mono text-zinc-800 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-zinc-200"
+            className={`w-full rounded-xl border mt-1.5 px-4 py-3 text-sm font-mono focus:outline-none transition-all ${
+              fieldErrors.slug
+                ? 'border-2 border-red-500 bg-red-50/80 text-red-900 ring-2 ring-red-500/20 dark:border-red-600 dark:bg-red-950/40 dark:text-red-200'
+                : 'border-zinc-200 bg-zinc-50/50 text-zinc-800 focus:border-primary dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-zinc-200'
+            }`}
             required
           />
-          <p className="text-[11px] text-zinc-400 mt-1">Enter a short URL-friendly slug in English (e.g. flood-havoc-gujarat)</p>
+          {fieldErrors.slug ? (
+            <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> News Name (Slug) is required.</p>
+          ) : (
+            <p className="text-[11px] text-zinc-400 mt-1">Enter a short URL-friendly slug in English (e.g. flood-havoc-gujarat)</p>
+          )}
         </div>
+
         {/* LINE 2: Title (*) / Headline */}
-        <div>
-          <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300">
+        <div id="field-title">
+          <label className={`block text-xs uppercase tracking-wider ${fieldErrors.title ? 'font-black text-red-600 dark:text-red-400' : 'font-extrabold text-zinc-700 dark:text-zinc-300'}`}>
             Title (*) <span className="text-red-500">*</span>
           </label>
           <input
@@ -1312,6 +1580,11 @@ interface ExtraDescriptionSlot {
               else if (contentLang === 'gu') setTitleGu(val);
               else if (contentLang === 'hi') setTitleHi(val);
               setSlug(generateEnglishSlug(val));
+              if (fieldErrors.title) setFieldErrors((prev) => ({ ...prev, title: false }));
+              generateSeoWithGeminiAI(val, categoryId, location, true);
+            }}
+            onBlur={(e) => {
+              generateSeoWithGeminiAI(e.target.value, categoryId, location, true);
             }}
             placeholder={
               contentLang === 'gu'
@@ -1320,25 +1593,39 @@ interface ExtraDescriptionSlot {
                   ? 'गुजरात में बाढ़ का कहर: दो दिनों में 30 लोगों की मौत, अहमदाबाद में 20 वर्षों में सबसे अधिक बारिश'
                   : 'Enter main news article title...'
             }
-            className="w-full rounded-xl border border-zinc-200 bg-zinc-50/50 mt-1.5 px-4 py-3 text-sm font-bold text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white"
+            className={`w-full rounded-xl border mt-1.5 px-4 py-3 text-sm font-bold focus:outline-none transition-all ${
+              fieldErrors.title
+                ? 'border-2 border-red-500 bg-red-50/80 text-red-900 ring-2 ring-red-500/20 dark:border-red-600 dark:bg-red-950/40 dark:text-red-200'
+                : 'border-zinc-200 bg-zinc-50/50 text-zinc-900 focus:border-primary dark:border-zinc-800 dark:bg-zinc-950/20 dark:text-white'
+            }`}
             required
           />
+          {fieldErrors.title && (
+            <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Title is required.</p>
+          )}
         </div>
 
         {/* LINE 3: Category (Topic) (*), City / Location, & Publish By (Author) (*) */}
         <div className="grid gap-4 md:grid-cols-3">
-          <div>
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5">
+          <div id="field-category">
+            <label className={`block text-xs uppercase tracking-wider mb-1.5 ${fieldErrors.category ? 'font-black text-red-600 dark:text-red-400' : 'font-extrabold text-zinc-700 dark:text-zinc-300'}`}>
               Category (Topic) (*) <span className="text-red-500">*</span>
             </label>
             <CustomSelect
               value={categoryId || ''}
-              onChange={(val) => handleCategorySelect(val)}
+              onChange={(val) => {
+                handleCategorySelect(val);
+                if (fieldErrors.category) setFieldErrors((prev) => ({ ...prev, category: false }));
+              }}
               options={categoryOptions}
               placeholder="[Choose category]"
+              error={Boolean(fieldErrors.category)}
               required
               searchable
             />
+            {fieldErrors.category && (
+              <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Please select a Category.</p>
+            )}
           </div>
 
           <div>
@@ -1359,15 +1646,19 @@ interface ExtraDescriptionSlot {
             </label>
             <CustomSelect
               value={location || ''}
-              onChange={(val) => setLocation(val)}
+              onChange={(val) => {
+                setLocation(val);
+                const currentTitle = title || titleGu || titleHi;
+                autoGenerateSeoDetails(currentTitle, categoryId, val, false);
+              }}
               options={LOCATION_OPTIONS}
               placeholder="[Select City / Region]"
               searchable
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-extrabold text-zinc-700 uppercase tracking-wider dark:text-zinc-300 mb-1.5">
+          <div id="field-author">
+            <label className={`block text-xs uppercase tracking-wider mb-1.5 ${fieldErrors.author ? 'font-black text-red-600 dark:text-red-400' : 'font-extrabold text-zinc-700 dark:text-zinc-300'}`}>
               Publish By (Author) (*) <span className="text-red-500">*</span>
             </label>
             {userRole === 'REPORTER' ? (
@@ -1375,14 +1666,23 @@ interface ExtraDescriptionSlot {
                 {userAuthorName || 'Your Author Profile'}
               </div>
             ) : (
-              <CustomSelect
-                value={authorId || ''}
-                onChange={(val) => setAuthorId(val)}
-                options={authors.map((aut) => ({ value: aut.id, label: aut.name }))}
-                placeholder="Select Author / Reporter"
-                required
-                searchable
-              />
+              <>
+                <CustomSelect
+                  value={authorId || ''}
+                  onChange={(val) => {
+                    setAuthorId(val);
+                    if (fieldErrors.author) setFieldErrors((prev) => ({ ...prev, author: false }));
+                  }}
+                  options={authors.map((aut) => ({ value: aut.id, label: aut.name }))}
+                  placeholder="Select Author / Reporter"
+                  error={Boolean(fieldErrors.author)}
+                  required
+                  searchable
+                />
+                {fieldErrors.author && (
+                  <p className="text-xs font-bold text-red-600 dark:text-red-400 mt-1 flex items-center gap-1"><AlertCircle className="h-3.5 w-3.5" /> Please select an Author / Reporter.</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -2107,9 +2407,28 @@ interface ExtraDescriptionSlot {
 
         {/* LINE 7: SEO Details & Publication Status */}
         <div className="space-y-4 border-t border-zinc-100 pt-5 dark:border-zinc-800">
-          <h3 className="text-xs font-black text-zinc-400 uppercase tracking-wider">
-            SEO & Publication Settings
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-wider">
+                SEO & Publication Settings
+              </h3>
+              {seoSource === 'gemini' && (
+                <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1">
+                  🤖 Generated by Google Gemini AI (FREE Engine)
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => generateSeoWithGeminiAI(undefined, undefined, undefined, false)}
+              disabled={loadingAiSeo}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-1.5 text-xs font-black text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/60 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              title="Use Google Gemini AI to generate high-ranking bilingual SEO metadata"
+            >
+              {loadingAiSeo ? <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" /> : <Sparkles className="h-3.5 w-3.5 text-emerald-600" />}
+              <span>{loadingAiSeo ? 'Gemini AI Generating...' : '🤖 Gemini AI Auto-Fill'}</span>
+            </button>
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
