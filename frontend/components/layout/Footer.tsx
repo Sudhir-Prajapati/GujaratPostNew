@@ -162,7 +162,7 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                     {/* Logo & Brand */}
                     <div className="flex flex-col gap-2 lg:w-72 flex-shrink-0">
                         <div>
-                            <p className="text-[15px] font-bold text-white tracking-tight leading-snug ml-1">
+                            <p key={language} className="text-[15px] font-bold text-white tracking-tight leading-snug ml-1">
                                 {language === 'gu' ? (
                                   <>
                                     વાસ્તવિક વાર્તાઓ. <span className="text-[#B3121B]">વાસ્તવિક ગુજરાત.</span>
