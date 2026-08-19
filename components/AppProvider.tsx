@@ -90,6 +90,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, []);
 
+  const resetGoogleTranslate = () => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname}`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname}`;
+    } catch (e) {
+      console.warn(e);
+    }
+
+    const selectEl = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
+    if (selectEl) {
+      selectEl.value = 'gu';
+      selectEl.dispatchEvent(new Event('change'));
+    }
+  };
+
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
     document.documentElement.setAttribute('data-theme', theme);
@@ -106,7 +124,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.warn('Failed to save to localStorage:', e);
     }
 
-    if (language !== 'gu') {
+    if (language === 'gu') {
+      resetGoogleTranslate();
+    } else {
       triggerGoogleTranslate(language);
     }
   }, [theme, language, fsLevel]);
@@ -117,7 +137,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const handleSetLanguage = (l: Language) => {
     setLanguage(l);
-    triggerGoogleTranslate(l);
+    if (l === 'gu') {
+      resetGoogleTranslate();
+    } else {
+      triggerGoogleTranslate(l);
+    }
   };
 
   const incFs = () => {

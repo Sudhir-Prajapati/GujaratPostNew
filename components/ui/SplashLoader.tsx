@@ -328,7 +328,7 @@ export default function SplashLoader() {
           </>
         ) : language === 'hi' ? (
           <>
-            સચ્ચી કહાનીયાં। <span className="text-[#e62117]">સચ્ચા ગુજરાત।</span>
+            सच्ची कहानियाँ। <span className="text-[#e62117]">सच्चा गुजरात।</span>
           </>
         ) : (
           <>

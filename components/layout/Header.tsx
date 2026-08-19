@@ -358,7 +358,7 @@ export default function Header() {
                   </>
                 ) : language === 'hi' ? (
                   <>
-                    સચ્ચી કહાનીયાં। <span className="text-red-600">સચ્ચા ગુજરાત।</span>
+                    सच्ची कहानियाँ। <span className="text-red-600">सच्चा गुजरात।</span>
                   </>
                 ) : (
                   <>
