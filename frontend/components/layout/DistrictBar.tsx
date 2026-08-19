@@ -38,7 +38,13 @@ export default function DistrictBar() {
       const slug = (cat.slug || '').toLowerCase();
       if (!seenSlugs.has(slug)) {
         seenSlugs.add(slug);
-        const label = language === 'hi' ? (cat.nameHi || cat.name) : language === 'gu' ? (cat.nameGu || cat.name) : cat.name;
+        const distMatch = DISTRICTS.find((d) => d.slug === slug);
+        let label = cat.name;
+        if (distMatch) {
+          label = language === 'hi' ? distMatch.hi : language === 'gu' ? distMatch.gu : distMatch.en;
+        } else {
+          label = language === 'hi' ? (cat.nameHi || cat.name) : language === 'gu' ? (cat.nameGu || cat.name) : cat.name;
+        }
         result.push({ slug: cat.slug, label });
       }
     });
