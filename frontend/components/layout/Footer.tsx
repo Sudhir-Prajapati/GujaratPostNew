@@ -169,7 +169,7 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                                   </>
                                 ) : language === 'hi' ? (
                                   <>
-                                    સચ્ચી કહાનીયાં। <span className="text-[#B3121B]">સચ્ચા ગુજરાત।</span>
+                                    सच्ची कहानियाँ। <span className="text-[#B3121B]">सच्चा गुजरात।</span>
                                   </>
                                 ) : (
                                   <>
