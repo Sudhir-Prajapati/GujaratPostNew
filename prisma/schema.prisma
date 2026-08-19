@@ -105,6 +105,7 @@ model Post {
   id             String     @id @default(uuid())
   slug           String     @unique
   articleNumber  Int?       @unique
+  language       String     @default("gu")
   title          String
   titleGu        String
   titleHi        String
