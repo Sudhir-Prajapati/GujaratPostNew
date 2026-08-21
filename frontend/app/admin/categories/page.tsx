@@ -23,7 +23,7 @@ import {
   AlertCircle,
   Navigation,
 } from 'lucide-react';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
+import { getBackendApiUrl, authFetch, clearApiCache } from '@/lib/api';
 
 interface CategoryData {
   id: string;
@@ -322,6 +322,7 @@ export default function CategoriesPage() {
 
       const sorted = (json.data || []).sort((a: CategoryData, b: CategoryData) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
       setCategories(sorted);
+      clearApiCache();
       setOrderModalOpen(false);
     } catch (err: any) {
       alert('Error saving section orders: ' + err.message);
