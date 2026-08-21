@@ -1081,11 +1081,6 @@ export default function HeroSection({
 
       <AdSectionBanner section="AFTER_HERO" />
 
-      {/* 1. TOP VIDEO SECTION (Screenshot 1: Video Playlist under Hero) */}
-      <div className="mx-auto max-w-screen-xl px-2 my-6">
-        <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
-      </div>
-
       {/* Dynamic Render of Homepage Sections ordered by DB displayOrder */}
       {activeOrderedCategories.map((item, idx) => {
         const slug = (typeof item === 'string' ? item : item.slug || '').toLowerCase();
