@@ -185,15 +185,41 @@ router.get('/articles', async (req, res, next) => {
         { priority: 'desc' },
       ];
 
+    const publicArticleSelect = {
+      id: true,
+      slug: true,
+      articleNumber: true,
+      language: true,
+      title: true,
+      titleGu: true,
+      titleHi: true,
+      excerpt: true,
+      excerptGu: true,
+      excerptHi: true,
+      featuredImage: true,
+      status: true,
+      scheduledAt: true,
+      authorId: true,
+      categoryId: true,
+      location: true,
+      readingTime: true,
+      priority: true,
+      isTrending: true,
+      isBreaking: true,
+      isFeatured: true,
+      views: true,
+      createdAt: true,
+      updatedAt: true,
+      category: true,
+      author: true,
+      tags: { include: { tag: true } },
+    };
+
     let [posts, total] = await withDbRetry(() =>
       Promise.all([
         prisma.post.findMany({
           where,
-          include: {
-            category: true,
-            author: true,
-            tags: { include: { tag: true } },
-          },
+          select: publicArticleSelect,
           orderBy: orderByClause,
           skip,
           take: limit,
@@ -213,11 +239,7 @@ router.get('/articles', async (req, res, next) => {
       posts = await withDbRetry(() =>
         prisma.post.findMany({
           where: fallbackWhere,
-          include: {
-            category: true,
-            author: true,
-            tags: { include: { tag: true } },
-          },
+          select: publicArticleSelect,
           orderBy: [{ createdAt: 'desc' }],
           take: limit,
         })
@@ -235,9 +257,9 @@ router.get('/articles', async (req, res, next) => {
       excerpt: p.excerpt || '',
       excerptGu: p.excerptGu || '',
       excerptHi: p.excerptHi || '',
-      content: sanitizeUrlInContent(p.content),
-      contentGu: sanitizeUrlInContent(p.contentGu),
-      contentHi: sanitizeUrlInContent(p.contentHi),
+      content: sanitizeUrlInContent((p as any).content),
+      contentGu: sanitizeUrlInContent((p as any).contentGu),
+      contentHi: sanitizeUrlInContent((p as any).contentHi),
       image: sanitizeSingleUrl(p.featuredImage),
       featuredImage: sanitizeSingleUrl(p.featuredImage),
       category: p.category.name,
