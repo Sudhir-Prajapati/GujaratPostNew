@@ -1,11 +1,36 @@
 'use client';
 
-/* Shared shimmer animation base — applied via CSS class */
 function Shimmer({ className = '' }: { className?: string }) {
   return (
-    <div
-      className={`relative overflow-hidden rounded bg-muted before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.4s_infinite] before:bg-gradient-to-r before:from-transparent before:via-foreground/5 before:to-transparent ${className}`}
-    />
+    <>
+      <style>{`
+        @keyframes skeleton-sweep {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .sk-bar {
+          position: relative;
+          overflow: hidden;
+          background-color: #e2e8f0;
+          border-radius: 6px;
+        }
+        .dark .sk-bar {
+          background-color: #334155;
+        }
+        .sk-bar::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+          animation: skeleton-sweep 1.5s ease-in-out infinite;
+        }
+        .dark .sk-bar::after {
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+        }
+      `}</style>
+      <div className={`sk-bar ${className}`} />
+    </>
   );
 }
 
@@ -92,63 +117,140 @@ export function HomePageSkeleton() {
    ════════════════════════════════════════════════════════════ */
 export function ArticleSkeleton() {
   return (
-    <div className="mx-auto max-w-screen-xl px-4 py-8 animate-pulse">
+    <div className="mx-auto max-w-screen-xl px-4 py-6">
+      <style>{`
+        @keyframes skeleton-sweep {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .sk-bar {
+          position: relative;
+          overflow: hidden;
+          background-color: #e2e8f0;
+          border-radius: 6px;
+        }
+        .dark .sk-bar {
+          background-color: #334155;
+        }
+        .sk-bar::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+          animation: skeleton-sweep 1.5s ease-in-out infinite;
+        }
+        .dark .sk-bar::after {
+          background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.12) 50%, transparent 100%);
+        }
+      `}</style>
+
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10">
-        {/* Main article */}
-        <div className="min-w-0">
+
+        {/* ── Main Article Column ── */}
+        <div className="min-w-0 space-y-0">
+
           {/* Breadcrumb */}
-          <div className="flex gap-2 mb-4">
-            <Shimmer className="h-3 w-16 rounded-full" />
-            <Shimmer className="h-3 w-3 rounded-full" />
-            <Shimmer className="h-3 w-24 rounded-full" />
+          <div className="flex items-center gap-2 mb-4">
+            <div className="sk-bar h-3 w-16 rounded-full" />
+            <div className="sk-bar h-3 w-3 rounded-full" />
+            <div className="sk-bar h-3 w-28 rounded-full" />
           </div>
+
           {/* Category badge */}
-          <Shimmer className="h-5 w-20 rounded-full mb-3" />
-          {/* Title */}
-          <Shimmer className="h-8 w-full mb-2" />
-          <Shimmer className="h-8 w-5/6 mb-2" />
-          <Shimmer className="h-8 w-4/6 mb-5" />
-          {/* Subtitle */}
-          <Shimmer className="h-5 w-full mb-2" />
-          <Shimmer className="h-5 w-3/4 mb-6" />
-          {/* Byline */}
-          <div className="flex items-center gap-3 py-4 border-y border-border mb-6">
-            <Shimmer className="h-10 w-10 rounded-full" />
-            <div className="flex flex-col gap-1.5">
-              <Shimmer className="h-4 w-28" />
-              <Shimmer className="h-3 w-36 rounded-full" />
+          <div className="sk-bar h-6 w-24 rounded-full mb-4" />
+
+          {/* Title — 3 lines */}
+          <div className="sk-bar h-8 w-full rounded-lg mb-2" />
+          <div className="sk-bar h-8 w-11/12 rounded-lg mb-2" />
+          <div className="sk-bar h-8 w-3/4 rounded-lg mb-5" />
+
+          {/* Excerpt — 2 lines */}
+          <div className="sk-bar h-5 w-full rounded mb-2" />
+          <div className="sk-bar h-5 w-4/5 rounded mb-6" />
+
+          {/* Author byline */}
+          <div className="flex items-center gap-3 py-4 border-y border-border/40 mb-6">
+            <div className="sk-bar h-11 w-11 rounded-full shrink-0" />
+            <div className="flex flex-col gap-2">
+              <div className="sk-bar h-4 w-32 rounded" />
+              <div className="sk-bar h-3 w-44 rounded-full" />
+            </div>
+            <div className="ml-auto flex gap-2">
+              <div className="sk-bar h-8 w-8 rounded-full" />
+              <div className="sk-bar h-8 w-8 rounded-full" />
+              <div className="sk-bar h-8 w-8 rounded-full" />
             </div>
           </div>
+
           {/* Hero image */}
-          <Shimmer className="aspect-[16/9] w-full rounded-xl mb-6" />
+          <div className="sk-bar aspect-[16/9] w-full rounded-2xl mb-7" />
+
           {/* Body paragraphs */}
-          {[100, 90, 95, 80, 100, 88, 75].map((w, i) => (
-            <Shimmer key={i} className={`h-4 w-[${w}%] mb-3`} />
-          ))}
-          <Shimmer className="h-4 w-2/3 mb-6" />
-          {/* Gist block */}
-          <div className="border-l-4 border-accent pl-5 mb-6">
-            <Shimmer className="h-5 w-40 mb-3" />
-            {[1, 2, 3].map((i) => (
-              <Shimmer key={i} className="h-4 w-11/12 mb-2" />
+          <div className="space-y-3">
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-11/12 rounded" />
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-10/12 rounded" />
+            <div className="sk-bar h-4 w-full rounded" />
+          </div>
+
+          {/* Pull-quote / highlight box */}
+          <div className="my-7 pl-5 border-l-4 border-muted space-y-2">
+            <div className="sk-bar h-5 w-48 rounded" />
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-11/12 rounded" />
+            <div className="sk-bar h-4 w-3/4 rounded" />
+          </div>
+
+          {/* More body */}
+          <div className="space-y-3">
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-5/6 rounded" />
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-4/5 rounded" />
+            <div className="sk-bar h-4 w-full rounded" />
+            <div className="sk-bar h-4 w-3/4 rounded" />
+          </div>
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 mt-8">
+            {[56, 72, 48, 64, 80].map((w, i) => (
+              <div key={i} className="sk-bar h-7 rounded-full" style={{ width: w }} />
             ))}
           </div>
-          {/* More body */}
-          {[92, 85, 100, 78].map((w, i) => (
-            <Shimmer key={i} className="h-4 w-full mb-3" />
-          ))}
         </div>
-        {/* Sidebar */}
-        <div className="flex flex-col gap-6 sticky top-20">
-          <div>
-            <SectionHeadingSkeleton />
-            {[1, 2, 3, 4].map((i) => <CompactCardSkeleton key={i} />)}
+
+        {/* ── Sidebar ── */}
+        <div className="hidden lg:flex flex-col gap-6 sticky top-20">
+          {/* Ad placeholder */}
+          <div className="sk-bar h-[250px] w-full rounded-xl" />
+
+          {/* Related articles heading */}
+          <div className="flex items-center gap-3 border-b border-border/40 pb-3">
+            <div className="sk-bar h-1 w-1 rounded-full" />
+            <div className="sk-bar h-5 w-32 rounded" />
+            <div className="sk-bar flex-1 h-px" />
           </div>
+
+          {/* Related article cards */}
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex gap-3 border-b border-border/30 pb-4">
+              <div className="sk-bar h-[72px] w-[100px] shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="sk-bar h-3 w-14 rounded-full" />
+                <div className="sk-bar h-4 w-full rounded" />
+                <div className="sk-bar h-4 w-3/4 rounded" />
+                <div className="sk-bar h-3 w-20 rounded-full" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   );
 }
+
 
 /* ════════════════════════════════════════════════════════════
    SEARCH PAGE SKELETON

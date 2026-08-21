@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Eye,
   Filter,
+  Calendar,
   AlertCircle,
   Loader2,
   Globe2,
@@ -64,6 +65,22 @@ export default function ArticleList() {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+
+  const formattedSelectedDate = useMemo(() => {
+    if (!selectedDate) return '';
+    try {
+      const [y, m, d] = selectedDate.split('-');
+      if (y && m && d) {
+        return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)).toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+      }
+    } catch (e) {}
+    return selectedDate;
+  }, [selectedDate]);
   
   // Table state
   const [articles, setArticles] = useState<ArticleData[]>([]);
@@ -244,6 +261,7 @@ export default function ArticleList() {
         if (query.trim()) params.set('query', query);
         if (selectedCategory) params.set('categorySlug', selectedCategory);
         if (selectedStatus) params.set('status', selectedStatus);
+        if (selectedDate) params.set('date', selectedDate);
 
         const res = await authFetch(getBackendApiUrl(`/api/admin/articles?${params.toString()}`));
         const json = await res.json();
@@ -260,7 +278,7 @@ export default function ArticleList() {
       }
     }
     loadArticles();
-  }, [page, query, selectedCategory, selectedStatus]);
+  }, [page, query, selectedCategory, selectedStatus, selectedDate]);
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
@@ -499,11 +517,44 @@ export default function ArticleList() {
               <Filter className="h-4 w-4" />
             </span>
           </div>
+
+          {/* Date Filter Input */}
+          <div className="relative min-w-[160px]">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-400">
+              <Calendar className="h-4 w-4" />
+            </span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-xl border border-zinc-200 bg-zinc-50 py-2.5 pl-10 pr-8 text-sm text-zinc-900 focus:border-primary focus:outline-none dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-white"
+              title="Filter articles by date"
+            />
+            {selectedDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDate('');
+                  setPage(1);
+                }}
+                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
+                title="Clear date filter"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Main Table Card */}
-      <div className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-900 w-full max-w-full">
+      <div
+        key={loading ? 'loading' : error ? 'error' : articles.length === 0 ? `empty-${selectedDate || 'none'}` : `table-${page}`}
+        className="rounded-2xl border border-zinc-200 bg-white overflow-hidden shadow-sm dark:border-zinc-800 dark:bg-zinc-900 w-full max-w-full"
+      >
         
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
@@ -517,9 +568,77 @@ export default function ArticleList() {
             <span className="text-sm mt-1">{error}</span>
           </div>
         ) : articles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-zinc-400">
-            <AlertCircle className="h-10 w-10 mb-2 text-zinc-300" />
-            <span className="text-sm">No articles match your search query.</span>
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            {selectedDate ? (
+              <div className="flex flex-col items-center max-w-md">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 mb-4 ring-8 ring-amber-50/50 dark:ring-amber-950/10">
+                  <Calendar className="h-8 w-8" />
+                </div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  No articles published or uploaded on this date
+                </h3>
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  No news articles were posted on <span key={selectedDate} className="font-semibold text-zinc-700 dark:text-zinc-300">{formattedSelectedDate}</span>. Try selecting another date or clear the filter.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDate('');
+                    setPage(1);
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100 shadow-sm cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Clear Date Filter</span>
+                </button>
+              </div>
+            ) : query || selectedCategory || selectedStatus ? (
+              <div className="flex flex-col items-center max-w-md">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 mb-4">
+                  <Filter className="h-8 w-8" />
+                </div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  No matching articles found
+                </h3>
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  No articles matched your active search query or selected category/status filters.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setSelectedCategory('');
+                    setSelectedStatus('');
+                    setSelectedDate('');
+                    setPage(1);
+                  }}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Reset All Filters</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center max-w-md">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 mb-4">
+                  <FileText className="h-8 w-8" />
+                </div>
+                <h3 className="text-base font-bold text-zinc-900 dark:text-white">
+                  No articles available
+                </h3>
+                <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  No news articles have been uploaded or published yet.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push('/admin/articles/create')}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-primary/90 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Write Article</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto w-full">

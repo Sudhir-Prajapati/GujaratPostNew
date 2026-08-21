@@ -81,9 +81,9 @@ export default function DistrictBar() {
             
             {displayList.map((item) => (
               <Link
-                key={item.slug}
+                key={`${item.slug}-${language}`}
                 href={`/category/${item.slug}`}
-                className="text-[14.5px] md:text-[15.5px] font-semibold text-foreground hover:text-[#B3121B] transition-colors duration-150 whitespace-nowrap"
+                className="text-[15px] md:text-[16px] font-extrabold text-foreground hover:text-[#B3121B] transition-colors duration-150 whitespace-nowrap"
               >
                 {item.label}
               </Link>

@@ -11,6 +11,14 @@ export default function SplashLoader() {
   const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
+    // Check if splash loader has already been shown in this browser session
+    try {
+      if (typeof window !== 'undefined' && sessionStorage.getItem('gp_splash_shown') === 'true') {
+        setShouldRender(false);
+        return;
+      }
+    } catch { }
+
     // Lock both html and body scrolling so no vertical scrollbar or scrolling occurs during loader
     const prevHtmlOverflow = document.documentElement.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
@@ -23,6 +31,11 @@ export default function SplashLoader() {
 
     const finishLoading = () => {
       setVisible(false);
+      try {
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('gp_splash_shown', 'true');
+        }
+      } catch { }
       document.documentElement.style.overflow = prevHtmlOverflow;
       document.body.style.overflow = prevBodyOverflow;
       setTimeout(() => {
@@ -321,20 +334,8 @@ export default function SplashLoader() {
       </div>
 
       {/* Brand Slogan */}
-      <p className="mt-2 text-xs sm:text-sm font-extrabold text-[#a3a3a3] uppercase tracking-widest leading-none select-none">
-        {language === 'gu' ? (
-          <>
-            વાસ્તવિક વાર્તાઓ. <span className="text-[#e62117]">વાસ્તવિક ગુજરાત.</span>
-          </>
-        ) : language === 'hi' ? (
-          <>
-            सच्ची कहानियाँ। <span className="text-[#e62117]">सच्चा गुजरात।</span>
-          </>
-        ) : (
-          <>
-            Real Stories. <span className="text-[#e62117]">Real Gujarat.</span>
-          </>
-        )}
+      <p className="mt-2 text-xs sm:text-sm font-extrabold text-[#a3a3a3] uppercase tracking-widest leading-none select-none" translate="no">
+        Real Stories. <span className="text-[#e62117]">Real Gujarat.</span>
       </p>
 
       {/* Modern Sweep Loader Bar */}

@@ -162,20 +162,8 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                     {/* Logo & Brand */}
                     <div className="flex flex-col gap-2 lg:w-72 flex-shrink-0">
                         <div>
-                            <p key={language} className="text-[15px] font-bold text-white tracking-tight leading-snug ml-1">
-                                {language === 'gu' ? (
-                                  <>
-                                    વાસ્તવિક વાર્તાઓ. <span className="text-[#B3121B]">વાસ્તવિક ગુજરાત.</span>
-                                  </>
-                                ) : language === 'hi' ? (
-                                  <>
-                                    सच्ची कहानियाँ। <span className="text-[#B3121B]">सच्चा गुजरात।</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    Real Stories. <span className="text-[#B3121B]">Real Gujarat.</span>
-                                  </>
-                                )}
+                            <p className="text-[15px] font-bold text-white tracking-tight leading-snug ml-1" translate="no">
+                                Real Stories. <span className="text-[#B3121B]">Real Gujarat.</span>
                             </p>
                         </div>
                         <Link
@@ -264,7 +252,7 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                             className="group flex items-center gap-3 rounded-xl bg-white px-4 py-2 text-black border border-white hover:bg-slate-100 transition-all duration-300 hover:scale-105 shadow-md"
                         >
                             <AppleIcon className="h-6 w-6 text-black transition-transform duration-300 group-hover:scale-110" />
-                            <div className="leading-tight text-left">
+                            <div className="leading-tight text-left" translate="no">
                                 <span className="block text-[9px] text-black font-extrabold uppercase tracking-tight">Download on the</span>
                                 <span className="block text-[14px] font-black text-black tracking-tight">App Store</span>
                             </div>
@@ -278,7 +266,7 @@ export default function Footer({ isInline = false }: { isInline?: boolean }) {
                             className="group flex items-center gap-3 rounded-xl bg-white px-4 py-2 text-black border border-white hover:bg-slate-100 transition-all duration-300 hover:scale-105 shadow-md"
                         >
                             <PlayStoreIcon className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
-                            <div className="leading-tight text-left">
+                            <div className="leading-tight text-left" translate="no">
                                 <span className="block text-[9px] text-black font-extrabold uppercase tracking-tight">GET IT ON</span>
                                 <span className="block text-[14px] font-black text-black tracking-tight">Google Play</span>
                             </div>

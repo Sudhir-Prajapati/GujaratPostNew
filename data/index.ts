@@ -38,8 +38,13 @@ export const CATEGORY_META: Record<string, { name: string; gu: string; hi: strin
   'other-cities': { name: 'Other Cities', gu: 'અન્ય શહેરો', hi: 'अन्य शहर' },
   otherCities: { name: 'Other Cities', gu: 'અન્ય શહેરો', hi: 'अन्य शहर' },
   videos: { name: 'Videos', gu: 'વીડિયો', hi: 'वीडियो' },
-  shorts: { name: 'Shorts', gu: 'શોર્ટ્સ', hi: 'શોર્ટસ' },
+  shorts: { name: 'Shorts', gu: 'શોર્ટ્સ', hi: 'शॉर्ट्स' },
   podcasts: { name: 'Podcasts', gu: 'પોડકાસ્ટ', hi: 'पॉडकास्ट' },
+  varsad: { name: 'Rainfall', gu: 'વરસાદ', hi: 'वर्षा' },
+  rain: { name: 'Rainfall', gu: 'વરસાદ', hi: 'वर्षा' },
+  weather: { name: 'Weather', gu: 'હવામાન', hi: 'मौसम' },
+  'gold-silver': { name: 'Gold - Silver', gu: 'ગોલ્ડ - સિલ્વર', hi: 'गोल्ड - सिल्वर' },
+  webstory: { name: 'Webstory', gu: 'વેબસ્ટોરી', hi: 'वेब स्टोरीज' },
 };
 
 export const categorySlugMapping: Record<string, string> = {
@@ -67,6 +72,7 @@ export const categorySlugMapping: Record<string, string> = {
   sports: "sports",
   lifestyle: "lifestyle",
   education: "education",
+  varsad: "varsad",
 };
 
 export const NAV_ITEMS: NavItem[] = [
@@ -146,10 +152,12 @@ export const getCategoryLabel = (
     catHi = input.categoryHi || '';
   }
 
-  if (language === 'gu' && catGu) return catGu;
-  if (language === 'hi' && catHi) return catHi;
-
   const catLower = rawCat.trim().toLowerCase();
+  const meta = CATEGORY_META[catLower];
+
+  if (meta) {
+    return language === 'hi' ? meta.hi : language === 'gu' ? meta.gu : meta.name;
+  }
 
   const guCategoryMap: Record<string, string> = {
     'fact-check': 'ફેક્ટ ચેક',

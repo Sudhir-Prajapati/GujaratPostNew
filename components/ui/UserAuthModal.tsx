@@ -125,24 +125,7 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
     setIsSubmitting(true);
 
     try {
-      // 2. Check via backend API if email belongs to a staff member/user
-      const resCheck = await fetch('/api/auth/check-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail }),
-      });
-
-      const jsonCheck = await resCheck.json();
-      const isStaff = jsonCheck.data?.isStaff || jsonCheck.data?.exists || false;
-
-      if (isStaff) {
-        // Staff member found -> Redirect to Admin Login page with pre-filled email!
-        onClose();
-        router.push(`/login?email=${encodeURIComponent(cleanEmail)}&from=%2Fadmin`);
-        return;
-      }
-
-      // 3. Reader -> Generate & send OTP to real email
+      // 2. Generate & send OTP (single ultra-fast API call, background email delivery)
       const resOtp = await fetch('/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -153,6 +136,13 @@ export default function UserAuthModal({ isOpen, onClose, language = 'gu' }: User
 
       if (!resOtp.ok) {
         throw new Error(jsonOtp.message || 'Failed to send OTP.');
+      }
+
+      // Check if staff member was detected -> Redirect to Admin Login page with pre-filled email
+      if (jsonOtp.data?.isStaff) {
+        onClose();
+        router.push(`/login?email=${encodeURIComponent(cleanEmail)}&from=%2Fadmin`);
+        return;
       }
 
       // Reset timers (10 mins validity, 60s resend cooldown)

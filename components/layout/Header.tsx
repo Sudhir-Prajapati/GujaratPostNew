@@ -60,26 +60,22 @@ function PlayStoreIcon({ className = 'h-4 w-4' }: { className?: string }) {
 
 // The 12 flat navigation links shown in the nav bar
 const NAV_LINKS = [
-  { label: 'Home', labelGu: 'હોમ', labelHi: 'હોમ', href: '/' },
+  { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' },
   { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' },
   { label: 'Gujarat', labelGu: 'ગુજરાત', labelHi: 'गुजरात', href: '/category/gujarat' },
   { label: 'India', labelGu: 'ભારત', labelHi: 'भारत', href: '/category/national' },
   { label: 'World', labelGu: 'વિશ્વ', labelHi: 'विश्व', href: '/category/world' },
   { label: 'Politics', labelGu: 'રાજનીતિ', labelHi: 'राजनीति', href: '/category/politics' },
   { label: 'Crime', labelGu: 'ક્રાઇમ', labelHi: 'क्राइम', href: '/category/crime' },
-  { label: 'Health', labelGu: 'હેલ્થ', labelHi: 'health', href: '/category/health' },
+  { label: 'Health', labelGu: 'હેલ્થ', labelHi: 'स्वास्थ्य', href: '/category/health' },
   { label: 'Entertainment', labelGu: 'મનોરંજન', labelHi: 'मनोरंजन', href: '/category/entertainment' },
   { label: 'Technology', labelGu: 'ટેક્નોલોજી', labelHi: 'टेक्नोलॉजी', href: '/category/technology' },
-  { label: 'Photos', labelGu: 'ફોટો ગેલેરી', labelHi: 'फोटो गैलरी', href: '/photos' },
-  { label: 'Fact Check', labelGu: 'ફેક્ટ ચેક', labelHi: 'फैक्ट चेक', href: '/category/fact-check' },
+  { label: 'Fact Check', labelGu: 'ફેક્ટ ચેક', labelHi: 'फैक्टर चेक', href: '/category/fact-check' },
   { label: 'Trending', labelGu: 'ટ્રેન્ડિંગ', labelHi: 'ट्रेंडिंग', href: '/category/trending' },
-  { label: 'Election 2027', labelGu: 'ચૂંટણી 2027', labelHi: 'चुनाव 2027', href: '/category/election-2027' },
-  { label: 'Podcast', labelGu: 'પોડકાસ્ટ', labelHi: 'पॉडकास्ट', href: '/videos?tab=podcast' },
 ];
 
 // The links shown under the "More/Other" (અન્ય) dropdown
 const OTHER_LINKS = [
-  { label: 'Instagram', labelGu: 'ઇન્સ્ટાગ્રામ', labelHi: 'इन्स्टाग्राम', href: '/category/instagram' },
   { label: 'Webstory', labelGu: 'વેબસ્ટોરી', labelHi: 'वेब स्टोरीज', href: '/category/webstory' },
   { label: 'Weather', labelGu: 'હવામાન', labelHi: 'मौसम', href: '/category/weather' },
   { label: 'Gold - Silver', labelGu: 'ગોલ્ડ - સિલ્વર', labelHi: 'गोल्ड - सिल्वर', href: '/category/gold-silver' },
@@ -102,6 +98,17 @@ const formatDateShort = (lang: string) => {
     month: 'short',
     year: 'numeric',
   });
+};
+
+const CATEGORY_TRANSLATIONS: Record<string, { en: string; hi: string; gu: string }> = {
+  'varsad': { en: 'Rainfall', hi: 'वर्षा', gu: 'વરસાદ' },
+  'rain': { en: 'Rainfall', hi: 'वर्षा', gu: 'વરસાદ' },
+  'weather': { en: 'Weather', hi: 'मौसम', gu: 'હવામાન' },
+  'sports': { en: 'Sports', hi: 'खेल', gu: 'રમત-જગત' },
+  'education': { en: 'Education', hi: 'शिक्षा', gu: 'શિક્ષણ' },
+  'lifestyle': { en: 'Lifestyle', hi: 'लाइफस्टाइल', gu: 'લાઇફસ્ટાઇલ' },
+  'gold-silver': { en: 'Gold - Silver', hi: 'गोल्ड - सिल्वर', gu: 'ગોલ્ડ - સિલ્વર' },
+  'webstory': { en: 'Webstory', hi: 'वेब स्टोरीज', gu: 'વેબસ્ટોરી' },
 };
 
 export default function Header() {
@@ -215,7 +222,19 @@ export default function Header() {
   }, [searchOpen]);
 
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [languageChosen, setLanguageChosen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // On mount: check if user has explicitly chosen a language this session
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('gp-lang-chosen') === 'true') {
+        setLanguageChosen(true);
+      }
+    } catch (e) {
+      // sessionStorage not available — treat as not chosen
+    }
+  }, []);
 
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -252,10 +271,17 @@ export default function Header() {
         else if (c.slug === 'photos') href = '/photos';
         else if (c.slug === 'podcasts') href = '/videos?tab=podcast';
 
+        const slugLower = (c.slug || '').toLowerCase();
+        const staticTrans = CATEGORY_TRANSLATIONS[slugLower];
+
+        const labelEn = c.nameEn || (staticTrans ? staticTrans.en : c.name);
+        const labelGu = c.nameGu || (staticTrans ? staticTrans.gu : c.name);
+        const labelHi = c.nameHi || (staticTrans ? staticTrans.hi : c.name);
+
         return {
-          label: c.name,
-          labelGu: c.nameGu || c.name,
-          labelHi: c.nameHi || c.name,
+          label: labelEn,
+          labelGu: labelGu,
+          labelHi: labelHi,
           href,
         };
       });
@@ -264,9 +290,9 @@ export default function Header() {
     const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
     const nonHomeDbLinks = dbLinks.filter((l) => l.href !== '/');
 
-    // Display first 15 items in main bar, overflow into Other dropdown
-    const mainNav = [homeLink, ...nonHomeDbLinks.slice(0, 15)];
-    const dropdownLinks = nonHomeDbLinks.slice(15);
+    // Display first 11 items in main bar, overflow into Other dropdown
+    const mainNav = [homeLink, ...nonHomeDbLinks.slice(0, 11)];
+    const dropdownLinks = nonHomeDbLinks.slice(11);
 
     const otherHrefs = new Set(dropdownLinks.map((l) => l.href.toLowerCase()));
     const combinedOtherLinks = [...dropdownLinks];
@@ -326,7 +352,7 @@ export default function Header() {
                   className="flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[10.5px] font-black text-white hover:border-zinc-500 hover:bg-zinc-800 transition-all hover:scale-[1.03] active:scale-95 shadow-sm select-none cursor-pointer"
                 >
                   <AppleIcon className="h-3.5 w-3.5 text-white" />
-                  <span>App Store</span>
+                  <span translate="no">App Store</span>
                 </a>
                 <a
                   href="https://play.google.com"
@@ -335,7 +361,7 @@ export default function Header() {
                   className="flex items-center gap-1.5 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[10.5px] font-black text-white hover:border-zinc-500 hover:bg-zinc-800 transition-all hover:scale-[1.03] active:scale-95 shadow-sm select-none cursor-pointer"
                 >
                   <PlayStoreIcon className="h-3.5 w-3.5 text-white" />
-                  <span>Google Play</span>
+                  <span translate="no">Google Play</span>
                 </a>
               </div>
               <span className="opacity-20 select-none text-current">|</span>
@@ -351,20 +377,8 @@ export default function Header() {
           <div className="flex flex-col items-start gap-1 select-none">
             {/* Slogan */}
             <div className="flex flex-col justify-center leading-tight">
-              <p key={language} className="text-[12px] md:text-[13px] font-black text-foreground tracking-wide whitespace-nowrap">
-                {language === 'gu' ? (
-                  <>
-                    વાસ્તવિક વાર્તાઓ. <span className="text-red-600">વાસ્તવિક ગુજરાત.</span>
-                  </>
-                ) : language === 'hi' ? (
-                  <>
-                    सच्ची कहानियाँ। <span className="text-red-600">सच्चा गुजरात।</span>
-                  </>
-                ) : (
-                  <>
-                    Real Stories. <span className="text-red-600">Real Gujarat.</span>
-                  </>
-                )}
+              <p className="text-[12px] md:text-[13px] font-black text-foreground tracking-wide whitespace-nowrap" translate="no">
+                Real Stories. <span className="text-red-600">Real Gujarat.</span>
               </p>
             </div>
 
@@ -404,7 +418,7 @@ export default function Header() {
                 className="shrink-0 object-contain transition-transform duration-200 group-hover:translate-x-0.5"
                 style={{ width: 16, height: 16 }}
               />
-              <span className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
+              <span translate="no" className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
                 NEWS BRIEF
               </span>
             </Link>
@@ -431,7 +445,7 @@ export default function Header() {
                 <path d="M15.9 16A5 5 0 1 0 9 10.45" />
                 <path d="M17 20h-9a4 4 0 0 1 0-8h.4" />
               </svg>
-              <span className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
+              <span translate="no" className="font-black font-sans text-[15px] tracking-wider text-black dark:text-white uppercase leading-none select-none group-hover:text-[#B3121B] transition-colors duration-200">
                 AQI
               </span>
             </Link>
@@ -501,7 +515,7 @@ export default function Header() {
             </div>
 
             {/* Language switcher */}
-            <div className={`relative z-50 transition-all duration-300 ${searchOpen ? 'max-sm:hidden' : ''}`}>
+            <div className={`relative z-50 transition-all duration-300 notranslate ${searchOpen ? 'max-sm:hidden' : ''}`}>
               <button
                 type="button"
                 onClick={() => setLanguageOpen((value) => !value)}
@@ -510,7 +524,13 @@ export default function Header() {
                 aria-label="Switch language"
                 aria-expanded={languageOpen}
               >
-                <span>{languageLabels[language]}</span>
+                {/* Globe icon */}
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>{languageChosen ? languageLabels[language] : 'Language'}</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-300 ${languageOpen ? 'rotate-180 text-red-600' : ''}`} />
               </button>
 
@@ -523,9 +543,9 @@ export default function Header() {
                   />
 
                   {/* Dropdown Menu Popup with Smooth Scale & Slide Entrance Animation */}
-                  <div className="absolute right-0 top-full z-[9999] mt-2 w-36 rounded-xl border border-border/90 bg-card p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] backdrop-blur-md origin-top-right transition-all duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2">
+                  <div className="absolute right-0 top-full z-[9999] mt-2 w-36 rounded-xl border border-border/90 bg-card p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.25)] backdrop-blur-md origin-top-right transition-all duration-200 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 notranslate">
                     {(['gu', 'en', 'hi'] as const).map((item) => {
-                      const isSelected = language === item;
+                      const isSelected = languageChosen && language === item;
                       return (
                         <button
                           key={item}
@@ -533,6 +553,8 @@ export default function Header() {
                           onClick={() => {
                             setLanguage(item);
                             setLanguageOpen(false);
+                            setLanguageChosen(true);
+                            try { sessionStorage.setItem('gp-lang-chosen', 'true'); } catch (e) {}
                           }}
                           className={`flex items-center justify-between w-full rounded-lg px-3 py-2 text-left text-xs font-bold transition-all duration-150 cursor-pointer hover:scale-[1.02] active:scale-98 ${isSelected
                               ? 'bg-red-600 text-white font-extrabold shadow-sm'
@@ -656,7 +678,7 @@ export default function Header() {
                     className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black text-white hover:border-zinc-500 hover:bg-zinc-800 transition active:scale-95 shadow-sm"
                   >
                     <AppleIcon className="h-3.5 w-3.5 animate-pulse text-white" />
-                    <span>App Store</span>
+                    <span translate="no">App Store</span>
                   </a>
                   <a
                     href="https://play.google.com"
@@ -665,7 +687,7 @@ export default function Header() {
                     className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-[10px] font-black text-white transition active:scale-95 shadow-sm hover:border-zinc-500 hover:bg-zinc-800"
                   >
                     <PlayStoreIcon className="h-3.5 w-3.5 text-white" />
-                    <span>Google Play</span>
+                    <span translate="no">Google Play</span>
                   </a>
                 </div>
               </div>
@@ -705,17 +727,17 @@ export default function Header() {
           className="hidden border-t border-border bg-card/98 md:block"
           aria-label="Main navigation"
         >
-          <div className="mx-auto max-w-screen-xl max-w-header-layout px-4 flex items-center justify-between gap-4 relative">
+          <div className="mx-auto max-w-screen-2xl px-2 xl:px-4 flex items-center justify-between gap-2 relative">
             {/* Main scrollable navigation list */}
             <div className="flex-1 min-w-0 overflow-hidden">
               <ul className="flex items-center gap-0 overflow-x-auto scrollbar-none">
                 {navLinks.map((link) => {
                   const active = isActive(link.href);
                   return (
-                    <li key={link.href} className="shrink-0">
+                    <li key={`${link.href}-${language}`} className="shrink-0">
                       <a
                         href={link.href}
-                        className={`relative flex h-11 items-center whitespace-nowrap px-3.5 text-sm font-semibold transition-colors duration-150 lg:px-4 ${active
+                        className={`relative flex h-11 items-center whitespace-nowrap px-2 xl:px-3 text-[14px] 2xl:text-[15px] font-bold tracking-tight transition-colors duration-150 ${active
                           ? 'text-accent'
                           : 'text-foreground hover:text-accent'
                           }`}
@@ -723,7 +745,7 @@ export default function Header() {
                       >
                         {link.href === '/' ? (
                           <span className="flex items-center gap-1.5">
-                            <Home className="h-4 w-4 shrink-0" />
+                            <Home className="h-4 w-4 shrink-0 text-accent" />
                             <span>{getNavLabel(link)}</span>
                           </span>
                         ) : (
@@ -748,7 +770,7 @@ export default function Header() {
                   onMouseEnter={() => {
                     setOtherMenuOpen(true);
                     const rect = triggerRef.current?.getBoundingClientRect();
-                    const navWrapper = triggerRef.current?.closest('.max-w-header-layout');
+                    const navWrapper = triggerRef.current?.closest('.max-w-screen-2xl');
                     const navRect = navWrapper?.getBoundingClientRect();
                     if (rect && navRect) {
                       setDropdownLeft(rect.left - navRect.left);
@@ -759,11 +781,11 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setOtherMenuOpen(!otherMenuOpen)}
-                    className={`relative flex h-11 items-center gap-1 whitespace-nowrap px-3.5 text-sm font-semibold transition-colors duration-150 lg:px-4 cursor-pointer ${otherMenuOpen ? 'text-accent' : 'text-foreground hover:text-accent'
+                    className={`relative flex h-11 items-center gap-1 whitespace-nowrap px-2 xl:px-3 text-[14px] 2xl:text-[15px] font-bold tracking-tight transition-colors duration-150 cursor-pointer ${otherMenuOpen ? 'text-accent' : 'text-foreground hover:text-accent'
                       }`}
                   >
-                    <span>{language === 'gu' ? 'અન્ય' : language === 'hi' ? 'अन्य' : 'More'}</span>
-                    <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${otherMenuOpen ? 'rotate-180' : ''}`} />
+                    <span key={language}>{language === 'gu' ? 'અન્ય' : language === 'hi' ? 'अन्य' : 'More'}</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${otherMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                 </li>
               </ul>
@@ -790,7 +812,7 @@ export default function Header() {
 
             {otherMenuOpen && (
               <div
-                className="absolute z-50 min-w-40 rounded-lg border border-border bg-card p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200"
+                className="absolute z-50 min-w-44 rounded-lg border border-border bg-card p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200"
                 style={{
                   top: '100%',
                   left: dropdownLeft !== null ? `${dropdownLeft}px` : undefined,
@@ -802,9 +824,9 @@ export default function Header() {
                   const active = isActive(link.href);
                   return (
                     <a
-                      key={link.href}
+                      key={`${link.href}-${language}`}
                       href={link.href}
-                      className={`block rounded-md px-3.5 py-2 text-left text-xs font-semibold transition-colors duration-150 ${active
+                      className={`block rounded-md px-3.5 py-2 text-left text-[14px] font-bold transition-colors duration-150 ${active
                         ? 'bg-accent/10 text-accent'
                         : 'text-foreground hover:bg-muted hover:text-accent'
                         }`}
