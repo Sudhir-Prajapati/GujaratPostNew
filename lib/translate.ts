@@ -33,9 +33,29 @@ function releaseSlot(): void {
   if (next) next();
 }
 
+function getPersistentCache(key: string): string | null {
+  try {
+    if (typeof window !== 'undefined') {
+      const sessVal = sessionStorage.getItem(`gp_tr_${key}`);
+      if (sessVal) return sessVal;
+      const localVal = localStorage.getItem(`gp_tr_${key}`);
+      if (localVal) return localVal;
+    }
+  } catch { }
+  return null;
+}
+
+function setPersistentCache(key: string, value: string): void {
+  try {
+    if (typeof window !== 'undefined' && value) {
+      sessionStorage.setItem(`gp_tr_${key}`, value);
+    }
+  } catch { }
+}
+
 /**
  * Translates text to the target language using the Google Translate API.
- * - Uses in-memory cache to avoid re-translating the same text.
+ * - Uses in-memory & persistent storage cache to avoid re-translating the same text.
  * - Deduplicates identical in-flight requests (same text + lang won't fetch twice).
  * - Limits to MAX_CONCURRENT parallel fetches to prevent API flooding.
  */
@@ -69,13 +89,20 @@ export async function translateOnFly(text: string, targetLang: Language): Promis
 
   const cacheKey = `${targetLang}:${textToTranslate}`;
 
-  // Cache hit
+  // 1. Memory Cache hit
   if (memoryCache[cacheKey]) {
     const cached = memoryCache[cacheKey];
     return hasHtml ? trimmed.replace(textToTranslate, cached) : cached;
   }
 
-  // Deduplicate: if already in-flight for this key, await the same promise
+  // 2. Persistent Storage Cache hit
+  const persistent = getPersistentCache(cacheKey);
+  if (persistent) {
+    memoryCache[cacheKey] = persistent;
+    return hasHtml ? trimmed.replace(textToTranslate, persistent) : persistent;
+  }
+
+  // 3. Deduplicate: if already in-flight for this key, await the same promise
   if (cacheKey in inFlight) {
     const result = await inFlight[cacheKey];
     return hasHtml && result ? trimmed.replace(textToTranslate, result) : result || trimmed;
@@ -93,6 +120,7 @@ export async function translateOnFly(text: string, targetLang: Language): Promis
         const translated = data[0].map((chunk: any) => chunk[0] || '').join('');
         if (translated && translated.trim()) {
           memoryCache[cacheKey] = translated;
+          setPersistentCache(cacheKey, translated);
           return hasHtml ? trimmed.replace(textToTranslate, translated) : translated;
         }
       }

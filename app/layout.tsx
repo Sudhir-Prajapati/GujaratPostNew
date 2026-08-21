@@ -1,8 +1,23 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Noto_Sans_Gujarati, Hind_Vadodara } from "next/font/google";
 import { AppProvider } from "@/components/AppProvider";
 import MainLayoutWrapper from "@/components/layout/MainLayoutWrapper";
 import ScrollToTop from "@/components/ui/ScrollToTop";
+
+const notoSansGujarati = Noto_Sans_Gujarati({
+  subsets: ["gujarati", "latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-noto-sans-gujarati",
+  display: "swap",
+});
+
+const hindVadodara = Hind_Vadodara({
+  subsets: ["gujarati", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-hind-vadodara",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://gujaratpost.example.com"),
@@ -34,12 +49,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="gu" data-scroll-behavior="smooth" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Hind+Vadodara:wght@300;400;500;600;700;800&family=Mukta:wght@400;500;600;700;800;900&family=Mukta+Vaani:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700;800;900&family=Baloo+Bhai+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-      </head>
+    <html lang="gu" data-scroll-behavior="smooth" className={`${notoSansGujarati.variable} ${hindVadodara.variable}`} suppressHydrationWarning>
       <body className="antialiased">
         <AppProvider>
           <MainLayoutWrapper>{children}</MainLayoutWrapper>
