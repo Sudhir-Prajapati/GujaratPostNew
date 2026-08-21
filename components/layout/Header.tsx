@@ -286,13 +286,15 @@ export default function Header() {
         };
       });
 
-    // Ensure Home link is at index 0
+    // Ensure Home and Videos links are always pinned at index 0 and 1 in main category nav bar
     const homeLink = { label: 'Home', labelGu: 'હોમ', labelHi: 'होम', href: '/' };
-    const nonHomeDbLinks = dbLinks.filter((l) => l.href !== '/');
+    const videosLink = { label: 'Videos', labelGu: 'વીડિયો', labelHi: 'वीडियो', href: '/videos' };
 
-    // Display first 11 items in main bar, overflow into Other dropdown
-    const mainNav = [homeLink, ...nonHomeDbLinks.slice(0, 11)];
-    const dropdownLinks = nonHomeDbLinks.slice(11);
+    const nonPinnedDbLinks = dbLinks.filter((l) => l.href !== '/' && l.href !== '/videos');
+
+    // Display Home + Videos + first 10 items in main bar
+    const mainNav = [homeLink, videosLink, ...nonPinnedDbLinks.slice(0, 10)];
+    const dropdownLinks = nonPinnedDbLinks.slice(10);
 
     const otherHrefs = new Set(dropdownLinks.map((l) => l.href.toLowerCase()));
     const combinedOtherLinks = [...dropdownLinks];

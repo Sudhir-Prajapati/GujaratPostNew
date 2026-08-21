@@ -39,6 +39,7 @@ import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 import RandomAdsSection from '@/components/ads/RandomAdsSection';
 import ArticleMedia from '@/components/ui/ArticleMedia';
+import VideoSection from '@/components/sections/VideoSection';
 
 const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 
@@ -1147,6 +1148,9 @@ export default function HeroSection({
       <div className="mx-auto max-w-screen-xl px-2 my-6">
         <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
+
+      {/* Red Video Section matching user screenshot 100% */}
+      <VideoSection initialVideos={videosList.length > 0 ? videosList : initialVideos} />
 
       {/* 19. NATIVE SPONSORED ADS SECTION */}
       <RandomAdsSection />
