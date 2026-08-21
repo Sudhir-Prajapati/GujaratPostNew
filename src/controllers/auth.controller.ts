@@ -100,18 +100,37 @@ export class AuthController {
       }
 
       const cleanEmail = email.trim().toLowerCase();
+
+      // 1. Fast DB check: check if email belongs to staff/admin user
+      const user = await UserRepository.findByEmail(cleanEmail);
+      if (user) {
+        return sendSuccess(
+          res,
+          {
+            isStaff: true,
+            email: cleanEmail,
+            role: user.role,
+          },
+          'Staff account detected'
+        );
+      }
+
+      // 2. Reader: Generate OTP and store in memory
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = Date.now() + 10 * 60 * 1000;
 
       otpStore.set(cleanEmail, { otp: generatedOtp, expiresAt });
       console.log(`[OTP SENT] Verification code for ${cleanEmail}: ${generatedOtp}`);
 
-      // Dispatch OTP email via Gmail SMTP (App Password)
-      await sendOtpEmail(cleanEmail, generatedOtp);
+      // 3. Dispatch OTP email asynchronously in background so client gets instant HTTP response (<20ms)
+      sendOtpEmail(cleanEmail, generatedOtp).catch((err) => {
+        console.error(`[OTP EMAIL ERROR] Background email dispatch failed for ${cleanEmail}:`, err?.message || err);
+      });
 
       return sendSuccess(
         res,
         {
+          isStaff: false,
           email: cleanEmail,
         },
         'OTP generated and sent to email successfully'

@@ -7,22 +7,34 @@ const EMAIL_FROM = process.env.SMTP_FROM || process.env.EMAIL_FROM || 'Gujarat P
 // Initialize Resend client if API key is present
 const resendClient = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-// Get dynamic Nodemailer SMTP Transporter (Gmail App Password)
+let cachedTransporter: nodemailer.Transporter | null = null;
+
+// Get dynamic Nodemailer SMTP Transporter (Gmail App Password) with pooling & connection reuse
 const getSmtpTransporter = () => {
+  if (cachedTransporter) return cachedTransporter;
+
   const smtpUser = process.env.SMTP_USER || '';
   const smtpPass = (process.env.SMTP_PASS || '').replace(/\s+/g, ''); // strip spaces in app password
 
   if (!smtpUser || !smtpPass) return null;
 
-  return nodemailer.createTransport({
+  cachedTransporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT) || 465,
     secure: Number(process.env.SMTP_PORT) === 465, // true for 465, false for other ports
+    pool: true,
+    maxConnections: 5,
+    maxMessages: 100,
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 10000,
     auth: {
       user: smtpUser,
       pass: smtpPass,
     },
   });
+
+  return cachedTransporter;
 };
 
 /**

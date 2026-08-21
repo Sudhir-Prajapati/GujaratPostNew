@@ -171,6 +171,25 @@ export class ArticleController {
         where.status = status;
       }
 
+      const dateStr = (req.query.date as string || '').trim();
+      const startDateStr = (req.query.startDate as string || '').trim();
+      const endDateStr = (req.query.endDate as string || '').trim();
+
+      if (dateStr) {
+        const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
+        const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+        if (!isNaN(startOfDay.getTime()) && !isNaN(endOfDay.getTime())) {
+          where.createdAt = {
+            gte: startOfDay,
+            lte: endOfDay,
+          };
+        }
+      } else if (startDateStr || endDateStr) {
+        where.createdAt = {};
+        if (startDateStr) where.createdAt.gte = new Date(`${startDateStr}T00:00:00.000Z`);
+        if (endDateStr) where.createdAt.lte = new Date(`${endDateStr}T23:59:59.999Z`);
+      }
+
       const [articles, total] = await Promise.all([
         prisma.post.findMany({
           where,
