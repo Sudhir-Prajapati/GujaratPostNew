@@ -29,7 +29,7 @@ export default function MainLayoutWrapper({ children }: Props) {
       {pathname === '/' && <SplashLoader />}
       <Header />
       <BreakingTicker />
-      <main>{children}</main>
+      <main className="min-h-[75vh]">{children}</main>
       <Footer />
       <TajSamacharDrawer />
     </>

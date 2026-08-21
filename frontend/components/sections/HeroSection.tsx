@@ -768,7 +768,7 @@ export default function HeroSection({
     return Array.from(uniqueMap.values());
   }, [uniqueTopStories, articlesList, initialArticles]);
 
-  if (isInitialLoading && !topStories.length) {
+  if (isInitialLoading || !topStories.length) {
     return <HeroSectionSkeleton language={language} />;
   }
   return (
