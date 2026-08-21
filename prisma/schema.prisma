@@ -138,6 +138,11 @@ model Post {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
+  @@index([status, createdAt])
+  @@index([categoryId, status, createdAt])
+  @@index([isTrending, status, createdAt])
+  @@index([isFeatured, status, createdAt])
+  @@index([isBreaking, status, createdAt])
   @@map("posts")
 }
 
