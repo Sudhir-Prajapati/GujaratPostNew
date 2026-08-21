@@ -768,7 +768,7 @@ export default function HeroSection({
     return Array.from(uniqueMap.values());
   }, [uniqueTopStories, articlesList, initialArticles]);
 
-  if (isInitialLoading || !topStories.length) {
+  if (isInitialLoading && !topStories.length) {
     return <HeroSectionSkeleton language={language} />;
   }
   return (
@@ -5146,14 +5146,13 @@ function EPaperWidget({ language }: { language: Language }) {
 
 /* --- Hero Section Skeleton Loader ------------------------------------------- */
 function HeroSectionSkeleton({ language }: { language: Language }) {
-  const isGu = language === 'gu';
-  const labelTopNews = isGu ? 'મુખ્ય સમાચાર' : 'Top News';
-  const labelTopStories = isGu ? 'ટૉપ સ્ટોરી' : 'Top Stories';
-  const labelTrending = isGu ? 'ટ્રેન્ડિંગ સમાચાર' : 'Trending News';
-  const labelStateNews = isGu ? 'રાજ્ય સમાચાર' : 'State News';
-  const labelLiveTV = isGu ? 'લાઈવ ટીવી' : 'Live TV';
-  const labelWeather = isGu ? 'હવામાન' : 'Weather';
-  const labelEPaper = isGu ? 'ઈ-પેપર' : 'E-Paper';
+  const labelTopNews = language === 'gu' ? 'મુખ્ય સમાચાર' : language === 'hi' ? 'शीर्ष समाचार' : 'Top News';
+  const labelTopStories = language === 'gu' ? 'ટૉપ સ્ટોરી' : language === 'hi' ? 'मुख्य कहानियां' : 'Top Stories';
+  const labelTrending = language === 'gu' ? 'ટ્રેન્ડિંગ સમાચાર' : language === 'hi' ? 'ट्रेंडિંગ समाचार' : 'Trending News';
+  const labelStateNews = language === 'gu' ? 'રાજ્ય સમાચાર' : language === 'hi' ? 'રાજ્ય સમાચાર' : 'State News';
+  const labelLiveTV = language === 'gu' ? 'લાઈવ ટીવી' : language === 'hi' ? 'लाइव टीवी' : 'Live TV';
+  const labelWeather = language === 'gu' ? 'હવામાન' : language === 'hi' ? 'मौसम' : 'Weather';
+  const labelEPaper = language === 'gu' ? 'ઈ-પેપર' : language === 'hi' ? 'ई-पेपर' : 'E-Paper';
 
   return (
     <div className="mx-auto max-w-screen-xl px-2 py-0.5 space-y-2 animate-pulse">
@@ -6081,55 +6080,6 @@ export function NationalSection({ language }: { language: Language }) {
   );
 }
 
-const mockWorldFeatured = {
-  id: 'w-feat',
-  slug: 'india-major-victory-un-broad-support-proposal-551',
-  image: '/assets/demo/8.jpg',
-  categoryGu: 'સંયુક્ત રાષ્ટ્ર',
-  titleGu: 'ભારતની મોટી જીત! સંયુક્ત રાષ્ટ્રમાં પ્રસ્તાવને વ્યાપક સમર્થન',
-  excerptGu: 'મોટાભાગના સભ્ય દેશોએ ભારતના પ્રસ્તાવને ટેકો આપતા આંતરરાષ્ટ્રીય મંચ પર દેશની સ્થિતિ વધુ મજબૂત બની.',
-  watermarkGu: 'ગુજરાત પોસ્ટ'
-};
-
-const mockWorldCards = [
-  {
-    id: 'w-card-1',
-    slug: 'europe-new-trade-treaty-signed-india-benefits-552',
-    image: '/assets/demo/1.jpg',
-    categoryGu: 'યુરોપ',
-    titleGu: 'યુરોપમાં નવી વ્યાપાર સંધિ પર હસ્તાક્ષર, ભારતને પણ ફાયદો',
-    relativeTimeGu: '3 કલાક પહેલાં',
-    views: 74000
-  },
-  {
-    id: 'w-card-2',
-    slug: 'usa-indian-community-huge-cultural-event-553',
-    image: '/assets/demo/3.jpg',
-    categoryGu: 'અમેરિકા',
-    titleGu: 'અમેરિકામાં ભારતીય સમુદાયનું વિશાળ સાંસ્કૃતિક આયોજન, જુઓ ઝલક',
-    relativeTimeGu: '4 કલાક પહેલાં',
-    views: 78000
-  },
-  {
-    id: 'w-card-3',
-    slug: 'asian-countries-new-economic-partnership-announced-554',
-    image: '/assets/demo/2.jpg',
-    categoryGu: 'એશિયા',
-    titleGu: 'એશિયાઈ દેશો વચ્ચે નવી આર્થિક ભાગીદારીની મોટી જાહેરાત',
-    relativeTimeGu: '5 કલાક પહેલાં',
-    views: 81000
-  },
-  {
-    id: 'w-card-4',
-    slug: 'gulf-countries-indian-workers-welfare-scheme-555',
-    image: '/assets/demo/7.jpg',
-    categoryGu: 'મધ્ય-પૂર્વ',
-    titleGu: 'ગલ્ફ દેશોમાં ભારતીય શ્રમિકો માટે ખુશખબર! નવી કલ્યાણ યોજના જાહેર',
-    relativeTimeGu: '6 કલાક પહેલાં',
-    views: 90000
-  }
-];
-
 /* --- Dynamic Foreign Exchange Rates Widget ──────────────────────────────── */
 function CurrencyRatesWidget({ language }: { language: Language }) {
   const [rates, setRates] = useState<Array<{
@@ -6146,7 +6096,7 @@ function CurrencyRatesWidget({ language }: { language: Language }) {
   }>>([
     { symbol: '$', code: 'USD', pair: 'USD/INR', nameEn: 'US Dollar', nameGu: 'યુએસ ડોલર', nameHi: 'यूएस डॉलर', rate: 86.85, change: 0.12, bgColor: 'bg-green-500/10', textColor: 'text-green-600' },
     { symbol: '€', code: 'EUR', pair: 'EUR/INR', nameEn: 'Euro', nameGu: 'યુરો', nameHi: 'यूरो', rate: 90.45, change: -0.20, bgColor: 'bg-blue-500/10', textColor: 'text-blue-600' },
-    { symbol: 'د.إ', code: 'AED', pair: 'AED/INR', nameEn: 'UAE Dirham', nameGu: 'યુએઈ દિરહામ', nameHi: 'यूएई दिरहम', rate: 23.64, change: -0.05, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-600' },
+    { symbol: 'د.إ', code: 'AED', pair: 'AED/INR', nameEn: 'UAE Dirham', nameGu: 'યુએઈ દિરહામ', nameHi: 'યુએઈ દિરહામ', rate: 23.64, change: -0.05, bgColor: 'bg-emerald-500/10', textColor: 'text-emerald-600' },
     { symbol: 'A$', code: 'AUD', pair: 'AUD/INR', nameEn: 'Australian Dollar', nameGu: 'ઓસ્ટ્રેલિયન ડોલર', nameHi: 'ऑस्ट्रेलियन डॉलर', rate: 55.48, change: 0.03, bgColor: 'bg-yellow-500/10', textColor: 'text-yellow-600' },
     { symbol: '£', code: 'GBP', pair: 'GBP/INR', nameEn: 'British Pound', nameGu: 'બ્રિટિશ પાઉન્ડ', nameHi: 'ब्रिटिश पाउंड', rate: 108.78, change: 0.00, bgColor: 'bg-amber-500/10', textColor: 'text-amber-600' },
     { symbol: 'C$', code: 'CAD', pair: 'CAD/INR', nameEn: 'Canadian Dollar', nameGu: 'કેનેડિયન ડોલર', nameHi: 'कनाडाई डॉलर', rate: 61.20, change: 0.08, bgColor: 'bg-red-500/10', textColor: 'text-red-600' },
@@ -6229,6 +6179,55 @@ function CurrencyRatesWidget({ language }: { language: Language }) {
     </div>
   );
 }
+
+const mockWorldFeatured = {
+  id: 'w-feat',
+  slug: 'india-major-victory-un-broad-support-proposal-551',
+  image: '/assets/demo/8.jpg',
+  categoryGu: 'સંયુક્ત રાષ્ટ્ર',
+  titleGu: 'ભારતની મોટી જીત! સંયુક્ત રાષ્ટ્રમાં પ્રસ્તાવને વ્યાપક સમર્થન',
+  excerptGu: 'મોટાભાગના સભ્ય દેશોએ ભારતના પ્રસ્તાવને ટેકો આપતા આંતરરાષ્ટ્રીય મંચ પર દેશની સ્થિતિ વધુ મજબૂત બની.',
+  watermarkGu: 'ગુજરાત પોસ્ટ'
+};
+
+const mockWorldCards = [
+  {
+    id: 'w-card-1',
+    slug: 'europe-new-trade-treaty-signed-india-benefits-552',
+    image: '/assets/demo/1.jpg',
+    categoryGu: 'યુરોપ',
+    titleGu: 'યુરોપમાં નવી વ્યાપાર સંધિ પર હસ્તાક્ષર, ભારતને પણ ફાયદો',
+    relativeTimeGu: '3 કલાક પહેલાં',
+    views: 74000
+  },
+  {
+    id: 'w-card-2',
+    slug: 'usa-indian-community-huge-cultural-event-553',
+    image: '/assets/demo/3.jpg',
+    categoryGu: 'અમેરિકા',
+    titleGu: 'અમેરિકામાં ભારતીય સમુદાયનું વિશાળ સાંસ્કૃતિક આયોજન, જુઓ ઝલક',
+    relativeTimeGu: '4 કલાક પહેલાં',
+    views: 78000
+  },
+  {
+    id: 'w-card-3',
+    slug: 'asian-countries-new-economic-partnership-announced-554',
+    image: '/assets/demo/2.jpg',
+    categoryGu: 'એશિયા',
+    titleGu: 'એશિયાઈ દેશો વચ્ચે નવી આર્થિક ભાગીદારીની મોટી જાહેરાત',
+    relativeTimeGu: '5 કલાક પહેલાં',
+    views: 81000
+  },
+  {
+    id: 'w-card-4',
+    slug: 'gulf-countries-indian-workers-welfare-scheme-555',
+    image: '/assets/demo/7.jpg',
+    categoryGu: 'મધ્ય-પૂર્વ',
+    titleGu: 'ગલ્ફ દેશોમાં ભારતીય શ્રમિકો માટે ખુશખબર! નવી કલ્યાણ યોજના જાહેર',
+    relativeTimeGu: '6 કલાક પહેલાં',
+    views: 90000
+  }
+];
 
 /* --- World Section ("વિશ્વ" Zone) ----------------------------- */
 export function WorldSection({ language }: { language: Language }) {

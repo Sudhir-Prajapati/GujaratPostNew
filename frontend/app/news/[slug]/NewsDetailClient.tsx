@@ -90,7 +90,7 @@ import {
   getRelativeTime,
 } from '@/data';
 import { useApp } from '@/components/AppProvider';
-import { useAutoTranslate, TranslatedText } from '@/lib/translate';
+import { useAutoTranslate, useAutoTranslateHtml, TranslatedText } from '@/lib/translate';
 import Advertisement from '@/components/ads/Advertisement';
 import { toGu } from '@/lib/utils';
 import { NativeAdsSection } from '@/components/sections/HeroSection';
@@ -225,7 +225,7 @@ function buildPdfCardHtml(url: string, titleText: string, descText: string, btnT
         <span>${descText}</span>
       </div>
     </div>
-    <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" download="${fileName}" data-pdfv2="1" style="display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border-radius:12px;background:linear-gradient(135deg, #B3121B 0%, #8E0E15 100%);color:#ffffff !important;font-weight:700;font-size:14.5px;text-decoration:none !important;white-space:nowrap;box-shadow:0 4px 14px rgba(179,18,27,0.35);transition:transform 0.2s;">
+    <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" download="${fileName}" data-pdfv2="1" style="display:inline-flex;align-items:center;gap:9px;padding:12px 24px;border-radius:12px;background:#18181b;color:#ffffff !important;font-weight:700;font-size:14.5px;text-decoration:none !important;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,0.25);transition:transform 0.2s;">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       <span style="color:#ffffff !important;">${btnText}</span>
     </a>
@@ -483,12 +483,10 @@ function sanitizeParagraphHtml(html: string, language?: string): string {
   return cleaned.trim();
 }
 function TranslatedParagraph({ rawHtml, language }: { rawHtml: string; language: any }) {
-  const translatedContent = useAutoTranslate(rawHtml, language);
-
   return (
     <div
       className="text-base leading-relaxed text-neutral-900 dark:text-neutral-100 prose dark:prose-invert max-w-none [&_b]:font-extrabold [&_strong]:font-extrabold [&_i]:italic [&_em]:italic [&_u]:underline [&_s]:line-through [&_a]:text-[#B3121B] [&_a]:underline [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:my-3 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-lg [&_h3]:font-bold [&_h3]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2 [&_blockquote]:border-l-4 [&_blockquote]:border-[#B3121B] [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:my-3"
-      dangerouslySetInnerHTML={{ __html: translatedContent || rawHtml }}
+      dangerouslySetInnerHTML={{ __html: rawHtml }}
     />
   );
 }
@@ -582,7 +580,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
       }
 
       targetUrl = formatPdfDownloadUrl(targetUrl);
-      
+
       // Immediately open PDF in a new window/tab page
       window.open(targetUrl, '_blank', 'noopener,noreferrer');
     };
@@ -648,7 +646,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   useEffect(() => {
     if (slideImages.length <= 1) return;
     const currentSrc = slideImages[activeImageIndex];
-    if (isMediaVideo(currentSrc)) return; // Pause auto-rotation when viewing a video
+    if (isMediaVideo(currentSrc)) return;
     const timer = setInterval(() => {
       handleNextImage();
     }, 4000);
@@ -713,10 +711,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
   const rawTitle = getArticleTitle(article, language);
   const rawExcerpt = getArticleExcerptHtml(article, language);
   const rawBody = getArticleContent(article, language);
-
-  const title = useAutoTranslate(rawTitle, language);
-  const excerpt = useAutoTranslate(rawExcerpt, language);
-  const body = useAutoTranslate(rawBody, language);
+  const title = useAutoTranslate(rawTitle, language) || rawTitle;
+  const excerpt = useAutoTranslateHtml(rawExcerpt, language) || rawExcerpt;
+  const body = useAutoTranslateHtml(rawBody, language) || rawBody;
   const category = getCategoryLabel(article, language);
   const authorName = getLocalized(language, { en: article.author.name, gu: article.author.nameGu, hi: article.author.nameHi });
   const authorAvatarImage = article.author?.image || (article.author as any)?.imageUrl || (article.author as any)?.avatar || '';
@@ -726,7 +723,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     hi: article.author.designationHi,
   });
   const authorBio = getLocalized(language, { en: article.author.bio, gu: article.author.bioGu, hi: article.author.bioHi });
-  const tags = language === 'en' ? article.tags : language === 'hi' ? article.tagsHi : article.tagsGu;
+  const tags = (language === 'en' ? article.tags : language === 'hi' ? (article.tagsHi?.length ? article.tagsHi : article.tags) : (article.tagsGu?.length ? article.tagsGu : article.tags)) || article.tags || [];
   const isTrafficArticle = article.slug.includes('traffic-rules') || article.slug.includes('penalty-and-locations');
 
   const paragraphs = useMemo(() => body.split(/\n\n+/), [body]);
@@ -1094,7 +1091,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
     <>
       <ReadingProgressBar />
       <div className="wrap py-6">
-        <div className="article-grid" suppressHydrationWarning>
+        <div key={`${article.id}-${language}`} className="article-grid" suppressHydrationWarning>
           <article suppressHydrationWarning>
             <nav className="breadcrumb select-none flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-neutral-500 font-medium">
               <Link href="/" className="hover:text-[var(--red)] transition-colors">
@@ -1186,7 +1183,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
 
             {/* Gist: એક નજરમાં */}
             {gistPoints.length > 0 && (
-              <div className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/50 dark:bg-red-950/20 p-4 shadow-sm">
+              <div className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-neutral-50 dark:bg-neutral-900/60 p-4 shadow-sm">
                 <div className="flex items-center gap-2 font-black text-[#B3121B] text-base mb-3 select-none">
                   <span className="text-[#B3121B] font-bold text-sm">♦</span>
                   <span>{language === 'gu' ? 'એક નજરમાં' : language === 'hi' ? 'एक नजर में' : 'At a Glance'}</span>
@@ -1504,7 +1501,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                     return (
                       <Link key={item.id} href={`/news/${item.slug}`} className="s-rank hover:opacity-85 transition-opacity">
                         <span className="n">{rankNum}</span>
-                        <h3><TranslatedText text={getArticleTitle(item, language)} /></h3>
+                        <h3>{getArticleTitle(item, language)}</h3>
                       </Link>
                     );
                   })}
@@ -1528,9 +1525,9 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       <Link key={item.id || index} href={`/news/${item.slug}`} className="s-compact hover:opacity-85 transition-opacity">
                         <div>
                           <span className="kick">{itemCategory}</span>
-                          <h3><TranslatedText text={itemTitle} /></h3>
+                          <h3>{itemTitle}</h3>
                           <div className="meta">
-                            <span>{formatDate(item.publishedAt, language)}</span>
+                            <span suppressHydrationWarning>{formatDate(item.publishedAt, language)}</span>
                           </div>
                         </div>
                         <div className="imgwrap">
@@ -1626,7 +1623,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                         <TranslatedText text={itemTitle} />
                       </h3>
                       <div className="meta select-none">
-                        <span>{formatDate(item.publishedAt, language)}</span>
+                        <span suppressHydrationWarning>{formatDate(item.publishedAt, language)}</span>
                       </div>
                     </div>
                   </Link>
@@ -1798,7 +1795,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                             const citeText = citeLine ? citeLine.replace(/^>\s*—\s*/, '').replace(/^>\s*-\s*/, '').trim() : '';
 
                             return (
-                              <blockquote key={pIdx} className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-red-50/40 p-4 dark:bg-red-950/20 shadow-sm">
+                              <blockquote key={pIdx} className="my-6 rounded-r-xl border-l-4 border-[#B3121B] bg-neutral-50 p-4 dark:bg-neutral-900/60 shadow-sm">
                                 <p className="text-base font-bold text-neutral-900 dark:text-white leading-relaxed">
                                   "{quoteText || trimmed.replace(/^>\s*/, '')}"
                                 </p>
@@ -1980,7 +1977,7 @@ export default function NewsDetailClient({ article, related, trending, articleUr
                       <span className="kick">{itemCategory}</span>
                       <h3>{itemTitle}</h3>
                       <div className="meta">
-                        <span>{formatDate(item.publishedAt)}</span>
+                        <span suppressHydrationWarning>{formatDate(item.publishedAt)}</span>
                       </div>
                     </div>
                     <div className="imgwrap">

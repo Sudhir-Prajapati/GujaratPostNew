@@ -34,7 +34,7 @@ function getRelativeTime(dateStr: string): string {
   try {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return 'હમણાં જ';
-    
+
     const now = new Date();
     const diffMs = now.getTime() - d.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -234,21 +234,19 @@ export default function TajSamacharDrawer() {
           className="relative group flex items-center justify-center w-11 h-11 rounded-full bg-gradient-to-br from-red-600 via-red-700 to-black text-white shadow-xl shadow-red-900/40 border-2 border-white/30 hover:scale-105 active:scale-95 transition-all duration-300 focus:outline-none"
         >
           {/* Periodic pulse ring animation (expands every 4 seconds) */}
-          <span className="absolute -inset-1 rounded-full bg-red-600/60 animate-periodic-ping pointer-events-none" />
-          
-          <Megaphone className="w-5 h-5 text-white relative z-10 transition-transform group-hover:rotate-12" />
+          <span className="absolute -inset-1 rounded-full bg-red-600/60 animate-periodic-ping pointer-events-none" />          <Megaphone className="w-5 h-5 text-white relative z-10 transition-transform group-hover:rotate-12" />
         </button>
       </div>
 
       {/* Latest News Floating Drawer / Modal Box */}
       {isOpen && (
         <div className="fixed bottom-24 left-4 sm:left-6 z-[9995] w-[calc(100vw-32px)] sm:w-[410px] max-h-[82vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-red-900/20 overflow-hidden flex flex-col transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
-          
+
           {/* Header Bar - Red & Black Theme (Bigger & Vertically Centered) */}
           <div className="bg-gradient-to-r from-red-700 via-red-600 to-black text-white px-5 py-3 flex items-center justify-between shadow-md relative overflow-hidden min-h-[48px]">
             {/* Background subtle sheen */}
             <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-black/40 to-transparent pointer-events-none" />
-            
+
             <div className="flex items-center gap-2.5 z-10 my-auto">
               <span className="relative flex h-3 w-3 shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>

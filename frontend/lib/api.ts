@@ -638,15 +638,6 @@ export async function getMarketRates(): Promise<any> {
  * Fetch live Weather data
  */
 export async function getPublicWeather(city?: string): Promise<any> {
-  try {
-    const url = `${API_BASE_URL}/weather${city ? `?city=${encodeURIComponent(city)}` : ''}`;
-    const json = await fetchCachedJson<any>(url, 5 * 60 * 1000);
-    if (json && json.success && json.data) {
-      return json.data;
-    }
-  } catch (error: any) {
-    console.warn('Failed to fetch weather from API:', error?.message || error);
-  }
   return {
     city: 'અમદાવાદ',
     cityEn: 'Ahmedabad',

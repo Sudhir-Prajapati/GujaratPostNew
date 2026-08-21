@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { AppProvider } from "@/components/AppProvider";
 import MainLayoutWrapper from "@/components/layout/MainLayoutWrapper";
@@ -40,27 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Hind+Vadodara:wght@300;400;500;600;700;800&family=Mukta:wght@400;500;600;700;800;900&family=Mukta+Vaani:wght@400;500;600;700;800&family=Noto+Sans+Gujarati:wght@400;500;600;700;800;900&family=Baloo+Bhai+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <Script
-          id="google-translate-script"
-          src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"
-          strategy="afterInteractive"
-        />
-        <Script id="google-translate-init" strategy="afterInteractive">
-          {`
-            function googleTranslateElementInit() {
-              if (window.google && window.google.translate) {
-                new window.google.translate.TranslateElement({
-                  pageLanguage: 'gu',
-                  includedLanguages: 'gu,en,hi',
-                  autoDisplay: false
-                }, 'google_translate_element');
-              }
-            }
-          `}
-        </Script>
       </head>
       <body className="antialiased">
-        <div id="google_translate_element" style={{ display: 'none' }} />
         <AppProvider>
           <MainLayoutWrapper>{children}</MainLayoutWrapper>
         </AppProvider>
@@ -69,4 +49,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
