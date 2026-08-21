@@ -34,6 +34,8 @@ interface CategoryData {
   icon: string | null;
   color: string | null;
   displayOrder: number;
+  headerOrder?: number;
+  homeOrder?: number;
   isActive: boolean;
   showInHome?: boolean;
   showInHeader?: boolean;
@@ -238,7 +240,12 @@ export default function CategoriesPage() {
 
   // Open Order Manager Modal with specific tab
   const openOrderManager = (tab: 'all' | 'home' | 'header' = 'all') => {
-    const sorted = [...categories].sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
+    const getOrd = (c: CategoryData) => {
+      if (tab === 'header') return c.headerOrder ?? c.displayOrder ?? 0;
+      if (tab === 'home') return c.homeOrder ?? c.displayOrder ?? 0;
+      return c.displayOrder ?? 0;
+    };
+    const sorted = [...categories].sort((a, b) => getOrd(b) - getOrd(a));
     setOrderList(sorted);
     setOrderTab(tab);
     setOrderModalOpen(true);
@@ -253,9 +260,9 @@ export default function CategoriesPage() {
     nextList[index] = nextList[targetIndex];
     nextList[targetIndex] = temp;
 
-    // Recalculate displayOrder indexes descending (highest at top)
     const count = nextList.length;
-    const updated = nextList.map((item, idx) => ({ ...item, displayOrder: count - idx }));
+    const orderProp = orderTab === 'header' ? 'headerOrder' : orderTab === 'home' ? 'homeOrder' : 'displayOrder';
+    const updated = nextList.map((item, idx) => ({ ...item, [orderProp]: count - idx }));
     setOrderList(updated);
   };
 
@@ -265,7 +272,14 @@ export default function CategoriesPage() {
     direction: 'up' | 'down',
     filterFn: (c: CategoryData) => boolean
   ) => {
-    const subset = orderList.filter(filterFn).sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0));
+    const getOrd = (c: CategoryData) => {
+      if (orderTab === 'header') return c.headerOrder ?? c.displayOrder ?? 0;
+      if (orderTab === 'home') return c.homeOrder ?? c.displayOrder ?? 0;
+      return c.displayOrder ?? 0;
+    };
+    const orderProp = orderTab === 'header' ? 'headerOrder' : orderTab === 'home' ? 'homeOrder' : 'displayOrder';
+
+    const subset = orderList.filter(filterFn).sort((a, b) => getOrd(b) - getOrd(a));
     const idxInSubset = subset.findIndex((c) => c.id === itemToMove.id);
     if (idxInSubset === -1) return;
 
@@ -273,8 +287,8 @@ export default function CategoriesPage() {
     if (targetIdxInSubset < 0 || targetIdxInSubset >= subset.length) return;
 
     const targetItem = subset[targetIdxInSubset];
-    const orderCurrent = itemToMove.displayOrder ?? 0;
-    const orderTarget = targetItem.displayOrder ?? 0;
+    const orderCurrent = getOrd(itemToMove);
+    const orderTarget = getOrd(targetItem);
 
     let newOrderCurrent = orderTarget;
     let newOrderTarget = orderCurrent;
@@ -286,8 +300,8 @@ export default function CategoriesPage() {
 
     setOrderList((prev) =>
       prev.map((c) => {
-        if (c.id === itemToMove.id) return { ...c, displayOrder: newOrderCurrent };
-        if (c.id === targetItem.id) return { ...c, displayOrder: newOrderTarget };
+        if (c.id === itemToMove.id) return { ...c, [orderProp]: newOrderCurrent };
+        if (c.id === targetItem.id) return { ...c, [orderProp]: newOrderTarget };
         return c;
       })
     );
@@ -296,10 +310,17 @@ export default function CategoriesPage() {
   // Direct order input change in order manager modal
   const handleOrderInputChange = (id: string, newOrder: number) => {
     const validOrder = Math.max(0, newOrder || 0);
+    const getOrd = (c: CategoryData) => {
+      if (orderTab === 'header') return c.headerOrder ?? c.displayOrder ?? 0;
+      if (orderTab === 'home') return c.homeOrder ?? c.displayOrder ?? 0;
+      return c.displayOrder ?? 0;
+    };
+    const orderProp = orderTab === 'header' ? 'headerOrder' : orderTab === 'home' ? 'homeOrder' : 'displayOrder';
+
     setOrderList((prev) =>
       prev
-        .map((c) => (c.id === id ? { ...c, displayOrder: validOrder } : c))
-        .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+        .map((c) => (c.id === id ? { ...c, [orderProp]: validOrder } : c))
+        .sort((a, b) => getOrd(b) - getOrd(a))
     );
   };
 
@@ -307,15 +328,24 @@ export default function CategoriesPage() {
   const handleSaveAllOrders = async () => {
     setSavingOrder(true);
     try {
+      const getOrd = (c: CategoryData) => {
+        if (orderTab === 'header') return c.headerOrder ?? c.displayOrder ?? 0;
+        if (orderTab === 'home') return c.homeOrder ?? c.displayOrder ?? 0;
+        return c.displayOrder ?? 0;
+      };
+      const orderProp = orderTab === 'header' ? 'headerOrder' : orderTab === 'home' ? 'homeOrder' : 'displayOrder';
+
       const itemsPayload = orderList.map((item, idx) => ({
         id: item.id,
         displayOrder: Math.max(0, item.displayOrder ?? (orderList.length - idx)),
+        headerOrder: typeof item.headerOrder === 'number' ? item.headerOrder : (item.displayOrder ?? (orderList.length - idx)),
+        homeOrder: typeof item.homeOrder === 'number' ? item.homeOrder : (item.displayOrder ?? (orderList.length - idx)),
       }));
 
       const res = await authFetch(getBackendApiUrl('/api/admin/categories/reorder'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: itemsPayload }),
+        body: JSON.stringify({ items: itemsPayload, target: orderTab }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to update section orders');
@@ -899,7 +929,7 @@ export default function CategoriesPage() {
 
                   {orderList
                     .filter(c => (c.showInHome !== false) && c.isActive)
-                    .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+                    .sort((a, b) => (b.homeOrder ?? b.displayOrder ?? 0) - (a.homeOrder ?? a.displayOrder ?? 0))
                     .map((item, idx) => (
                       <div
                         key={item.id}
@@ -932,7 +962,7 @@ export default function CategoriesPage() {
                         <div className="flex items-center gap-2 shrink-0">
                           <input
                             type="number"
-                            value={item.displayOrder ?? idx + 1}
+                            value={item.homeOrder ?? item.displayOrder ?? idx + 1}
                             onChange={(e) => handleOrderInputChange(item.id, Number(e.target.value))}
                             className="w-14 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-center text-xs font-mono font-bold text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white"
                           />
@@ -982,7 +1012,7 @@ export default function CategoriesPage() {
                     <div className="space-y-2">
                       {orderList
                         .filter(c => (c.showInHeader !== false) && c.isActive && c.headerType !== 'GUJARAT')
-                        .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+                        .sort((a, b) => (b.headerOrder ?? b.displayOrder ?? 0) - (a.headerOrder ?? a.displayOrder ?? 0))
                         .map((item, idx, row1Arr) => (
                           <div
                             key={item.id}
@@ -1008,14 +1038,14 @@ export default function CategoriesPage() {
                                 <span className="font-extrabold text-xs text-white">
                                   {item.nameGu || item.name}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-mono ml-2">#{item.displayOrder ?? 0}</span>
+                                <span className="text-[10px] text-zinc-400 font-mono ml-2">#{item.headerOrder ?? item.displayOrder ?? 0}</span>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
                               <input
                                 type="number"
-                                value={item.displayOrder ?? idx + 1}
+                                value={item.headerOrder ?? item.displayOrder ?? idx + 1}
                                 onChange={(e) => handleOrderInputChange(item.id, Number(e.target.value))}
                                 className="w-12 rounded border border-zinc-700 bg-zinc-900 px-1.5 py-0.5 text-center text-xs font-mono font-bold text-white"
                               />
@@ -1064,7 +1094,7 @@ export default function CategoriesPage() {
                     <div className="space-y-2">
                       {orderList
                         .filter(c => (c.showInHeader !== false) && c.isActive && c.headerType === 'GUJARAT')
-                        .sort((a, b) => (b.displayOrder ?? 0) - (a.displayOrder ?? 0))
+                        .sort((a, b) => (b.headerOrder ?? b.displayOrder ?? 0) - (a.headerOrder ?? a.displayOrder ?? 0))
                         .map((item, idx, row2Arr) => (
                           <div
                             key={item.id}
@@ -1090,14 +1120,14 @@ export default function CategoriesPage() {
                                 <span className="font-extrabold text-xs">
                                   {item.nameGu || item.name}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-mono ml-2">#{item.displayOrder ?? 0}</span>
+                                <span className="text-[10px] text-zinc-400 font-mono ml-2">#{item.headerOrder ?? item.displayOrder ?? 0}</span>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
                               <input
                                 type="number"
-                                value={item.displayOrder ?? idx + 1}
+                                value={item.headerOrder ?? item.displayOrder ?? idx + 1}
                                 onChange={(e) => handleOrderInputChange(item.id, Number(e.target.value))}
                                 className="w-12 rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-center text-xs font-mono font-bold"
                               />
