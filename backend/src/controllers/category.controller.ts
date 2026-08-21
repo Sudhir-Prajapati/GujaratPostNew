@@ -10,11 +10,6 @@ export class CategoryController {
   static async getAllCategories(req: Request, res: Response, next: NextFunction) {
     try {
       const categories = await prisma.category.findMany({
-        where: {
-          slug: {
-            notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-          },
-        },
         orderBy: {
           displayOrder: 'desc',
         },
