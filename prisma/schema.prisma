@@ -89,6 +89,8 @@ model Category {
   icon          String?
   color         String?
   displayOrder  Int      @default(0)
+  headerOrder   Int      @default(0)
+  homeOrder     Int      @default(0)
   isActive      Boolean  @default(true)
   showInHome    Boolean  @default(true)
   showInHeader  Boolean  @default(true)
