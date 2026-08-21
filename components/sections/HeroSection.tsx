@@ -568,7 +568,9 @@ export default function HeroSection({
 
   const sectionMap: Record<string, React.ReactNode> = {
     videos: (
-      <VideoSection key="videos" initialVideos={videosList.length > 0 ? videosList : initialVideos} />
+      <div key="videos" className="mx-auto max-w-screen-xl px-2 my-6">
+        <VideoDesk videos={videosList.length > 0 ? videosList : (initialVideos && initialVideos.length > 0 ? initialVideos : VIDEOS)} language={language} />
+      </div>
     ),
     gujarat: <CityHyperlocalSection key="gujarat" language={language} articles={articlesList} dynamicTrendingTopics={dynamicTrendingTopics} />,
     national: <NationalSection key="national" language={language} />,
@@ -1145,11 +1147,6 @@ export default function HeroSection({
             </button>
           </form>
         </div>
-      </div>
-
-      {/* 18. LOWER VIDEO SECTION (Screenshot 5) */}
-      <div className="mx-auto max-w-screen-xl px-2 my-6">
-        <VideoDesk videos={videosList.length > 0 ? videosList : videos} language={language} />
       </div>
 
       {/* 19. NATIVE SPONSORED ADS SECTION */}
