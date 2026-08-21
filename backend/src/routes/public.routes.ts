@@ -443,9 +443,13 @@ router.get('/categories', async (req, res, next) => {
     if (showInHeader) where.showInHeader = true;
     if (showInHome) where.showInHome = true;
 
+    let orderBy: any = { displayOrder: 'desc' };
+    if (showInHeader) orderBy = { headerOrder: 'desc' };
+    else if (showInHome) orderBy = { homeOrder: 'desc' };
+
     const allCategories = await prisma.category.findMany({
       where,
-      orderBy: { displayOrder: 'desc' },
+      orderBy,
     });
 
     // Apply headerType filter in JavaScript (column exists in DB but Prisma

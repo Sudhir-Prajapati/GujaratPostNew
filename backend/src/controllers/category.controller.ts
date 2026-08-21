@@ -174,9 +174,10 @@ export class CategoryController {
    */
   static async reorderCategories(req: Request, res: Response, next: NextFunction) {
     try {
-      const { items } = req.body;
-      if (!Array.isArray(items)) {
-        throw new BadRequestError('Items array is required.');
+      const { items, target } = req.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new BadRequestError('Items array is required for reordering.');
       }
 
       // Check all display orders are non-negative
@@ -188,12 +189,21 @@ export class CategoryController {
       }
 
       await prisma.$transaction(
-        items.map((item: { id: string; displayOrder: number }) =>
-          prisma.category.update({
+        items.map((item: { id: string; displayOrder: number; headerOrder?: number; homeOrder?: number }) => {
+          const val = typeof item.displayOrder === 'number' ? item.displayOrder : (parseInt(item.displayOrder as any) || 0);
+          const updateData: any = {};
+          if (target === 'header') {
+            updateData.headerOrder = typeof item.headerOrder === 'number' ? item.headerOrder : val;
+          } else if (target === 'home') {
+            updateData.homeOrder = typeof item.homeOrder === 'number' ? item.homeOrder : val;
+          } else {
+            updateData.displayOrder = val;
+          }
+          return prisma.category.update({
             where: { id: item.id },
-            data: { displayOrder: typeof item.displayOrder === 'number' ? item.displayOrder : (parseInt(item.displayOrder) || 0) },
-          })
-        )
+            data: updateData,
+          });
+        })
       );
 
       const categories = await prisma.category.findMany({
