@@ -438,9 +438,6 @@ router.get('/categories', async (req, res, next) => {
     // (Prisma client may not have headerType in its type definitions yet)
     const where: any = {
       isActive: true,
-      slug: {
-        notIn: ['shorts', 'videos', 'webstory', 'web-stories', 'podcasts'],
-      },
     };
 
     if (showInHeader) where.showInHeader = true;
