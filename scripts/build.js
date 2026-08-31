@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const { spawnSync } = require('child_process');
 
 const realCwd = fs.realpathSync.native(process.cwd());
@@ -8,18 +9,27 @@ if (process.cwd() !== realCwd) {
   console.log(`Current CWD: ${process.cwd()}`);
   console.log(`Real CWD:    ${realCwd}`);
   console.log(`Rerunning build in the correct casing...\n`);
-
-  const result = spawnSync('npm', ['run', 'build'], {
-    cwd: realCwd,
-    stdio: 'inherit',
-    shell: true
-  });
-  process.exit(result.status ?? 0);
-} else {
-  const result = spawnSync('npx', ['next', 'build'], {
-    cwd: realCwd,
-    stdio: 'inherit',
-    shell: true
-  });
-  process.exit(result.status ?? 0);
 }
+
+// Clean previous build cache to avoid stale memory buffers
+const nextDir = path.join(realCwd, '.next');
+if (fs.existsSync(nextDir)) {
+  try {
+    fs.rmSync(nextDir, { recursive: true, force: true });
+  } catch (e) {}
+}
+
+const nextBin = path.join(realCwd, 'node_modules', 'next', 'dist', 'bin', 'next');
+
+const env = {
+  ...process.env,
+  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=2048`.trim(),
+};
+
+const result = spawnSync(process.execPath, [nextBin, 'build'], {
+  cwd: realCwd,
+  stdio: 'inherit',
+  env,
+});
+
+process.exit(result.status ?? 0);

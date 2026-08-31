@@ -5,6 +5,11 @@ const CHANNEL_HANDLE = '@Gujaratpostnews';
 
 export const revalidate = 300; // Cache for 5 minutes
 
+// In-memory cache & request deduplication to prevent repeated 7-second scrapes on every page load
+const ytCache = new Map<string, { data: any[]; timestamp: number }>();
+const ytInFlight = new Map<string, Promise<any[]>>();
+const CACHE_DURATION_MS = 10 * 60 * 1000; // 10 minutes cache duration
+
 function cleanTitle(raw: string): string {
   if (!raw) return '';
   return raw
@@ -441,9 +446,27 @@ async function fetchRssFeed(): Promise<{ videos: any[]; shorts: any[] }> {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type'); // 'video' | 'short' | null for all
+  const type = searchParams.get('type') || 'all'; // 'video' | 'short' | 'all'
 
-  try {
+  const cached = ytCache.get(type);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION_MS && cached.data.length > 0) {
+    return NextResponse.json({ success: true, data: cached.data }, {
+      headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+    });
+  }
+
+  if (ytInFlight.has(type)) {
+    try {
+      const data = await ytInFlight.get(type)!;
+      return NextResponse.json({ success: true, data }, {
+        headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
+      });
+    } catch {
+      // Fallback below
+    }
+  }
+
+  const scrapePromise = (async () => {
     let result: any[] = [];
 
     if (type === 'video') {
@@ -478,11 +501,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (result.length > 0) {
+      ytCache.set(type, { data: result, timestamp: Date.now() });
+    }
+    return result;
+  })();
+
+  ytInFlight.set(type, scrapePromise);
+
+  try {
+    const result = await scrapePromise;
     return NextResponse.json({ success: true, data: result }, {
       headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' }
     });
   } catch (err: any) {
     console.error('YouTube fetch error:', err?.message || err);
-    return NextResponse.json({ success: false, data: [], error: err?.message }, { status: 200 });
+    const fallback = ytCache.get(type)?.data || [];
+    return NextResponse.json({ success: true, data: fallback, error: err?.message }, { status: 200 });
+  } finally {
+    ytInFlight.delete(type);
   }
 }

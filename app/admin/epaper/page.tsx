@@ -26,9 +26,10 @@ import {
   ZoomOut,
   Download,
   FileCode,
+  Sparkles,
 } from 'lucide-react';
-import { getBackendApiUrl, authFetch } from '@/lib/api';
-import { formatEpaperPdfUrl, formatEpaperDownloadUrl } from '@/lib/media';
+import dynamic from 'next/dynamic';
+import { formatEpaperPdfUrl, formatEpaperDownloadUrl, sanitizeImageUrl } from '@/lib/media';
 import {
   EPaperEdition,
   CityItem,
@@ -43,6 +44,11 @@ import {
   getDateOffsetStr,
   clearLegacyLocalStorage,
 } from '@/lib/epaper';
+
+const EPaperArticleGeneratorModal = dynamic(
+  () => import('@/components/epaper/EPaperArticleGeneratorModal').then((mod) => mod.EPaperArticleGeneratorModal),
+  { ssr: false }
+);
 
 function formatDateLabel(dateStr: string): string {
   try {
@@ -90,9 +96,131 @@ function formatTo12Hour(time24: string): string {
   return `${String(h).padStart(2, '0')}:${mStr} ${period}`;
 }
 
-interface Toast {
-  type: 'success' | 'error';
-  message: string;
+function getEditionThumbnailUrl(edition: EPaperEdition): string {
+  if (edition.thumbnailUrl) {
+    const sanitized = sanitizeImageUrl(edition.thumbnailUrl);
+    if (sanitized) return sanitized;
+  }
+  if (edition.fileUrl) {
+    if (isImageUrl(edition.fileUrl)) return edition.fileUrl;
+    if (edition.fileUrl.includes('res.cloudinary.com')) {
+      return sanitizeImageUrl(edition.fileUrl.replace(/\.pdf$/i, '.jpg'));
+    }
+  }
+  return '';
+}
+
+function AdminEditionCard({
+  edition,
+  onOpenReader,
+  onEdit,
+  onToggleActive,
+  onDelete,
+}: {
+  edition: EPaperEdition;
+  onOpenReader: (edition: EPaperEdition) => void;
+  onEdit: (edition: EPaperEdition) => void;
+  onToggleActive: (edition: EPaperEdition) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const thumbUrl = getEditionThumbnailUrl(edition);
+  const showImage = thumbUrl && !imgFailed;
+
+  return (
+    <div
+      className={`group flex flex-col justify-between overflow-hidden rounded-xl border bg-slate-100 dark:bg-zinc-900 shadow-sm transition-all hover:shadow-xl ${edition.isActive ? 'border-slate-300 dark:border-zinc-800' : 'border-slate-200 opacity-60'}`}
+    >
+      {/* Vertical Front Page Image Container */}
+      <div
+        onClick={() => onOpenReader(edition)}
+        className="relative aspect-[3/4] w-full overflow-hidden bg-slate-200 dark:bg-zinc-800 cursor-pointer"
+      >
+        {showImage ? (
+          <img
+            src={thumbUrl}
+            alt={edition.title || edition.city}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-between p-6 text-center bg-gradient-to-b from-slate-50 to-slate-200 dark:from-zinc-900 dark:to-zinc-950">
+            <div className="w-full flex justify-between items-center text-[10px] font-black text-slate-400 border-b border-slate-300 dark:border-zinc-800 pb-2">
+              <span>GUJARAT POST</span>
+              <span>{edition.date}</span>
+            </div>
+            <div className="my-auto py-4 space-y-2">
+              <Newspaper className="h-16 w-16 mx-auto text-[#B3121B] opacity-80" />
+              <h3 className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight px-2">
+                {edition.title || `${edition.city} EDITION`}
+              </h3>
+              <span className="inline-block bg-[#B3121B]/10 text-[#B3121B] text-[10px] font-black uppercase px-2.5 py-1 rounded-full border border-[#B3121B]/20">
+                {edition.pages || 24} PAGES E-PAPER
+              </span>
+            </div>
+            <div className="w-full pt-2 border-t border-slate-300 dark:border-zinc-800 text-[10px] font-bold text-slate-500 flex items-center justify-between">
+              <span>{edition.cityGu || edition.city}</span>
+              <span>{edition.publishTime || '06:00 AM'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Status Badges */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+          <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-md shadow ${edition.status === 'PUBLISHED' ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
+            {edition.status || 'PUBLISHED'}
+          </span>
+        </div>
+
+        {/* Red Banner at Bottom matching Sandesh style */}
+        <div className="absolute inset-x-0 bottom-0 bg-[#B3121B] px-3 py-2 text-white flex items-center justify-between shadow-md">
+          <h4 className="text-xs font-black tracking-wide uppercase truncate">
+            {edition.title || `${edition.city.toUpperCase()} EDITION`}
+          </h4>
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </div>
+      </div>
+
+      {/* Action Bar */}
+      <div className="p-3 bg-card border-t border-border flex items-center justify-between gap-1.5 text-xs">
+        <span className="text-[11px] font-bold text-muted-foreground">{edition.date}</span>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onOpenReader(edition)}
+            className="p-1.5 rounded-lg bg-muted hover:bg-muted/70 text-foreground font-bold transition cursor-pointer"
+            title="View E-Paper Reader"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onEdit(edition)}
+            className="p-1.5 rounded-lg bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 font-bold transition cursor-pointer"
+            title="Edit Edition"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => onToggleActive(edition)}
+            className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
+              edition.isActive
+                ? 'bg-emerald-600/15 text-emerald-500 hover:bg-emerald-600/25'
+                : 'bg-muted text-muted-foreground hover:bg-muted/70'
+            }`}
+          >
+            {edition.isActive ? 'Active' : 'Off'}
+          </button>
+          <button
+            onClick={() => onDelete(edition.id)}
+            className="p-1.5 rounded-lg bg-red-600/10 text-red-500 hover:bg-red-600/20 transition cursor-pointer"
+            title="Delete Edition"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminEPaperPage() {
@@ -107,6 +235,7 @@ export default function AdminEPaperPage() {
 
   // Add/Edit Edition Modal
   const [modalOpen, setModalOpen] = useState(false);
+  const [generatorModalOpen, setGeneratorModalOpen] = useState(false);
   const [editingEdition, setEditingEdition] = useState<EPaperEdition | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -215,7 +344,7 @@ export default function AdminEPaperPage() {
 
   // Lock background scrolling when any modal is open
   useEffect(() => {
-    if (modalOpen || addCityModalOpen || !!deleteId || !!activeReaderEdition) {
+    if (modalOpen || generatorModalOpen || addCityModalOpen || !!deleteId || !!activeReaderEdition) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
@@ -223,7 +352,7 @@ export default function AdminEPaperPage() {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [modalOpen, addCityModalOpen, deleteId, activeReaderEdition]);
+  }, [modalOpen, generatorModalOpen, addCityModalOpen, deleteId, activeReaderEdition]);
 
   const handleCitySelect = (cityName: string) => {
     const found = citiesList.find((c) => c.city === cityName);
@@ -607,24 +736,32 @@ export default function AdminEPaperPage() {
           </p>
         </div>
 
-        {/* Top Header Buttons */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Top Header Buttons with Dual Options */}
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setAddCityModalOpen(true)}
-            className="flex items-center gap-2 bg-zinc-800 text-white px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm hover:bg-zinc-900 transition shadow-sm cursor-pointer"
+            className="flex items-center gap-2 bg-zinc-800 text-white px-3.5 py-2.5 rounded-xl font-black text-xs sm:text-sm hover:bg-zinc-900 transition shadow-sm cursor-pointer"
           >
             <Building className="h-4 w-4 text-amber-400" />
-            નવું શહેર ઉમેરો (Add City)
+            નવું શહેર (Add City)
           </button>
 
+          {/* Option 2: Dynamic Auto-Generator from Website Articles */}
+          <button
+            onClick={() => setGeneratorModalOpen(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition shadow-md hover:shadow-lg cursor-pointer"
+          >
+            <Sparkles className="h-4 w-4 text-slate-950" />
+            <span>✨ આર્ટિકલ્સમાંથી બનાવો (Auto-Generate)</span>
+          </button>
+
+          {/* Option 1: Direct PDF Upload */}
           <button
             onClick={() => openAdd(selectedCityFilter !== 'ALL' ? selectedCityFilter : undefined, selectedDateFilter !== 'ALL' ? selectedDateFilter : undefined)}
-            className="flex items-center gap-2 bg-[#B3121B] text-white px-5 py-2.5 rounded-xl font-black text-xs sm:text-sm hover:bg-[#8e0e15] transition shadow-md cursor-pointer"
+            className="flex items-center gap-2 bg-[#B3121B] text-white px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm hover:bg-[#8e0e15] transition shadow-md cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            {selectedCityFilter !== 'ALL'
-              ? `Add Paper for ${activeCityInfo?.cityGu || selectedCityFilter}`
-              : 'નવી આવૃત્તિ (Add Edition)'}
+            <span>+ ડાયરેક્ટ PDF અપલોડ (Upload PDF)</span>
           </button>
         </div>
       </div>
@@ -774,116 +911,14 @@ export default function AdminEPaperPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {editions.map((edition) => (
-            <div
+            <AdminEditionCard
               key={edition.id}
-              className={`group flex flex-col justify-between overflow-hidden rounded-xl border bg-slate-100 dark:bg-zinc-900 shadow-sm transition-all hover:shadow-xl ${edition.isActive ? 'border-slate-300 dark:border-zinc-800' : 'border-slate-200 opacity-60'}`}
-            >
-              {/* Vertical Front Page Image Container */}
-              <div
-                onClick={() => openReader(edition)}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-slate-200 dark:bg-zinc-800 cursor-pointer"
-              >
-                {isImageUrl(edition.thumbnailUrl) ? (
-                  <img
-                    src={edition.thumbnailUrl}
-                    alt={edition.title || edition.city}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : isImageUrl(edition.fileUrl) ? (
-                  <img
-                    src={edition.fileUrl}
-                    alt={edition.title || edition.city}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : edition.fileUrl && edition.fileUrl.includes('res.cloudinary.com') ? (
-                  <img
-                    src={edition.fileUrl.replace(/\.pdf$/i, '.jpg')}
-                    alt={edition.title || edition.city}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : edition.fileUrl && (isPdfUrl(edition.fileUrl) || edition.fileUrl.includes('/uploads/')) ? (
-                  <iframe
-                    src={formatEpaperPdfUrl(edition.fileUrl, 1)}
-                    className="h-full w-full object-cover pointer-events-none"
-                    title={edition.title || edition.city}
-                  />
-                ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-between p-6 text-center bg-gradient-to-b from-slate-50 to-slate-200 dark:from-zinc-900 dark:to-zinc-950">
-                    <div className="w-full flex justify-between items-center text-[10px] font-black text-slate-400 border-b border-slate-300 dark:border-zinc-800 pb-2">
-                      <span>GUJARAT POST</span>
-                      <span>{edition.date}</span>
-                    </div>
-                    <div className="my-auto py-4 space-y-2">
-                      <Newspaper className="h-16 w-16 mx-auto text-[#B3121B] opacity-80" />
-                      <h3 className="text-base font-black text-slate-900 dark:text-white uppercase leading-tight px-2">
-                        {edition.title || `${edition.city} EDITION`}
-                      </h3>
-                      <span className="inline-block bg-[#B3121B]/10 text-[#B3121B] text-[10px] font-black uppercase px-2.5 py-1 rounded-full border border-[#B3121B]/20">
-                        {edition.pages || 24} PAGES E-PAPER
-                      </span>
-                    </div>
-                    <div className="w-full pt-2 border-t border-slate-300 dark:border-zinc-800 text-[10px] font-bold text-slate-500 flex items-center justify-between">
-                      <span>{edition.cityGu || edition.city}</span>
-                      <span>{edition.publishTime || '06:00 AM'}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status Badges */}
-                <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
-                  <span className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-md shadow ${edition.status === 'PUBLISHED' ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}`}>
-                    {edition.status || 'PUBLISHED'}
-                  </span>
-                </div>
-
-                {/* Red Banner at Bottom matching Sandesh style */}
-                <div className="absolute inset-x-0 bottom-0 bg-[#B3121B] px-3 py-2 text-white flex items-center justify-between shadow-md">
-                  <h4 className="text-xs font-black tracking-wide uppercase truncate">
-                    {edition.title || `${edition.city.toUpperCase()} EDITION`}
-                  </h4>
-                  <ChevronRight className="h-4 w-4 shrink-0" />
-                </div>
-              </div>
-
-              {/* Action Bar */}
-              <div className="p-3 bg-card border-t border-border flex items-center justify-between gap-1.5 text-xs">
-                <span className="text-[11px] font-bold text-muted-foreground">{edition.date}</span>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => openReader(edition)}
-                    className="p-1.5 rounded-lg bg-muted hover:bg-muted/70 text-foreground font-bold transition cursor-pointer"
-                    title="View E-Paper Reader"
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => openEdit(edition)}
-                    className="p-1.5 rounded-lg bg-blue-600/10 text-blue-500 hover:bg-blue-600/20 font-bold transition cursor-pointer"
-                    title="Edit Edition"
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleToggleActive(edition)}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-black transition cursor-pointer ${
-                      edition.isActive
-                        ? 'bg-emerald-600/15 text-emerald-500 hover:bg-emerald-600/25'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
-                    }`}
-                  >
-                    {edition.isActive ? 'Active' : 'Off'}
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(edition.id)}
-                    className="p-1.5 rounded-lg bg-red-600/10 text-red-500 hover:bg-red-600/20 transition cursor-pointer"
-                    title="Delete Edition"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+              edition={edition}
+              onOpenReader={openReader}
+              onEdit={openEdit}
+              onToggleActive={handleToggleActive}
+              onDelete={setDeleteId}
+            />
           ))}
         </div>
       )}
@@ -1012,7 +1047,7 @@ export default function AdminEPaperPage() {
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800">
               <h2 className="text-lg font-black text-zinc-900 dark:text-white flex items-center gap-2">
                 <Newspaper className="h-5 w-5 text-[#B3121B]" />
-                {editingEdition ? 'Edit E-Paper Edition' : '+ નવી આવૃત્તિ ઉમેરો (Add Edition)'}
+                {editingEdition ? 'Edit E-Paper Edition' : 'Option 1: ડાયરેક્ટ PDF અપલોડ (Upload PDF)'}
               </h2>
               <button
                 onClick={() => { setModalOpen(false); resetForm(); }}
@@ -1021,6 +1056,26 @@ export default function AdminEPaperPage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Quick Switch to Option 2 Banner */}
+            {!editingEdition && (
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/15 to-orange-500/10 border-b border-amber-200 dark:border-amber-900/30 px-6 py-2.5 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-300">
+                  <Sparkles className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>વેબસાઇટ આર્ટિકલ્સમાંથી ઓટો ઈ-પેપર બનાવવું છે?</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalOpen(false);
+                    setGeneratorModalOpen(true);
+                  }}
+                  className="text-[11px] font-black text-slate-950 bg-amber-400 hover:bg-amber-500 px-3 py-1 rounded-lg transition shadow-sm cursor-pointer shrink-0"
+                >
+                  ઓટો જનરેટર ખોલો ➔
+                </button>
+              </div>
+            )}
 
             {/* Modal Form */}
             <form onSubmit={handleSave} className="px-6 py-5 space-y-5">
@@ -1587,6 +1642,19 @@ export default function AdminEPaperPage() {
           </div>
         </div>
       )}
+
+      {/* ─── OPTION 2: DYNAMIC ARTICLE E-PAPER GENERATOR MODAL ─── */}
+      <EPaperArticleGeneratorModal
+        isOpen={generatorModalOpen}
+        onClose={() => setGeneratorModalOpen(false)}
+        citiesList={citiesList}
+        defaultCity={selectedCityFilter !== 'ALL' ? selectedCityFilter : citiesList[0]?.city || 'Ahmedabad'}
+        defaultDate={selectedDateFilter !== 'ALL' ? selectedDateFilter : todayStr}
+        onEditionCreated={() => {
+          loadData();
+          showToast('success', 'E-Paper Edition generated & added to newspaper list!');
+        }}
+      />
     </div>
   );
 }
