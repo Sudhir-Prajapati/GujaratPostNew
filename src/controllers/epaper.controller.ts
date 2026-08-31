@@ -13,6 +13,15 @@ function sanitizePdfUrl(url?: string | null): string {
   return url;
 }
 
+function sanitizeThumbUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('blob:')) return '';
+  if (url.includes('res.cloudinary.com') && url.includes('/raw/upload/') && !url.toLowerCase().endsWith('.pdf')) {
+    return url.replace('/raw/upload/', '/image/upload/');
+  }
+  return url;
+}
+
 let epaperTablesEnsured = false;
 async function ensureEPaperTablesExist() {
   if (epaperTablesEnsured) return;
@@ -26,8 +35,8 @@ async function ensureEPaperTablesExist() {
         \`cityHi\` VARCHAR(255) NULL,
         \`date\` VARCHAR(50) NOT NULL,
         \`pages\` INT NOT NULL DEFAULT 24,
-        \`fileUrl\` TEXT NOT NULL,
-        \`thumbnailUrl\` TEXT NULL,
+        \`fileUrl\` LONGTEXT NOT NULL,
+        \`thumbnailUrl\` LONGTEXT NULL,
         \`status\` VARCHAR(50) NOT NULL DEFAULT 'PUBLISHED',
         \`publishTime\` VARCHAR(50) NULL DEFAULT '06:00 AM',
         \`isActive\` TINYINT(1) NOT NULL DEFAULT 1,
@@ -36,6 +45,14 @@ async function ensureEPaperTablesExist() {
         PRIMARY KEY (\`id\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // Ensure columns are LONGTEXT even if table was previously created with VARCHAR(255)
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`epaper_editions\` MODIFY COLUMN \`thumbnailUrl\` LONGTEXT NULL`);
+    } catch (_) {}
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`epaper_editions\` MODIFY COLUMN \`fileUrl\` LONGTEXT NOT NULL`);
+    } catch (_) {}
 
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS \`epaper_cities\` (
@@ -108,7 +125,7 @@ export class EPaperController {
       const sanitized = (editions || []).map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
-        thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
+        thumbnailUrl: sanitizeThumbUrl(ed.thumbnailUrl),
       }));
 
       return sendSuccess(res, { editions: sanitized }, 'Public E-Papers fetched successfully');
@@ -162,7 +179,7 @@ export class EPaperController {
       const sanitized = (editions || []).map((ed: any) => ({
         ...ed,
         fileUrl: sanitizePdfUrl(ed.fileUrl),
-        thumbnailUrl: sanitizePdfUrl(ed.thumbnailUrl),
+        thumbnailUrl: sanitizeThumbUrl(ed.thumbnailUrl),
       }));
 
       return sendSuccess(res, { editions: sanitized }, 'Admin E-Papers fetched successfully');
