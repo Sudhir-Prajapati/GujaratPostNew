@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.js",
+    "dev:turbo": "next dev --turbo",
     "build": "node scripts/build.js",
     "start": "next start",
     "lint": "eslint"
@@ -15,7 +16,10 @@
     "@radix-ui/react-tabs": "^1.1.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "html2canvas": "^1.4.1",
     "jose": "^6.2.3",
+    "jspdf": "^4.2.1",
+    "lightningcss": "^1.33.0",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "next-themes": "^0.4.6",

@@ -23,23 +23,25 @@ import { getCategoryColor, getTrendingTopicHref } from '@/lib/utils';
 import { safeYouTubeId } from '@/lib/youtube';
 import { getPublicArticles, getPublicVideos, getHeroSettings, getMarketRates, getPublicWeather, getPublicCategories, getLiveCenterData, getPublicGallery, getPublicAstrology } from '@/lib/api';
 
+import dynamic from 'next/dynamic';
 import { useApp } from '@/components/AppProvider';
 import type { Article, Language } from '@/types';
-import InstagramStories from '@/components/sections/InstagramStories';
-import WebStoriesSection from '@/components/sections/WebStoriesSection';
-import YouTubeShorts from '@/components/sections/YouTubeShorts';
 import { ZODIAC_SIGNS, ZodiacSign } from '@/components/sections/AstrologySection';
 import { ZodiacIcon, GUJARAT_ZODIAC_LETTERS } from '@/components/ui/ZodiacIcon';
-import ZodiacDetailModal from '@/components/sections/ZodiacDetailModal';
-import LatestUpdatesSection from '@/components/sections/LatestUpdatesSection';
-import TrendingSection from '@/components/sections/TrendingSection';
 import Advertisement from '@/components/ads/Advertisement';
 import AdSectionBanner from '@/components/ads/AdSectionBanner';
 import SidebarAdBanner from '@/components/ads/SidebarAdBanner';
 import CategorySection from '@/components/sections/CategorySection';
 import RandomAdsSection from '@/components/ads/RandomAdsSection';
 import ArticleMedia from '@/components/ui/ArticleMedia';
-import VideoSection from '@/components/sections/VideoSection';
+
+const InstagramStories = dynamic(() => import('@/components/sections/InstagramStories'), { ssr: false });
+const WebStoriesSection = dynamic(() => import('@/components/sections/WebStoriesSection'));
+const YouTubeShorts = dynamic(() => import('@/components/sections/YouTubeShorts'), { ssr: false });
+const ZodiacDetailModal = dynamic(() => import('@/components/sections/ZodiacDetailModal'), { ssr: false });
+const LatestUpdatesSection = dynamic(() => import('@/components/sections/LatestUpdatesSection'));
+const TrendingSection = dynamic(() => import('@/components/sections/TrendingSection'));
+const VideoSection = dynamic(() => import('@/components/sections/VideoSection'));
 
 const stripHtmlTags = (str?: string) => (str || '').replace(/<[^>]*>?/gm, '').replace(/!\[.*?\]\(.*?\)/g, '');
 

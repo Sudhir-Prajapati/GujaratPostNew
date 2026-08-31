@@ -26,26 +26,13 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const token = request.cookies.get("access_token")?.value;
-  console.log("DEBUG - proxy JWT_SECRET:", process.env.JWT_SECRET ? "exists (len " + process.env.JWT_SECRET.length + ")" : "undefined");
-  console.log("DEBUG - proxy token:", token);
-  if (token) {
-    try {
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payloadStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-        const payload = JSON.parse(payloadStr);
-        console.log("DEBUG - proxy token payload:", payload);
-      }
-    } catch (e: any) {
-      console.log("DEBUG - failed to decode payload:", e.message);
-    }
-  }
 
   // Only run middleware on /admin routes and /api/admin routes
   if (!pathname.startsWith("/admin") && !pathname.startsWith("/api/admin")) {
     return NextResponse.next();
   }
+
+  const token = request.cookies.get("access_token")?.value;
 
   // If token is missing, redirect to login (or return 401 for API routes)
   if (!token) {

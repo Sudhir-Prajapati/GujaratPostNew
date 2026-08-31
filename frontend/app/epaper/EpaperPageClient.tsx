@@ -29,7 +29,7 @@ import {
   getDateOffsetStr,
   clearLegacyLocalStorage,
 } from '@/lib/epaper';
-import { formatEpaperPdfUrl, formatEpaperDownloadUrl } from '@/lib/media';
+import { formatEpaperPdfUrl, formatEpaperDownloadUrl, sanitizeImageUrl } from '@/lib/media';
 
 function isPdfUrl(url?: string): boolean {
   if (!url || url.startsWith('blob:')) return false;
@@ -42,6 +42,72 @@ function isImageUrl(url?: string): boolean {
   if (url.startsWith('data:image/')) return true;
   const clean = url.toLowerCase().split('?')[0];
   return /\.(jpg|jpeg|png|webp|gif|jfif|svg|avif)$/i.test(clean);
+}
+
+function getEditionThumbnailUrl(edition: EPaperEdition): string {
+  if (edition.thumbnailUrl) {
+    const sanitized = sanitizeImageUrl(edition.thumbnailUrl);
+    if (sanitized) return sanitized;
+  }
+  if (edition.fileUrl) {
+    if (isImageUrl(edition.fileUrl)) return edition.fileUrl;
+    if (edition.fileUrl.includes('res.cloudinary.com')) {
+      return sanitizeImageUrl(edition.fileUrl.replace(/\.pdf$/i, '.jpg'));
+    }
+  }
+  return '';
+}
+
+function PublicEditionCard({
+  edition,
+  onOpenReader,
+  language,
+}: {
+  edition: EPaperEdition;
+  onOpenReader: (edition: EPaperEdition) => void;
+  language: any;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const thumbUrl = getEditionThumbnailUrl(edition);
+  const showImage = thumbUrl && !imgFailed;
+
+  const rawTitle = edition.title || `${edition.city} ${getLocalized(language, { en: 'Edition', gu: 'આવૃત્તિ', hi: 'संस्करण' })}`;
+  const displayTitle = rawTitle.toUpperCase();
+
+  return (
+    <article
+      onClick={() => onOpenReader(edition)}
+      className="group flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
+    >
+      {/* Newspaper front page — portrait aspect */}
+      <div className="relative w-full overflow-hidden bg-slate-100 dark:bg-zinc-950" style={{ aspectRatio: '3/4' }}>
+        {showImage ? (
+          <img
+            src={thumbUrl}
+            alt={displayTitle}
+            className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]"
+            onError={() => setImgFailed(true)}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-50 to-slate-200 dark:from-zinc-900 dark:to-zinc-950 p-4">
+            <Newspaper className="h-12 w-12 text-[#B3121B] opacity-70" />
+            <span className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase text-center leading-tight">
+              {rawTitle}
+            </span>
+            <span className="text-[10px] text-slate-400">{edition.date}</span>
+          </div>
+        )}
+        {/* Subtle hover overlay */}
+        <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 transition-all duration-300" />
+      </div>
+
+      {/* Red footer label with edition name + >> */}
+      <div className="flex items-center justify-between bg-[#B3121B] px-3 py-2 text-white">
+        <span className="text-[11px] font-black uppercase tracking-wide truncate leading-tight">{displayTitle}</span>
+        <span className="text-[11px] font-black shrink-0 ml-2 opacity-80">{'>>'}</span>
+      </div>
+    </article>
+  );
 }
 
 export default function EpaperPageClient() {
@@ -488,46 +554,14 @@ export default function EpaperPageClient() {
 
                     {/* ── Edition Cards: smaller, more columns ── */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {items.map((edition) => {
-                        const rawTitle = edition.title || `${edition.city} ${getLocalized(language, { en: 'Edition', gu: 'આવૃત્તિ', hi: 'संस्करण' })}`;
-                        const displayTitle = rawTitle.toUpperCase();
-                        return (
-                          <article
-                            key={edition.id}
-                            onClick={() => openReader(edition)}
-                            className="group flex flex-col overflow-hidden bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
-                          >
-                            {/* Newspaper front page — portrait aspect */}
-                            <div className="relative w-full overflow-hidden bg-slate-100 dark:bg-zinc-950" style={{ aspectRatio: '3/4' }}>
-                              {isImageUrl(edition.thumbnailUrl) ? (
-                                <img src={edition.thumbnailUrl} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
-                              ) : isImageUrl(edition.fileUrl) ? (
-                                <img src={edition.fileUrl} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
-                              ) : edition.fileUrl && edition.fileUrl.includes('res.cloudinary.com') ? (
-                                <img src={edition.fileUrl.replace(/\.pdf$/i, '.jpg')} alt={displayTitle} className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.03]" />
-                              ) : edition.fileUrl && (isPdfUrl(edition.fileUrl) || edition.fileUrl.includes('/uploads/')) ? (
-                                <div className="h-full w-full overflow-hidden pointer-events-none">
-                                  <iframe src={formatEpaperPdfUrl(edition.fileUrl, 1)} className="w-full h-full border-0 pointer-events-none" title={displayTitle} />
-                                </div>
-                              ) : (
-                                <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-b from-slate-50 to-slate-200 dark:from-zinc-900 dark:to-zinc-950 p-4">
-                                  <Newspaper className="h-12 w-12 text-[#B3121B] opacity-70" />
-                                  <span className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase text-center leading-tight">{rawTitle}</span>
-                                  <span className="text-[10px] text-slate-400">{edition.date}</span>
-                                </div>
-                              )}
-                              {/* Subtle hover overlay */}
-                              <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/20 transition-all duration-300" />
-                            </div>
-
-                            {/* Red footer label with edition name + >> */}
-                            <div className="flex items-center justify-between bg-[#B3121B] px-3 py-2 text-white">
-                              <span className="text-[11px] font-black uppercase tracking-wide truncate leading-tight">{displayTitle}</span>
-                              <span className="text-[11px] font-black shrink-0 ml-2 opacity-80">{'>>'}</span>
-                            </div>
-                          </article>
-                        );
-                      })}
+                      {items.map((edition) => (
+                        <PublicEditionCard
+                          key={edition.id}
+                          edition={edition}
+                          onOpenReader={openReader}
+                          language={language}
+                        />
+                      ))}
                     </div>
                   </div>
                 );

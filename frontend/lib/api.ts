@@ -1,15 +1,11 @@
 import { Article, Video, Photo } from '@/types';
 import { PHOTOS } from '@/data';
 
-export const BACKEND_API_BASE = typeof window !== 'undefined'
-  ? '/api'
-  : (process.env.NEXT_PUBLIC_API_URL
-    ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
-    : 'http://127.0.0.1:5000/api');
+export const BACKEND_API_BASE = process.env.NEXT_PUBLIC_API_URL
+  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/public\/?$/, '')
+  : (typeof window !== 'undefined' ? '/api' : 'http://127.0.0.1:5000/api');
 
-export const API_BASE_URL = typeof window !== 'undefined'
-  ? '/api/public'
-  : (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api/public');
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api/public' : 'http://127.0.0.1:5000/api/public');
 
 export function getBackendApiUrl(path: string): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -81,8 +77,8 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    // 15-second timeout so API calls fail fast and trigger fallbacks without hanging Next.js SSR
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    // 8-second timeout for graceful SSR & client fetches without early abort crashes
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(url, {
@@ -110,8 +106,11 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
       apiCache.set(url, { timestamp: Date.now(), data: json });
       return json;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        return null;
+      }
       throw error;
     }
   })();
@@ -122,7 +121,9 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
     const data = await fetchPromise;
     return data as T;
   } catch (error: any) {
-    console.warn(`Backend API fetch error for ${url}:`, error?.message || error);
+    if (error?.name !== 'AbortError' && !error?.message?.includes('aborted')) {
+      console.warn(`Backend API fetch error for ${url}:`, error?.message || error);
+    }
     return null;
   } finally {
     inFlightRequests.delete(url);

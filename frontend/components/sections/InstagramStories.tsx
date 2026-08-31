@@ -329,104 +329,14 @@ export default function InstagramStories() {
             ref={scrollContainerRef}
             className="scrollbar-hide flex gap-4 overflow-x-auto pb-2 py-1"
           >
-            {reels.map((reel) => {
-              const displayTitle = language === 'gu' ? (reel.headingGu || reel.heading) : language === 'hi' ? (reel.headingHi || reel.heading) : reel.heading;
-              const videoSrc = reel.videoUrl || reel.instaUrl;
-
-              // Extract Instagram reel embed URL if present
-              let instaEmbedUrl: string | null = null;
-              if (videoSrc && (videoSrc.includes('instagram.com/reel/') || videoSrc.includes('instagram.com/p/') || videoSrc.includes('instagram.com/tv/'))) {
-                const match = videoSrc.match(/instagram\.com\/(?:reel|p|tv)\/([A-Za-z0-9_-]+)/);
-                if (match && match[1]) {
-                  instaEmbedUrl = `https://www.instagram.com/p/${match[1]}/embed`;
-                }
-              }
-
-              // Extract YouTube embed URL if present
-              let ytEmbedUrl: string | null = null;
-              if (videoSrc && (videoSrc.includes('youtube.com') || videoSrc.includes('youtu.be'))) {
-                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-                const match = videoSrc.match(regExp);
-                if (match && match[2] && match[2].length === 11) {
-                  ytEmbedUrl = `https://www.youtube.com/embed/${match[2]}?autoplay=1&mute=1&loop=1&playlist=${match[2]}&controls=0&modestbranding=1&rel=0`;
-                }
-              }
-
-              // Check if URL is a direct video file (mp4, webm, uploads, blob, etc.)
-              const isDirectVideo = videoSrc && (
-                videoSrc.endsWith('.mp4') ||
-                videoSrc.endsWith('.webm') ||
-                videoSrc.endsWith('.ogg') ||
-                videoSrc.includes('/uploads/') ||
-                videoSrc.startsWith('blob:') ||
-                videoSrc.startsWith('data:video/')
-              );
-
-              return (
-                <div
-                  key={reel.id}
-                  onClick={() => handleReelClick(reel)}
-                  className="flex-none w-[140px] sm:w-[165px] cursor-pointer snap-start group"
-                >
-                  <div className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-slate-900/90 dark:border-slate-800 bg-slate-950 shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-xl">
-                    <div className="absolute top-2.5 left-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shadow-md">
-                      <ReelsBadgeIcon className="h-3.5 w-3.5 text-white" />
-                    </div>
-
-                    {/* Render Reel Video (HTML5 Video, Instagram Embed, YouTube Shorts, or Dark Video Cover) */}
-                    {isDirectVideo ? (
-                      <video
-                        src={videoSrc!}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                    ) : instaEmbedUrl ? (
-                      <iframe
-                        src={instaEmbedUrl}
-                        className="absolute inset-0 h-[140%] w-[120%] -top-[20%] -left-[10%] pointer-events-none object-cover border-0"
-                        allow="autoplay; encrypted-media"
-                        title={displayTitle}
-                      />
-                    ) : ytEmbedUrl ? (
-                      <iframe
-                        src={ytEmbedUrl}
-                        className="absolute inset-0 h-full w-full pointer-events-none border-0"
-                        allow="autoplay; encrypted-media"
-                        title={displayTitle}
-                      />
-                    ) : (
-                      /* Dark sleek video cover card - NO ORANGE GRADIENT */
-                      <div className="absolute inset-0 h-full w-full bg-slate-900 flex items-center justify-center transition-transform duration-500 group-hover:scale-105">
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-slate-900/70 to-black/40" />
-                        <div className="relative z-10 w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-lg border border-white/30 group-hover:bg-[#B3121B] transition-colors">
-                          <svg viewBox="0 0 24 24" className="w-6 h-6 text-white ml-0.5" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Bottom Title Container Box */}
-                    <div className="absolute bottom-2 inset-x-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs rounded-xl p-2.5 flex items-center justify-between shadow-lg border border-slate-100 dark:border-slate-800 z-10">
-                      <div className="flex flex-col min-w-0 flex-1 pr-1">
-                        <div className="flex items-center gap-1 mb-0.5">
-                          <ReelsBadgeIcon className="h-3 w-3 text-[#B3121B] shrink-0" />
-                        </div>
-                        <p className="text-[11px] sm:text-[12px] font-black leading-tight text-slate-900 dark:text-white line-clamp-2">
-                          {displayTitle || reel.heading}
-                        </p>
-                      </div>
-                      <span className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-full bg-[#B3121B] text-white shrink-0 ml-1 shadow-sm group-hover:scale-105 transition-transform">
-                        <span className="text-[12px] font-black leading-none">→</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {reels.map((reel) => (
+              <ReelCard
+                key={reel.id}
+                reel={reel}
+                language={language}
+                onReelClick={handleReelClick}
+              />
+            ))}
           </div>
         </div>
 
