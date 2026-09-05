@@ -160,12 +160,20 @@ router.put('/astrology/:id', requireAuth, async (req, res, next) => {
 // 13. E-Paper Management
 // ==========================================
 router.get('/epaper', requireAuth, EPaperController.getAdminEditions);
-router.post('/epaper', requireAuth, EPaperController.createEdition);
-router.put('/epaper/:id', requireAuth, EPaperController.updateEdition);
-router.delete('/epaper/:id', requireAuth, EPaperController.deleteEdition);
+router.get('/epaper/articles', requireAuth, EPaperController.getEpaperArticles);
+router.get('/epaper/eligible-articles', requireAuth, EPaperController.getEpaperEligibleArticles);
 router.get('/epaper/cities', requireAuth, EPaperController.getCities);
 router.post('/epaper/cities', requireAuth, EPaperController.createCity);
 router.delete('/epaper/cities/:id', requireAuth, EPaperController.deleteCity);
+router.post('/epaper/pages/:pageId/lock', requireAuth, EPaperController.togglePageLock);
+router.post('/epaper/placements', requireAuth, EPaperController.saveEditionPlacements);
+router.post('/epaper/save-placements', requireAuth, EPaperController.saveEditionPlacements);
+router.post('/epaper/seed', requireAuth, EPaperController.seedEpaperArticles);
+router.post('/epaper/seed-articles', requireAuth, EPaperController.seedEpaperArticles);
+router.get('/epaper/:id', requireAuth, EPaperController.getEditionDetails);
+router.post('/epaper', requireAuth, EPaperController.createEdition);
+router.put('/epaper/:id', requireAuth, EPaperController.updateEdition);
+router.delete('/epaper/:id', requireAuth, EPaperController.deleteEdition);
 
 // ==========================================
 // 14. Section Advertisements

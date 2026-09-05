@@ -42,6 +42,7 @@ function sanitizeSingleUrl(url?: string | null): string {
 // Public E-Paper routes
 router.get('/epaper', EPaperController.getPublicEditions);
 router.get('/epaper/cities', EPaperController.getCities);
+router.get('/epaper/:id', EPaperController.getPublicEditionDetail);
 
 /**
  * GET /api/public/ads
