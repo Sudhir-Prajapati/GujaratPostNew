@@ -67,17 +67,39 @@ html.modal-open, body.modal-open {
   height: 100vh !important;
 }
 
-/* Remove default browser window scrollbars completely */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+/* Modern, Sleek, Visible Scrollbars across all pages, modals, and lists */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-html, body {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(179, 18, 27, 0.7);
+}
+
+.dark *::-webkit-scrollbar-track,
+[data-theme="dark"] *::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark *::-webkit-scrollbar-thumb,
+[data-theme="dark"] *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.dark *::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(230, 83, 91, 0.85);
 }
 
 @custom-variant dark (&:where(.dark, [data-theme="dark"], .dark *, [data-theme="dark"] *));

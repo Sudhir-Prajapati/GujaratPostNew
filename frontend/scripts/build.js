@@ -23,11 +23,10 @@ const nextBin = path.join(realCwd, 'node_modules', 'next', 'dist', 'bin', 'next'
 
 const env = {
   ...process.env,
-  NODE_OPTIONS: `${process.env.NODE_OPTIONS || ''} --max-old-space-size=4096 --no-warnings`.trim(),
   NEXT_TELEMETRY_DISABLED: '1',
 };
 
-const result = spawnSync(process.execPath, [nextBin, 'build'], {
+const result = spawnSync(process.execPath, ['--max-old-space-size=4096', nextBin, 'build'], {
   cwd: realCwd,
   stdio: 'inherit',
   env,
