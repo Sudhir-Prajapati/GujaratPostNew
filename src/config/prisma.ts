@@ -6,8 +6,18 @@ declare global {
   var __prisma: PrismaClient | undefined;
 }
 
+// Clean any accidental quotes from hosting dashboard env entries
+if (process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^["']|["']$/g, '').trim();
+}
+
 function createPrismaClient(): PrismaClient {
+  const dbUrl = process.env.DATABASE_URL
+    ? process.env.DATABASE_URL.replace(/^["']|["']$/g, '').trim()
+    : undefined;
+
   return new PrismaClient({
+    datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
     errorFormat: 'minimal',
   });
