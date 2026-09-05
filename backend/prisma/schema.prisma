@@ -339,22 +339,87 @@ model Advertisement {
 }
 
 model EPaperEdition {
-  id           String   @id @default(uuid())
-  title        String   @default("City Edition")
+  id           String        @id @default(uuid())
+  title        String        @default("City Edition")
   city         String
   cityGu       String?
   cityHi       String?
   date         String
-  pages        Int      @default(24)
-  fileUrl      String   @db.Text
-  thumbnailUrl String?  @db.Text
-  status       String   @default("PUBLISHED")
-  publishTime  String?  @default("06:00 AM")
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  pages        Int           @default(14)
+  fileUrl      String        @db.Text
+  thumbnailUrl String?       @db.Text
+  status       String        @default("PUBLISHED") // DRAFT, EDITING, READY_FOR_REVIEW, APPROVED, PUBLISHED, ARCHIVED
+  publishTime  String?       @default("06:00 AM")
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  epaperPages  EPaperPage[]
 
   @@map("epaper_editions")
+}
+
+model EPaperPage {
+  id          String            @id @default(uuid())
+  editionId   String
+  edition     EPaperEdition     @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  pageNumber  Int
+  section     String            // front_page, local_city, state_gujarat, national_india, world_international, business_market, sports, technology, entertainment, lifestyle, education, jobs_career, editorial_opinion, photo_special
+  templateId  String            // FrontPageTemplate, LocalCityTemplate, etc.
+  enabled     Boolean           @default(true)
+  isLocked    Boolean           @default(false)
+  lockedBy    String?
+  lockedAt    DateTime?
+  pageTitle   String?
+  layoutData  String?           @db.Text // JSON for custom overrides, market data, weather data
+  placements  EPaperPlacement[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([editionId, pageNumber])
+  @@map("epaper_pages")
+}
+
+model EPaperArticle {
+  id               String            @id @default(uuid())
+  postId           String?           @unique
+  printHeadline    String?           @db.Text
+  printSubheadline String?           @db.Text
+  printSummary     String?           @db.Text
+  printImage       String?           @db.Text
+  photoCaption     String?           @db.Text
+  photoCredit      String?
+  printByline      String?
+  primarySection   String?
+  secondaryTags    String?           @db.Text // JSON array of tags
+  ePaperEligible   Boolean           @default(true)
+  targetEdition    String?           // e.g. "Ahmedabad", "Surat", "ALL"
+  allowDuplicate   Boolean           @default(false)
+  placements       EPaperPlacement[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("epaper_articles")
+}
+
+model EPaperPlacement {
+  id              String         @id @default(uuid())
+  pageId          String
+  page            EPaperPage     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  epaperArticleId String?
+  epaperArticle   EPaperArticle? @relation(fields: [epaperArticleId], references: [id], onDelete: SetNull)
+  postId          String?
+  slotId          String         // e.g. "lead", "secondary1", "secondary2", "standard1", etc.
+  position        String         @default("standard") // lead, secondary, standard, brief, spotlight
+  orderIndex      Int            @default(0)
+  displayType     String         @default("story") // story, photo_card, ticker, cartoon, column, scoreboard, calendar
+  priority        Int            @default(0)
+  manualOverride  Boolean        @default(false)
+  customData      String?        @db.Text // JSON for slot specific data e.g. scoreboard totals, cartoon quote
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([pageId, slotId])
+  @@map("epaper_placements")
 }
 
 model EPaperCity {

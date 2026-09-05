@@ -77,27 +77,24 @@ const bootstrap = async () => {
   try {
     // 1. Establish Redis connection
     await connectRedis();
-    if (redisClient.isOpen) {
-      console.log('Successfully connected to Redis database.');
-    } else {
-      console.warn('Redis is offline. Operating in database-only fallback mode.');
-    }
 
     // 2. Validate Prisma connection to MySQL
     await prisma.$connect().catch((dbErr) => {
       console.warn('MySQL initial connection warning (will retry automatically):', dbErr?.message || dbErr);
     });
-    console.log('Successfully connected to MySQL database via Prisma.');
+    console.log('✅ Successfully connected to MySQL database via Prisma.');
 
     // 3. Start listening
     const server = app.listen(Number(PORT), '0.0.0.0', () => {
-      console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
+      console.log(`🚀 Gujarat Post backend running at http://localhost:${PORT}`);
     });
+
     server.on('error', (err: any) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`\n⚠️  Port ${PORT} is already in use by another process.`);
-        console.error(`   Run this to fix it: taskkill /F /PID $(netstat -ano | findstr :${PORT} | awk '{print $5}' | head -1)`);
-        console.error(`   Or simply close the other terminal running the backend.\n`);
+        console.error(`\n⚠️  Port ${PORT} is already in use by an existing process.`);
+        console.error(`   To free port ${PORT} on Windows (PowerShell):`);
+        console.error(`   Get-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess | Stop-Process -Force`);
+        console.error(`   Or in CMD: taskkill /F /PID <PID>\n`);
         process.exit(1);
       } else {
         throw err;
@@ -107,7 +104,7 @@ const bootstrap = async () => {
     console.error('Bootstrap warning:', error);
     // Start listening anyway so backend stays online and nodemon never crashes
     app.listen(Number(PORT), '0.0.0.0', () => {
-      console.log(`Gujarat Post backend running on port http://localhost:${PORT}`);
+      console.log(`🚀 Gujarat Post backend running at http://localhost:${PORT}`);
     });
   }
 };

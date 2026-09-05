@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { formatEpaperPdfUrl, formatEpaperDownloadUrl, sanitizeImageUrl } from '@/lib/media';
+import { authFetch, getBackendApiUrl } from '@/lib/api';
 import {
   EPaperEdition,
   CityItem,
@@ -45,6 +46,11 @@ import {
   clearLegacyLocalStorage,
 } from '@/lib/epaper';
 
+interface Toast {
+  type: 'success' | 'error';
+  message: string;
+}
+
 const EPaperArticleGeneratorModal = dynamic(
   () => import('@/components/epaper/EPaperArticleGeneratorModal').then((mod) => mod.EPaperArticleGeneratorModal),
   { ssr: false }
@@ -52,9 +58,9 @@ const EPaperArticleGeneratorModal = dynamic(
 
 function formatDateLabel(dateStr: string): string {
   try {
-    const d = new Date(dateStr);
+    const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('gu-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   } catch {
     return dateStr;
   }
@@ -229,8 +235,9 @@ export default function AdminEPaperPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCityFilter, setSelectedCityFilter] = useState('ALL');
-  const [selectedDateFilter, setSelectedDateFilter] = useState(getTodayDateStr());
+  const [selectedDateFilter, setSelectedDateFilter] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [globalStats, setGlobalStats] = useState({ total: 0, published: 0, drafts: 0 });
   const [toast, setToast] = useState<Toast | null>(null);
 
   // Add/Edit Edition Modal
@@ -278,25 +285,32 @@ export default function AdminEPaperPage() {
     setTimeout(() => setToast(null), 4000);
   };
 
-
-
   // Load editions and cities from API
   const loadData = async () => {
     setLoading(true);
     clearLegacyLocalStorage();
 
-    const [fetchedEditions, fetchedCities] = await Promise.all([
+    const [fetchedEditions, allEditions, fetchedCities] = await Promise.all([
       fetchAdminEPapers({
         city: selectedCityFilter,
         date: selectedDateFilter,
         status: selectedStatusFilter,
         search,
       }),
+      fetchAdminEPapers(),
       fetchEPaperCities(),
     ]);
 
     setEditions(fetchedEditions);
     setCitiesList(fetchedCities);
+
+    if (allEditions && Array.isArray(allEditions)) {
+      setGlobalStats({
+        total: allEditions.length,
+        published: allEditions.filter((e) => e.status === 'PUBLISHED').length,
+        drafts: allEditions.filter((e) => e.status === 'DRAFT').length,
+      });
+    }
 
     if (fetchedCities.length > 0 && !city) {
       setCity(fetchedCities[0].city);
@@ -309,7 +323,7 @@ export default function AdminEPaperPage() {
 
   useEffect(() => {
     loadData();
-  }, [selectedCityFilter, selectedDateFilter, selectedStatusFilter]);
+  }, [selectedCityFilter, selectedDateFilter, selectedStatusFilter, search]);
 
   // Reader Modal state
   const [activeReaderEdition, setActiveReaderEdition] = useState<EPaperEdition | null>(null);
@@ -696,14 +710,7 @@ export default function AdminEPaperPage() {
     }
   };
 
-  const formatDateLabel = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('gu-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    } catch {
-      return dateStr;
-    }
-  };
+
 
   const todayStr = getTodayDateStr();
   const yesterdayStr = getDateOffsetStr(-1);
@@ -769,9 +776,9 @@ export default function AdminEPaperPage() {
       {/* Stats Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: 'Total Editions', value: editions.length, icon: Newspaper, color: 'text-[#B3121B]', bg: 'bg-[#B3121B]/10' },
-          { label: 'Published', value: editions.filter((e) => e.status === 'PUBLISHED').length, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-          { label: 'Drafts', value: editions.filter((e) => e.status === 'DRAFT').length, icon: FileCode, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+          { label: 'Total Editions', value: globalStats.total, icon: Newspaper, color: 'text-[#B3121B]', bg: 'bg-[#B3121B]/10' },
+          { label: 'Published', value: globalStats.published, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+          { label: 'Drafts', value: globalStats.drafts, icon: FileCode, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/20' },
           { label: 'Cities', value: citiesList.length, icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
         ].map((stat) => (
           <div key={stat.label} className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 flex items-center gap-3 shadow-sm">
@@ -895,7 +902,13 @@ export default function AdminEPaperPage() {
             કોઈ ઈ-પેપર મળ્યું નથી (No Newspaper Edition Found)
           </h3>
           <p className="text-xs text-zinc-500 mt-1 max-w-md mx-auto">
-            No edition found for <strong className="text-zinc-800 dark:text-zinc-200">{selectedCityFilter}</strong> on date <strong className="text-zinc-800 dark:text-zinc-200">{selectedDateFilter}</strong>.
+            {selectedDateFilter !== 'ALL' || selectedCityFilter !== 'ALL' || selectedStatusFilter !== 'ALL' || search ? (
+              <>
+                No edition found for <strong className="text-zinc-800 dark:text-zinc-200">{selectedCityFilter}</strong> on date <strong className="text-zinc-800 dark:text-zinc-200">{selectedDateFilter}</strong>.
+              </>
+            ) : (
+              'No newspaper editions uploaded yet. Click below to add your first edition.'
+            )}
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mt-6">
@@ -904,8 +917,21 @@ export default function AdminEPaperPage() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#B3121B] text-white text-xs font-black hover:bg-[#8e0e15] transition shadow-md cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              Add Newspaper Edition for {selectedCityFilter !== 'ALL' ? selectedCityFilter : 'Selected City'}
+              Add Newspaper Edition {selectedCityFilter !== 'ALL' ? `for ${selectedCityFilter}` : ''}
             </button>
+            {(selectedDateFilter !== 'ALL' || selectedCityFilter !== 'ALL' || selectedStatusFilter !== 'ALL' || search) && (
+              <button
+                onClick={() => {
+                  setSelectedDateFilter('ALL');
+                  setSelectedCityFilter('ALL');
+                  setSelectedStatusFilter('ALL');
+                  setSearch('');
+                }}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-800 text-white text-xs font-black hover:bg-zinc-900 transition shadow-md cursor-pointer"
+              >
+                View All Editions (તમામ અંક જુઓ)
+              </button>
+            )}
           </div>
         </div>
       ) : (

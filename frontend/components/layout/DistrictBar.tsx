@@ -76,14 +76,13 @@ export default function DistrictBar() {
         </div>
 
         {/* Scrollable list of Districts */}
-        <div className="flex-1 overflow-x-auto scrollbar-none">
+        <div className="flex-1 overflow-x-auto smooth-scroll-container">
           <div className="flex items-center gap-6 py-0.5 pr-4">
-            
             {displayList.map((item) => (
               <Link
                 key={`${item.slug}-${language}`}
                 href={`/category/${item.slug}`}
-                className="text-[15px] md:text-[16px] font-extrabold text-foreground hover:text-[#B3121B] transition-colors duration-150 whitespace-nowrap"
+                className="text-[15px] md:text-[16px] font-extrabold text-foreground hover:text-[#B3121B] transition-colors duration-200 whitespace-nowrap hover:scale-105 transform origin-left"
               >
                 {item.label}
               </Link>

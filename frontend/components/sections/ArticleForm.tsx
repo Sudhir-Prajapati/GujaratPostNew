@@ -349,6 +349,18 @@ interface ExtraDescriptionSlot {
   const [priority, setPriority] = useState(0);
   const [readingTime, setReadingTime] = useState(3);
 
+  // E-Paper Broadsheet Print Version Settings
+  const [ePaperEligible, setEPaperEligible] = useState(true);
+  const [ePaperEdition, setEPaperEdition] = useState('All');
+  const [primarySection, setPrimarySection] = useState('auto');
+  const [ePaperPosition, setEPaperPosition] = useState<'lead' | 'secondary' | 'standard' | 'brief'>('standard');
+  const [printHeadline, setPrintHeadline] = useState('');
+  const [printSubheadline, setPrintSubheadline] = useState('');
+  const [printSummary, setPrintSummary] = useState('');
+  const [photoCredit, setPhotoCredit] = useState('');
+  const [byline, setByline] = useState('');
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
+
   // Social Media & Video / PDF Embeds
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [twitterUrl, setTwitterUrl] = useState('');
@@ -900,6 +912,20 @@ interface ExtraDescriptionSlot {
         setCanonicalUrl(art.canonicalUrl || '');
         setMetaRobots(art.metaRobots || 'index, follow');
 
+        // E-Paper Print Fields
+        setPrintHeadline(art.printHeadline || '');
+        setPrintSubheadline(art.printSubheadline || '');
+        setPrintSummary(art.printSummary || '');
+        setPhotoCredit(art.photoCredit || '');
+        setByline(art.byline || '');
+        setAllowDuplicate(Boolean(art.allowDuplicate));
+        setPrimarySection(art.primarySection || 'auto');
+        setEPaperPosition(art.ePaperPosition || 'standard');
+        setEPaperEdition(art.ePaperEdition || 'All');
+        if (art.ePaperEligible !== undefined) {
+          setEPaperEligible(Boolean(art.ePaperEligible));
+        }
+
         if (art.tags && art.tags.length > 0) {
           const names = art.tags
             .map((t: any) => (t.tag?.name || t.name || '').trim())
@@ -1120,6 +1146,16 @@ interface ExtraDescriptionSlot {
       seoKeywords: seoKeywords.trim() || undefined,
       canonicalUrl: canonicalUrl.trim() || undefined,
       metaRobots: metaRobots.trim() || undefined,
+      printHeadline: printHeadline.trim() || undefined,
+      printSubheadline: printSubheadline.trim() || undefined,
+      printSummary: printSummary.trim() || undefined,
+      photoCredit: photoCredit.trim() || undefined,
+      byline: byline.trim() || undefined,
+      primarySection: primarySection !== 'auto' ? primarySection : undefined,
+      ePaperPosition,
+      ePaperEdition,
+      ePaperEligible,
+      allowDuplicate,
       tags,
     };
 
@@ -2460,6 +2496,180 @@ const SEO_TOPIC_DICTIONARY: Array<{ patterns: RegExp[]; tags: string[]; keywords
               )}
             </div>
           </div>
+        </div>
+
+        {/* 📰 DISTINCT SECTION: E-Paper Broadsheet (Print Version) Settings */}
+        <div className="rounded-2xl border border-red-200 bg-red-50/30 p-5 dark:border-red-950/50 dark:bg-red-950/20 space-y-4">
+          <div className="flex items-center justify-between border-b border-red-200/80 pb-3 dark:border-red-900/50">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#B3121B] text-white font-extrabold text-sm shadow-xs">
+                📰
+              </span>
+              <div>
+                <h3 className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-wider">
+                  E-Paper Broadsheet (Print Version) Settings
+                </h3>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Configure how this article is formatted and prioritized in the daily E-Paper PDF edition.
+                </p>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={ePaperEligible}
+                onChange={(e) => setEPaperEligible(e.target.checked)}
+                className="h-4 w-4 rounded text-red-600 focus:ring-red-500"
+              />
+              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Include in E-Paper</span>
+            </label>
+          </div>
+
+          {ePaperEligible && (
+            <div className="space-y-4 pt-1">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">Target Edition City</label>
+                  <select
+                    value={ePaperEdition}
+                    onChange={(e) => setEPaperEdition(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="All">All Editions (સર્વ આવૃત્તિઓ)</option>
+                    <option value="Ahmedabad">Ahmedabad (અમદાવાદ)</option>
+                    <option value="Surat">Surat (સુરત)</option>
+                    <option value="Rajkot">Rajkot (રાજકોટ)</option>
+                    <option value="Vadodara">Vadodara (વડોદરા)</option>
+                    <option value="Jamnagar">Jamnagar (જામનગર)</option>
+                    <option value="Gandhinagar">Gandhinagar (ગાંધીનગર)</option>
+                    <option value="Bhavnagar">Bhavnagar (ભાવનગર)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">Primary Broadsheet Section</label>
+                  <select
+                    value={primarySection}
+                    onChange={(e) => setPrimarySection(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="auto">Auto-Detect from Category</option>
+                    <option value="front_page">Page 1: Front Page (મુખ્ય સમાચાર)</option>
+                    <option value="local_city">Page 2: Local City (સ્થાનિક શહેર)</option>
+                    <option value="state_gujarat">Page 3: Gujarat State (ગુજરાત રાજ્ય)</option>
+                    <option value="national_india">Page 4: National (ભારત / રાષ્ટ્રીય)</option>
+                    <option value="world_international">Page 5: World (વિશ્વ સમાચાર)</option>
+                    <option value="business_market">Page 6: Business (બિઝનેસ & અર્થતંત્ર)</option>
+                    <option value="sports">Page 7: Sports (રમતગમત)</option>
+                    <option value="technology">Page 8: Technology (ટેક & વિજ્ઞાન)</option>
+                    <option value="entertainment">Page 9: Entertainment (મનોરંજન & સિનેમા)</option>
+                    <option value="lifestyle">Page 10: Lifestyle (લાઇફસ્ટાઇલ & આરોગ્ય)</option>
+                    <option value="education">Page 11: Education (શિક્ષણ વિશેષ)</option>
+                    <option value="jobs_career">Page 12: Jobs (નોકરી & કારકિર્દી)</option>
+                    <option value="editorial_opinion">Page 13: Editorial (અભિપ્રાય & તંત્રીલેખ)</option>
+                    <option value="photo_special">Page 14: Photo Special (આજના ખાસ ફોટા)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">Slot Position Priority</label>
+                  <select
+                    value={ePaperPosition}
+                    onChange={(e) => setEPaperPosition(e.target.value as any)}
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <option value="lead">👑 Lead Hero Slot (મુખ્ય સમાચાર)</option>
+                    <option value="secondary">📰 Secondary Feature (દ્વિતીય)</option>
+                    <option value="standard">📑 Standard Editorial (સામાન્ય)</option>
+                    <option value="brief">📌 Brief / Spotlight (સંક્ષિપ્ત)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Print Headline (Short & Punchy 2-Line Headline)
+                  </label>
+                  <input
+                    type="text"
+                    value={printHeadline}
+                    onChange={(e) => setPrintHeadline(e.target.value)}
+                    placeholder="Short, impactful newspaper headline for broadsheet..."
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Print Subheadline / Kicker (Newspaper Kicker)
+                  </label>
+                  <input
+                    type="text"
+                    value={printSubheadline}
+                    onChange={(e) => setPrintSubheadline(e.target.value)}
+                    placeholder="Optional subheadline / kicker above or below headline..."
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Photo Credit (Print Photography Credit)
+                  </label>
+                  <input
+                    type="text"
+                    value={photoCredit}
+                    onChange={(e) => setPhotoCredit(e.target.value)}
+                    placeholder="e.g. તસવીર: અમિત દેસાઈ - ગુજરાત પોસ્ટ"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Print Byline (Reporter / Special Desk)
+                  </label>
+                  <input
+                    type="text"
+                    value={byline}
+                    onChange={(e) => setByline(e.target.value)}
+                    placeholder="e.g. વિશેષ સંવાદદાતા • ગાંધીનગર"
+                    className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Print Summary (Concise 3-5 Line Justified Broadsheet Summary)
+                </label>
+                <textarea
+                  rows={3}
+                  value={printSummary}
+                  onChange={(e) => setPrintSummary(e.target.value)}
+                  placeholder="Concise 3-5 line broadsheet summary with essential facts and justified editorial formatting..."
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-medium focus:outline-none dark:border-zinc-800 dark:bg-zinc-900"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allowDuplicate}
+                    onChange={(e) => setAllowDuplicate(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    Allow cross-page duplication (Permit story to appear on both Front Page & Section Page)
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* LINE 7: SEO Details & Publication Status */}

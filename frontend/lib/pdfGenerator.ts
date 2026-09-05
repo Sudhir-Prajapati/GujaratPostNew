@@ -18,11 +18,12 @@ export async function generateEPaperPdfFromElements(
     throw new Error('No page elements provided for PDF generation.');
   }
 
-  // Dynamic import on-demand so jspdf and html2canvas do not consume memory during initial load or dev compilation
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+  // Dynamic import on-demand so jspdf and html2canvas-pro do not consume memory during initial load or dev compilation
+  const [{ default: jsPDF }, html2canvasModule] = await Promise.all([
     import('jspdf'),
-    import('html2canvas'),
+    import('html2canvas-pro').catch(() => import('html2canvas')),
   ]);
+  const html2canvas = html2canvasModule.default || html2canvasModule;
 
   const totalPages = elements.length;
   // Standard A4 portrait in mm: 210mm x 297mm
@@ -36,6 +37,16 @@ export async function generateEPaperPdfFromElements(
   const pdfWidth = 210;
   const pdfHeight = 297;
   let firstPageThumbnail = '';
+
+  const sanitizeColorFunctions = (str: string): string => {
+    return str
+      .replace(/oklab\([^)]+\)/gi, '#1e293b')
+      .replace(/oklch\([^)]+\)/gi, '#1e293b')
+      .replace(/color-mix\([^)]+\)/gi, '#1e293b')
+      .replace(/lab\([^)]+\)/gi, '#1e293b')
+      .replace(/hwb\([^)]+\)/gi, '#1e293b')
+      .replace(/color\(display-p3[^)]+\)/gi, '#1e293b');
+  };
 
   for (let i = 0; i < totalPages; i++) {
     const el = elements[i];
@@ -60,21 +71,21 @@ export async function generateEPaperPdfFromElements(
       windowWidth: el.scrollWidth || 794,
       windowHeight: el.scrollHeight || 1123,
       onclone: (clonedDoc: Document) => {
-        // Strip or convert any oklch(...) colors in cloned styles so html2canvas doesn't fail
+        // Strip or convert any oklab/oklch/modern colors in cloned styles so html2canvas doesn't fail
         const styleTags = clonedDoc.querySelectorAll('style');
         styleTags.forEach((tag) => {
-          if (tag.textContent && tag.textContent.includes('oklch')) {
-            tag.textContent = tag.textContent.replace(/oklch\([^)]+\)/gi, '#1e293b');
+          if (tag.textContent) {
+            tag.textContent = sanitizeColorFunctions(tag.textContent);
           }
         });
 
-        // Also clean any inline styles
+        // Also clean any inline styles on all elements
         const elementsWithStyle = clonedDoc.querySelectorAll('[style]');
         elementsWithStyle.forEach((node) => {
           const htmlNode = node as HTMLElement;
-          const styleAttr = htmlNode.getAttribute('style') || '';
-          if (styleAttr.includes('oklch')) {
-            htmlNode.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/gi, '#1e293b'));
+          const styleAttr = htmlNode.getAttribute('style');
+          if (styleAttr) {
+            htmlNode.setAttribute('style', sanitizeColorFunctions(styleAttr));
           }
         });
       },

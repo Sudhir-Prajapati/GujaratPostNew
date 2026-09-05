@@ -29,7 +29,6 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   experimental: {
-    cpus: 1,
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-dialog',
@@ -39,11 +38,15 @@ const nextConfig: NextConfig = {
     ],
   },
   turbopack: {},
+
+  onDemandEntries: {
+    maxInactiveAge: 15 * 1000,
+    pagesBufferLength: 2,
+  },
   webpack: (config, { dev }) => {
     if (dev) {
-      config.cache = {
-        type: 'memory',
-      };
+      // Disable memory-heavy packfile caching to prevent V8/OS allocation failures
+      config.cache = false;
     }
     return config;
   },

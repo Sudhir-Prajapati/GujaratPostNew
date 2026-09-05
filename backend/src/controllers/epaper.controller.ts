@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/prisma.js';
 import { sendSuccess } from '../utils/response.js';
-
 import { randomUUID } from 'crypto';
+import { seedEpaperArticlesData } from '../scripts/seedEpaperData.js';
 
 function sanitizePdfUrl(url?: string | null): string {
   if (!url) return '';
@@ -23,9 +23,10 @@ function sanitizeThumbUrl(url?: string | null): string {
 }
 
 let epaperTablesEnsured = false;
-async function ensureEPaperTablesExist() {
+export async function ensureEPaperTablesExist() {
   if (epaperTablesEnsured) return;
   try {
+    // 1. Editions table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS \`epaper_editions\` (
         \`id\` VARCHAR(191) NOT NULL,
@@ -34,7 +35,7 @@ async function ensureEPaperTablesExist() {
         \`cityGu\` VARCHAR(255) NULL,
         \`cityHi\` VARCHAR(255) NULL,
         \`date\` VARCHAR(50) NOT NULL,
-        \`pages\` INT NOT NULL DEFAULT 24,
+        \`pages\` INT NOT NULL DEFAULT 14,
         \`fileUrl\` LONGTEXT NOT NULL,
         \`thumbnailUrl\` LONGTEXT NULL,
         \`status\` VARCHAR(50) NOT NULL DEFAULT 'PUBLISHED',
@@ -54,6 +55,7 @@ async function ensureEPaperTablesExist() {
       await prisma.$executeRawUnsafe(`ALTER TABLE \`epaper_editions\` MODIFY COLUMN \`fileUrl\` LONGTEXT NOT NULL`);
     } catch (_) {}
 
+    // 2. Cities table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS \`epaper_cities\` (
         \`id\` VARCHAR(191) NOT NULL,
@@ -62,9 +64,98 @@ async function ensureEPaperTablesExist() {
         \`cityHi\` VARCHAR(255) NULL,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-        PRIMARY KEY (\`id\`)
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`epaper_cities_city_key\` (\`city\`)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
+    // 3. Pages table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`epaper_pages\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`editionId\` VARCHAR(191) NOT NULL,
+        \`pageNumber\` INT NOT NULL,
+        \`section\` VARCHAR(100) NOT NULL,
+        \`templateId\` VARCHAR(100) NOT NULL,
+        \`enabled\` TINYINT(1) NOT NULL DEFAULT 1,
+        \`isLocked\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`lockedBy\` VARCHAR(255) NULL,
+        \`lockedAt\` DATETIME(3) NULL,
+        \`pageTitle\` VARCHAR(255) NULL,
+        \`layoutData\` LONGTEXT NULL,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        INDEX \`idx_edition_page\` (\`editionId\`, \`pageNumber\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 4. Articles (print-specific model)
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`epaper_articles\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`postId\` VARCHAR(191) NULL,
+        \`printHeadline\` TEXT NULL,
+        \`printSubheadline\` TEXT NULL,
+        \`printSummary\` LONGTEXT NULL,
+        \`printImage\` LONGTEXT NULL,
+        \`photoCaption\` TEXT NULL,
+        \`photoCredit\` VARCHAR(255) NULL,
+        \`printByline\` VARCHAR(255) NULL,
+        \`primarySection\` VARCHAR(100) NULL,
+        \`secondaryTags\` LONGTEXT NULL,
+        \`ePaperEligible\` TINYINT(1) NOT NULL DEFAULT 1,
+        \`targetEdition\` VARCHAR(100) NULL,
+        \`allowDuplicate\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        UNIQUE INDEX \`epaper_articles_postId_key\` (\`postId\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 5. Placements table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS \`epaper_placements\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`pageId\` VARCHAR(191) NOT NULL,
+        \`epaperArticleId\` VARCHAR(191) NULL,
+        \`postId\` VARCHAR(191) NULL,
+        \`slotId\` VARCHAR(100) NOT NULL,
+        \`position\` VARCHAR(50) NOT NULL DEFAULT 'standard',
+        \`orderIndex\` INT NOT NULL DEFAULT 0,
+        \`displayType\` VARCHAR(50) NOT NULL DEFAULT 'story',
+        \`priority\` INT NOT NULL DEFAULT 0,
+        \`manualOverride\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`customData\` LONGTEXT NULL,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        \`updatedAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`),
+        INDEX \`idx_page_slot\` (\`pageId\`, \`slotId\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    // 6. Safe column enhancements to posts table for print version support
+    const postColumns = [
+      { name: 'printHeadline', def: 'TEXT NULL' },
+      { name: 'printSubheadline', def: 'TEXT NULL' },
+      { name: 'printSummary', def: 'LONGTEXT NULL' },
+      { name: 'printImage', def: 'LONGTEXT NULL' },
+      { name: 'photoCaption', def: 'TEXT NULL' },
+      { name: 'photoCredit', def: 'VARCHAR(255) NULL' },
+      { name: 'byline', def: 'VARCHAR(255) NULL' },
+      { name: 'primarySection', def: 'VARCHAR(100) NULL' },
+      { name: 'ePaperEligible', def: 'TINYINT(1) NOT NULL DEFAULT 1' },
+      { name: 'targetEdition', def: 'VARCHAR(100) NULL' },
+      { name: 'allowDuplicate', def: 'TINYINT(1) NOT NULL DEFAULT 0' },
+    ];
+
+    for (const col of postColumns) {
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE \`posts\` ADD COLUMN \`${col.name}\` ${col.def}`);
+      } catch (_) {}
+    }
+
     epaperTablesEnsured = true;
   } catch (err) {
     console.warn('ePaper tables ensure warning:', err);
@@ -135,6 +226,40 @@ export class EPaperController {
     }
   }
 
+  // Public: Get detailed edition by ID (including page data and placements)
+  static async getPublicEditionDetail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      await ensureEPaperTablesExist();
+
+      const editionRows = (await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`epaper_editions\` WHERE \`id\` = ? AND \`isActive\` = 1 LIMIT 1`,
+        id
+      ) as any[]) || [];
+
+      if (!editionRows || editionRows.length === 0) {
+        return res.status(404).json({ success: false, error: 'E-Paper Edition not found' });
+      }
+
+      const edition = editionRows[0];
+      const pages = (await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`epaper_pages\` WHERE \`editionId\` = ? AND \`enabled\` = 1 ORDER BY \`pageNumber\` ASC`,
+        id
+      ).catch(() => [])) as any[];
+
+      return sendSuccess(res, {
+        edition: {
+          ...edition,
+          fileUrl: sanitizePdfUrl(edition.fileUrl),
+          thumbnailUrl: sanitizeThumbUrl(edition.thumbnailUrl),
+          pages,
+        },
+      }, 'Edition detail fetched successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Admin: Get all epapers (Drafts & Published)
   static async getAdminEditions(req: Request, res: Response, next: NextFunction) {
     try {
@@ -146,9 +271,35 @@ export class EPaperController {
 
       if (delegate) {
         const whereClause: any = {};
-        if (city && city !== 'ALL') whereClause.city = String(city);
+        if (city && city !== 'ALL') {
+          const cityStr = String(city).trim();
+          whereClause.OR = [
+            { city: { equals: cityStr } },
+            { city: { contains: cityStr } },
+            { cityGu: { equals: cityStr } },
+            { cityGu: { contains: cityStr } },
+          ];
+        }
         if (date && date !== 'ALL') whereClause.date = String(date);
         if (status && status !== 'ALL') whereClause.status = String(status);
+        if (search) {
+          const searchStr = String(search).trim();
+          const searchConditions = [
+            { title: { contains: searchStr } },
+            { city: { contains: searchStr } },
+            { cityGu: { contains: searchStr } },
+            { date: { contains: searchStr } },
+          ];
+          if (whereClause.OR) {
+            whereClause.AND = [
+              { OR: whereClause.OR },
+              { OR: searchConditions },
+            ];
+            delete whereClause.OR;
+          } else {
+            whereClause.OR = searchConditions;
+          }
+        }
         editions = await delegate.findMany({
           where: whereClause,
           orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
@@ -159,8 +310,8 @@ export class EPaperController {
         let sql = `SELECT * FROM \`epaper_editions\` WHERE 1=1`;
         const params: any[] = [];
         if (city && city !== 'ALL') {
-          sql += ` AND \`city\` = ?`;
-          params.push(String(city));
+          sql += ` AND (\`city\` LIKE ? OR \`cityGu\` LIKE ?)`;
+          params.push(`%${city}%`, `%${city}%`);
         }
         if (date && date !== 'ALL') {
           sql += ` AND \`date\` = ?`;
@@ -169,6 +320,10 @@ export class EPaperController {
         if (status && status !== 'ALL') {
           sql += ` AND \`status\` = ?`;
           params.push(String(status));
+        }
+        if (search) {
+          sql += ` AND (\`title\` LIKE ? OR \`city\` LIKE ? OR \`cityGu\` LIKE ? OR \`date\` LIKE ?)`;
+          params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
         }
         sql += ` ORDER BY \`date\` DESC, \`createdAt\` DESC`;
         try {
@@ -189,82 +344,202 @@ export class EPaperController {
     }
   }
 
-  // Admin: Create or Upsert E-Paper edition
+  // Admin: Get edition detail with pages and placements for Composer
+  static async getEditionDetails(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { id } = req.params;
+      await ensureEPaperTablesExist();
+
+      const editionRows = (await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`epaper_editions\` WHERE \`id\` = ? LIMIT 1`,
+        id
+      ) as any[]) || [];
+
+      if (!editionRows || editionRows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Edition not found' });
+      }
+
+      const edition = editionRows[0];
+      const pages = (await prisma.$queryRawUnsafe(
+        `SELECT * FROM \`epaper_pages\` WHERE \`editionId\` = ? ORDER BY \`pageNumber\` ASC`,
+        id
+      ) as any[]) || [];
+
+      // Populate placements for each page
+      const populatedPages = await Promise.all(
+        pages.map(async (page) => {
+          const placements = (await prisma.$queryRawUnsafe(
+            `SELECT p.*, a.printHeadline, a.printSubheadline, a.printSummary, a.printImage, a.photoCaption, a.photoCredit, a.printByline, a.primarySection
+             FROM \`epaper_placements\` p
+             LEFT JOIN \`epaper_articles\` a ON p.epaperArticleId = a.id
+             WHERE p.pageId = ?
+             ORDER BY p.orderIndex ASC`,
+            page.id
+          ).catch(() => [])) as any[];
+
+          let layoutParsed = null;
+          try {
+            if (page.layoutData) layoutParsed = JSON.parse(page.layoutData);
+          } catch (_) {}
+
+          return {
+            ...page,
+            layoutData: layoutParsed,
+            placements,
+          };
+        })
+      );
+
+      return sendSuccess(res, {
+        edition: {
+          ...edition,
+          pages: populatedPages,
+        },
+      }, 'Edition details fetched successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: Batch Save Edition Placements, Pages and Print Overrides
+  static async saveEditionPlacements(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { editionId, pages } = req.body;
+      if (!editionId || !Array.isArray(pages)) {
+        return res.status(400).json({ success: false, error: 'editionId and pages array are required' });
+      }
+
+      await ensureEPaperTablesExist();
+
+      for (const p of pages) {
+        const pageId = p.id || randomUUID();
+        const pageNum = Number(p.pageNumber) || 1;
+        const section = String(p.sectionKey || p.section || 'front_page');
+        const templateId = String(p.templateId || 'FrontPageTemplate');
+        const enabled = p.enabled !== false ? 1 : 0;
+        const isLocked = p.isLocked ? 1 : 0;
+        const pageTitle = p.pageTitle ? String(p.pageTitle) : null;
+        const layoutDataStr = p.layoutData ? (typeof p.layoutData === 'string' ? p.layoutData : JSON.stringify(p.layoutData)) : null;
+
+        // Upsert Page
+        await prisma.$executeRawUnsafe(
+          `INSERT INTO \`epaper_pages\` (\`id\`, \`editionId\`, \`pageNumber\`, \`section\`, \`templateId\`, \`enabled\`, \`isLocked\`, \`pageTitle\`, \`layoutData\`, \`createdAt\`, \`updatedAt\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+           ON DUPLICATE KEY UPDATE \`section\`=?, \`templateId\`=?, \`enabled\`=?, \`isLocked\`=?, \`pageTitle\`=?, \`layoutData\`=?, \`updatedAt\`=NOW()`,
+          pageId, editionId, pageNum, section, templateId, enabled, isLocked, pageTitle, layoutDataStr,
+          section, templateId, enabled, isLocked, pageTitle, layoutDataStr
+        );
+
+        // If placements are provided, replace them for this page
+        if (Array.isArray(p.placements)) {
+          await prisma.$executeRawUnsafe(`DELETE FROM \`epaper_placements\` WHERE \`pageId\` = ?`, pageId).catch(() => null);
+
+          for (let i = 0; i < p.placements.length; i++) {
+            const plc = p.placements[i];
+            const placementId = plc.id || randomUUID();
+            const slotId = String(plc.slotId || `slot_${i}`);
+            const position = String(plc.position || 'standard');
+            const orderIndex = Number(plc.orderIndex ?? i);
+            const displayType = String(plc.displayType || 'story');
+            const priority = Number(plc.priority || 0);
+            const manualOverride = plc.manualOverride ? 1 : 0;
+            const customDataStr = plc.customData ? (typeof plc.customData === 'string' ? plc.customData : JSON.stringify(plc.customData)) : null;
+            const postId = plc.postId || null;
+            let epaperArticleId = plc.epaperArticleId || null;
+
+            // If print overrides are provided for this article, create/update epaper_articles
+            if (postId || plc.printHeadline || plc.printSummary) {
+              if (!epaperArticleId) epaperArticleId = randomUUID();
+              await prisma.$executeRawUnsafe(
+                `INSERT INTO \`epaper_articles\` (\`id\`, \`postId\`, \`printHeadline\`, \`printSubheadline\`, \`printSummary\`, \`printImage\`, \`photoCaption\`, \`photoCredit\`, \`printByline\`, \`primarySection\`, \`allowDuplicate\`, \`createdAt\`, \`updatedAt\`)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                 ON DUPLICATE KEY UPDATE \`printHeadline\`=COALESCE(?, \`printHeadline\`), \`printSubheadline\`=COALESCE(?, \`printSubheadline\`), \`printSummary\`=COALESCE(?, \`printSummary\`), \`photoCredit\`=COALESCE(?, \`photoCredit\`), \`printByline\`=COALESCE(?, \`printByline\`), \`updatedAt\`=NOW()`,
+                epaperArticleId, postId, plc.printHeadline || null, plc.printSubheadline || null, plc.printSummary || null, plc.printImage || null, plc.photoCaption || null, plc.photoCredit || null, plc.printByline || plc.byline || null, plc.primarySection || null, plc.allowDuplicate ? 1 : 0,
+                plc.printHeadline || null, plc.printSubheadline || null, plc.printSummary || null, plc.photoCredit || null, plc.printByline || plc.byline || null
+              ).catch(() => null);
+            }
+
+            await prisma.$executeRawUnsafe(
+              `INSERT INTO \`epaper_placements\` (\`id\`, \`pageId\`, \`epaperArticleId\`, \`postId\`, \`slotId\`, \`position\`, \`orderIndex\`, \`displayType\`, \`priority\`, \`manualOverride\`, \`customData\`, \`createdAt\`, \`updatedAt\`)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              placementId, pageId, epaperArticleId, postId, slotId, position, orderIndex, displayType, priority, manualOverride, customDataStr
+            ).catch((e) => console.warn('Insert placement warning:', e));
+          }
+        }
+      }
+
+      return sendSuccess(res, { editionId, savedPagesCount: pages.length }, 'Placements saved successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: Create or Upsert E-Paper edition with optional pages & placements
   static async createEdition(req: Request, res: Response, next: NextFunction) {
     try {
-      const { title, city, cityGu, date, pages, fileUrl, thumbnailUrl, status, publishTime, isActive } = req.body;
+      const {
+        title,
+        city,
+        cityGu,
+        date,
+        pages = 14,
+        fileUrl = '',
+        thumbnailUrl = '',
+        status = 'PUBLISHED',
+        publishTime = '06:00 AM',
+        isActive = true,
+        pagesData,
+      } = req.body;
 
       if (!city || !date) {
         return res.status(400).json({ success: false, error: 'City and Date are required' });
       }
 
-      const finalTitle = String(title || '').trim() || `${city} Edition`;
-      const delegate = await getEPaperDelegate();
-
-      if (delegate) {
-        try {
-          let existing = await delegate.findFirst({
-            where: { city: String(city), date: String(date), title: finalTitle },
-          });
-
-          let edition;
-          if (existing) {
-            edition = await delegate.update({
-              where: { id: existing.id },
-              data: {
-                title: finalTitle,
-                city: String(city),
-                cityGu: cityGu ? String(cityGu) : String(city),
-                date: String(date),
-                pages: Number(pages) || existing.pages || 24,
-                fileUrl: fileUrl ? String(fileUrl) : existing.fileUrl,
-                thumbnailUrl: thumbnailUrl ? String(thumbnailUrl) : existing.thumbnailUrl,
-                status: status ? String(status) : 'PUBLISHED',
-                publishTime: publishTime ? String(publishTime) : '06:00 AM',
-                isActive: isActive !== undefined ? Boolean(isActive) : true,
-              },
-            });
-          } else {
-            edition = await delegate.create({
-              data: {
-                title: finalTitle,
-                city: String(city),
-                cityGu: cityGu ? String(cityGu) : String(city),
-                date: String(date),
-                pages: Number(pages) || 24,
-                fileUrl: String(fileUrl || ''),
-                thumbnailUrl: String(thumbnailUrl || ''),
-                status: status ? String(status) : 'PUBLISHED',
-                publishTime: publishTime ? String(publishTime) : '06:00 AM',
-                isActive: isActive !== undefined ? Boolean(isActive) : true,
-              },
-            });
-          }
-          return sendSuccess(res, { edition }, 'E-Paper edition saved successfully');
-        } catch (delegateErr) {
-          console.warn('Prisma delegate save warning, falling back to raw SQL:', delegateErr);
-        }
-      }
-
-      // Direct MySQL raw query fallback
       await ensureEPaperTablesExist();
+      const finalTitle = String(title || '').trim() || `${city} Edition`;
+
+      // Check existing edition
       const existingRows: any[] = await prisma.$queryRawUnsafe(
         `SELECT * FROM \`epaper_editions\` WHERE \`city\` = ? AND \`date\` = ? AND \`title\` = ? LIMIT 1`,
         String(city), String(date), finalTitle
       );
 
       let editionId = randomUUID();
+      const pageCount = Array.isArray(pagesData) ? pagesData.length : Number(pages) || 14;
+
       if (existingRows && existingRows.length > 0) {
         editionId = existingRows[0].id;
         await prisma.$executeRawUnsafe(
           `UPDATE \`epaper_editions\` SET \`title\`=?, \`city\`=?, \`cityGu\`=?, \`date\`=?, \`pages\`=?, \`fileUrl\`=?, \`thumbnailUrl\`=?, \`status\`=?, \`publishTime\`=?, \`isActive\`=?, \`updatedAt\`=NOW() WHERE \`id\`=?`,
-          finalTitle, String(city), String(cityGu || city), String(date), Number(pages) || 24, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0, editionId
+          finalTitle, String(city), String(cityGu || city), String(date), pageCount, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0, editionId
         );
       } else {
         await prisma.$executeRawUnsafe(
           `INSERT INTO \`epaper_editions\` (\`id\`, \`title\`, \`city\`, \`cityGu\`, \`date\`, \`pages\`, \`fileUrl\`, \`thumbnailUrl\`, \`status\`, \`publishTime\`, \`isActive\`, \`createdAt\`, \`updatedAt\`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-          editionId, finalTitle, String(city), String(cityGu || city), String(date), Number(pages) || 24, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0
+          editionId, finalTitle, String(city), String(cityGu || city), String(date), pageCount, String(fileUrl || ''), String(thumbnailUrl || ''), String(status || 'PUBLISHED'), String(publishTime || '06:00 AM'), isActive !== false ? 1 : 0
         );
+      }
+
+      // Save individual page configurations if provided
+      if (Array.isArray(pagesData) && pagesData.length > 0) {
+        for (const p of pagesData) {
+          const pageId = p.id || randomUUID();
+          const pageNum = Number(p.pageNumber) || 1;
+          const section = String(p.sectionKey || p.section || 'general');
+          const templateId = String(p.templateId || 'FrontPageTemplate');
+          const enabled = p.enabled !== false ? 1 : 0;
+          const isLocked = p.isLocked ? 1 : 0;
+          const pageTitle = p.pageTitle ? String(p.pageTitle) : null;
+          const layoutDataStr = p.layoutData ? JSON.stringify(p.layoutData) : null;
+
+          await prisma.$executeRawUnsafe(
+            `INSERT INTO \`epaper_pages\` (\`id\`, \`editionId\`, \`pageNumber\`, \`section\`, \`templateId\`, \`enabled\`, \`isLocked\`, \`pageTitle\`, \`layoutData\`, \`createdAt\`, \`updatedAt\`)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+             ON DUPLICATE KEY UPDATE \`section\`=?, \`templateId\`=?, \`enabled\`=?, \`isLocked\`=?, \`pageTitle\`=?, \`layoutData\`=?, \`updatedAt\`=NOW()`,
+            pageId, editionId, pageNum, section, templateId, enabled, isLocked, pageTitle, layoutDataStr,
+            section, templateId, enabled, isLocked, pageTitle, layoutDataStr
+          ).catch((e) => console.warn('Save page warning:', e));
+        }
       }
 
       const rows: any[] = await prisma.$queryRawUnsafe(`SELECT * FROM \`epaper_editions\` WHERE \`id\` = ?`, editionId);
@@ -283,30 +558,8 @@ export class EPaperController {
     try {
       const { id } = req.params;
       const { title, city, cityGu, date, pages, fileUrl, thumbnailUrl, status, publishTime, isActive } = req.body;
-      const delegate = await getEPaperDelegate();
-
-      if (delegate) {
-        try {
-          const edition = await delegate.update({
-            where: { id },
-            data: {
-              title,
-              city,
-              cityGu: cityGu || city,
-              date,
-              pages: pages !== undefined ? Number(pages) : undefined,
-              fileUrl,
-              thumbnailUrl,
-              status,
-              publishTime,
-              isActive: isActive !== undefined ? Boolean(isActive) : undefined,
-            },
-          });
-          return sendSuccess(res, { edition }, 'E-Paper edition updated successfully');
-        } catch (_) {}
-      }
-
       await ensureEPaperTablesExist();
+
       await prisma.$executeRawUnsafe(
         `UPDATE \`epaper_editions\` SET \`title\`=COALESCE(?, \`title\`), \`city\`=COALESCE(?, \`city\`), \`cityGu\`=COALESCE(?, \`cityGu\`), \`date\`=COALESCE(?, \`date\`), \`pages\`=COALESCE(?, \`pages\`), \`fileUrl\`=COALESCE(?, \`fileUrl\`), \`thumbnailUrl\`=COALESCE(?, \`thumbnailUrl\`), \`status\`=COALESCE(?, \`status\`), \`publishTime\`=COALESCE(?, \`publishTime\`), \`isActive\`=COALESCE(?, \`isActive\`), \`updatedAt\`=NOW() WHERE \`id\`=?`,
         title || null, city || null, cityGu || city || null, date || null, pages !== undefined ? Number(pages) : null, fileUrl || null, thumbnailUrl || null, status || null, publishTime || null, isActive !== undefined ? (isActive ? 1 : 0) : null, id
@@ -319,19 +572,90 @@ export class EPaperController {
     }
   }
 
+  // Admin: Toggle Lock / Unlock on an E-Paper Page
+  static async togglePageLock(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { pageId } = req.params;
+      const { isLocked, lockedBy } = req.body;
+      await ensureEPaperTablesExist();
+
+      const lockVal = isLocked ? 1 : 0;
+      const user = lockedBy || (req as any).user?.email || 'Editor';
+
+      await prisma.$executeRawUnsafe(
+        `UPDATE \`epaper_pages\` SET \`isLocked\` = ?, \`lockedBy\` = ?, \`lockedAt\` = IF(? = 1, NOW(), NULL), \`updatedAt\` = NOW() WHERE \`id\` = ?`,
+        lockVal, lockVal ? user : null, lockVal, pageId
+      );
+
+      return sendSuccess(res, { pageId, isLocked: !!isLocked }, `Page ${isLocked ? 'locked' : 'unlocked'} successfully`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Admin: Delete E-Paper edition
   static async deleteEdition(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const delegate = await getEPaperDelegate();
-      if (delegate) {
-        await delegate.delete({ where: { id } }).catch(() => null);
-      }
       await ensureEPaperTablesExist();
+
+      // Delete placements and pages cascade
+      const pageRows = (await prisma.$queryRawUnsafe(`SELECT \`id\` FROM \`epaper_pages\` WHERE \`editionId\` = ?`, id).catch(() => [])) as any[];
+      for (const p of pageRows) {
+        await prisma.$executeRawUnsafe(`DELETE FROM \`epaper_placements\` WHERE \`pageId\` = ?`, p.id).catch(() => null);
+      }
+      await prisma.$executeRawUnsafe(`DELETE FROM \`epaper_pages\` WHERE \`editionId\` = ?`, id).catch(() => null);
       await prisma.$executeRawUnsafe(`DELETE FROM \`epaper_editions\` WHERE \`id\` = ?`, id).catch(() => null);
+
       return sendSuccess(res, null, 'E-Paper edition deleted successfully');
     } catch (error) {
       next(error);
+    }
+  }
+
+  // Admin: Get E-Paper eligible articles formatted with print metadata
+  static async getEpaperArticles(req: Request, res: Response, next: NextFunction) {
+    return EPaperController.getEpaperEligibleArticles(req, res, next);
+  }
+
+  // Admin: Get E-Paper eligible articles formatted with section scoring and print metadata
+  static async getEpaperEligibleArticles(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ensureEPaperTablesExist();
+      const { section, edition, limit = 200 } = req.query;
+
+      const whereClause: any = {
+        status: 'PUBLISHED',
+      };
+
+      const articles: any[] = await prisma.post.findMany({
+        where: whereClause,
+        include: {
+          category: true,
+          author: true,
+        },
+        orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+        take: Number(limit) || 200,
+      }).catch(() => []);
+
+      return sendSuccess(res, { articles }, 'E-Paper eligible articles fetched successfully');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Admin: Development Seed Endpoint to generate realistic Gujarati news across all 14 sections
+  static async seedEpaperArticles(req: Request, res: Response, next: NextFunction) {
+    try {
+      await ensureEPaperTablesExist();
+      const result = await seedEpaperArticlesData();
+      return sendSuccess(res, result, '14-Section E-Paper sample articles seeded successfully');
+    } catch (error: any) {
+      console.error('Error seeding e-paper articles:', error);
+      return res.status(500).json({
+        success: false,
+        error: error?.message || 'Failed to seed E-Paper articles.',
+      });
     }
   }
 
@@ -341,8 +665,10 @@ export class EPaperController {
       { id: 'ahmedabad', city: 'Ahmedabad', cityGu: 'અમદાવાદ' },
       { id: 'surat', city: 'Surat', cityGu: 'સુરત' },
       { id: 'rajkot', city: 'Rajkot', cityGu: 'રાજકોટ' },
-      { id: 'jamnagar', city: 'Jamnagar', cityGu: 'જામનગર' },
       { id: 'vadodara', city: 'Vadodara', cityGu: 'વડોદરા' },
+      { id: 'jamnagar', city: 'Jamnagar', cityGu: 'જામનગર' },
+      { id: 'gandhinagar', city: 'Gandhinagar', cityGu: 'ગાંધીનગર' },
+      { id: 'bhavnagar', city: 'Bhavnagar', cityGu: 'ભાવનગર' },
     ];
 
     try {
@@ -397,7 +723,6 @@ export class EPaperController {
       }
 
       const searchTerm = String(id).trim();
-
       await ensureEPaperTablesExist();
       await prisma.$executeRawUnsafe(
         `DELETE FROM \`epaper_cities\` WHERE \`id\` = ? OR \`city\` = ? OR \`cityGu\` = ?`,

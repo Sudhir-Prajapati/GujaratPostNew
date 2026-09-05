@@ -2,29 +2,32 @@ import { createClient } from 'redis';
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
+let isRedisOfflineNotified = false;
+
 export const redisClient = createClient({
   url: redisUrl,
   socket: {
-    // Stop reconnecting after 3 failed attempts to allow graceful database-only operation
+    // Attempt fast connection check; if offline, don't spam reconnection loops
     reconnectStrategy: (retries) => {
-      if (retries >= 3) {
-        console.warn(`Redis connection failed after ${retries} retries. Gracefully running without cache.`);
-        return false; // returning false stops reconnection attempts
+      if (retries >= 1) {
+        return false; // Stop retries immediately to allow smooth database-only fallback
       }
-      return 1000; // retry after 1 second
+      return 500;
     },
+    connectTimeout: 2000,
   },
 });
 
-redisClient.on('error', (err) => {
-  // Silent error logger to avoid flooding console log outputs during offline periods
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('Redis Cache Offline:', err.message || err);
+redisClient.on('error', (err: any) => {
+  if (!isRedisOfflineNotified) {
+    isRedisOfflineNotified = true;
+    console.log('ℹ️  [Redis] Redis server offline (database-only fallback active)');
   }
 });
 
 redisClient.on('connect', () => {
-  console.log('Redis connection established.');
+  isRedisOfflineNotified = false;
+  console.log('✅ [Redis] Connection established successfully.');
 });
 
 // Helper function to initialize Redis connection
@@ -32,8 +35,12 @@ export const connectRedis = async (): Promise<void> => {
   if (!redisClient.isOpen) {
     try {
       await redisClient.connect();
-    } catch (error) {
-      console.warn('Could not establish initial connection to Redis. Running in database-only mode.');
+    } catch {
+      if (!isRedisOfflineNotified) {
+        isRedisOfflineNotified = true;
+        console.log('ℹ️  [Redis] Operating in database-only mode.');
+      }
     }
   }
 };
+

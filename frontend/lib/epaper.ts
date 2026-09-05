@@ -200,3 +200,30 @@ export async function deleteEPaperCity(cityIdOrName: string): Promise<boolean> {
   }
   return false;
 }
+
+export async function fetchEditionDetails(id: string): Promise<any | null> {
+  try {
+    const res = await authFetch(getBackendApiUrl(`/api/admin/epaper/${id}`));
+    const json = await res.json();
+    return json?.data?.edition || null;
+  } catch (err) {
+    console.error('Failed to fetch edition details via API', err);
+    return null;
+  }
+}
+
+export async function lockEPaperPage(pageId: string, isLocked: boolean, lockedBy?: string): Promise<boolean> {
+  try {
+    const res = await authFetch(getBackendApiUrl(`/api/admin/epaper/pages/${pageId}/lock`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isLocked, lockedBy }),
+    });
+    const json = await res.json();
+    return json?.success || false;
+  } catch (err) {
+    console.error('Failed to toggle lock on page via API', err);
+    return false;
+  }
+}
+
