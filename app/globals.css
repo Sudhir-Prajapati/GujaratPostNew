@@ -206,8 +206,12 @@ html, body {
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 80px;
   overflow-x: clip;
   font-size: var(--gp-font-size, 16px);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -219,6 +223,7 @@ body {
   color: var(--foreground);
   font-family: "Hind Vadodara", "Noto Sans Gujarati", "Nirmala UI", Arial, sans-serif;
   line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dark body,
@@ -380,6 +385,10 @@ img {
   min-width: max-content;
   white-space: nowrap;
   animation: ticker-scroll 36s linear infinite;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 @keyframes shimmer {
@@ -388,10 +397,11 @@ img {
   }
 }
 
-
 .news-card {
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1), border-color 260ms ease, background 260ms ease;
+  will-change: transform, box-shadow;
+  backface-visibility: hidden;
 }
 
 .dark .news-card {
@@ -399,12 +409,47 @@ img {
 }
 
 .news-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 50px rgb(15 23 42 / 0.18);
+  transform: translateY(-4px) translateZ(0);
+  box-shadow: 0 16px 36px -8px rgb(15 23 42 / 0.16);
 }
 
 .dark .news-card:hover {
-  box-shadow: 0 12px 36px rgb(0 0 0 / 0.5);
+  box-shadow: 0 16px 36px -8px rgb(0 0 0 / 0.45);
+}
+
+/* Global Smooth Interaction Utilities */
+.smooth-hover {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.smooth-hover:hover {
+  transform: translateY(-2px);
+}
+.smooth-hover:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+.smooth-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+.smooth-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+main {
+  animation: pageFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .cat-badge {

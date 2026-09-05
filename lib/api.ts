@@ -77,14 +77,22 @@ async function fetchCachedJson<T = any>(url: string, cacheTtlMs: number = CACHE_
 
   const fetchPromise = (async () => {
     const controller = new AbortController();
-    // 8-second timeout for graceful SSR & client fetches without early abort crashes
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    // 3-second timeout for responsive SSR & client fetches without stalling
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
 
     try {
-      const res = await fetch(url, {
-        cache: 'no-store',
+      const fetchOptions: RequestInit & { next?: { revalidate: number } } = {
         signal: controller.signal,
-      });
+      };
+
+      if (typeof window !== 'undefined') {
+        fetchOptions.cache = 'no-store';
+      } else {
+        const revalidateSeconds = Math.max(30, Math.floor(cacheTtlMs / 1000));
+        fetchOptions.next = { revalidate: revalidateSeconds };
+      }
+
+      const res = await fetch(url, fetchOptions);
       clearTimeout(timeoutId);
 
       if (!res.ok) {
@@ -306,15 +314,14 @@ export async function getPublicAuthors(): Promise<any[]> {
 export const YOUTUBE_CHANNEL_ID = 'UCqQ8YbFSZ4j8J4iVJOHurTw';
 export const YOUTUBE_CHANNEL_HANDLE = '@Gujaratpostnews';
 
-/**
- * Fetch live YouTube channel videos & shorts dynamically from YouTube RSS Feed (@Gujaratpostnews)
- */
 export async function fetchLiveYouTubeChannelVideos(): Promise<{ videos: Video[]; shorts: Video[] }> {
+  // During SSR (server-side rendering), avoid making slow external HTTP requests that block page rendering
+  if (typeof window === 'undefined') {
+    return { videos: [], shorts: [] };
+  }
+
   try {
-    // Call our server-side Next.js API route (avoids CORS issues with direct RSS fetch)
-    const baseUrl = typeof window !== 'undefined'
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_APP_URL || 'https://gujaratpost.vercel.app');
+    const baseUrl = window.location.origin;
     const apiUrl = `${baseUrl}/api/youtube-videos`;
 
     const res = await fetchCachedJson<any>(apiUrl, 300000); // 5-minute cache
@@ -575,10 +582,12 @@ export async function updateHeroSettings(payload: {
 }
 
 export async function fetchLiveInstagramReels(): Promise<any[]> {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
   try {
-    const baseUrl = typeof window !== 'undefined'
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = window.location.origin;
     const apiUrl = `${baseUrl}/api/instagram-reels`;
 
     const res = await fetchCachedJson<any>(apiUrl, 300000); // 5-minute cache

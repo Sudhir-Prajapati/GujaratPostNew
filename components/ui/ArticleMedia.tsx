@@ -129,13 +129,18 @@ export default function ArticleMedia({
     );
   }
 
+  const [isLoaded, setIsLoaded] = useState(false);
+
   // Handle Standard Image Media
   return (
     <img
       src={cleanSrc}
       alt={alt}
-      className={`w-full h-full object-cover ${className}`}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding="async"
+      onLoad={() => setIsLoaded(true)}
       onError={() => setHasError(true)}
+      className={`w-full h-full object-cover transition-opacity duration-300 ease-out ${isLoaded ? 'opacity-100' : 'opacity-85'} ${className}`}
     />
   );
 }
