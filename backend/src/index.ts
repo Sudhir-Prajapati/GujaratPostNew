@@ -13,6 +13,13 @@ import { errorHandler } from './middleware/error.middleware.js';
 // Load environment variables
 dotenv.config();
 
+// Auto-clean quotes from env variables (common copy-paste issue in dashboard UIs)
+for (const [key, val] of Object.entries(process.env)) {
+  if (typeof val === 'string' && (val.startsWith('"') || val.startsWith("'"))) {
+    process.env[key] = val.replace(/^["']|["']$/g, '').trim();
+  }
+}
+
 const app = express(); 
 const PORT = process.env.PORT || 5000;
 
